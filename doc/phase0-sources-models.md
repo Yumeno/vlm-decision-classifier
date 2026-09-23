@@ -69,12 +69,13 @@
 | ベースモデル | **Anima base v1.0**(`circlestone-labs/Anima` の `anima-base-v1.0.safetensors`、SHA256 `bd43b7cffe1ed1153d9c41e7beb2f18cb1273eafbaa3af3edd6a173dc90a006e`)。派生版ではなくオリジナルを使う(作者の指定) |
 | ライセンス | CircleStone Labs Non-Commercial License v1.2。モデル・LoRA(=Derivative)の利用・配布は非商用に限る。**生成物(Outputs)は同社が権利を主張せず、商用を含め用途を問わず使える**(§2.e)→ 生成画像は公開してよい。LoRA 本体は配布しない |
 | Alisa の LoRA | 作者の自作。Anima 用の最新版は `fet-alisa-uniform-anima-v4u`(`anima-base-v1.0` で学習、319枚、トリガー `fet_alisa_uniform`)。ベースモデル別の版があり名前が異なる(`fet_alisa_uniform_ilpen2`、`_animagine4`、`_am` 等) |
-| 似た別キャラ | LoRA なし。プロンプトで新規に設計する(作者の指定) |
+| 似た別キャラ | LoRA なし。プロンプトで新規に設計する。**顔・髪は Alisa に似せ(茶髪ボブ・青目)、服装を変える**(作者の指定)。服装で見分けられるかを試す群になる |
 | 内容範囲 | 全件SFW(作者の指定)→ Gemma も全件で評価でき、SFW subset の管理は不要 |
+| LoRA 付き画像の生成ツール | **Forge Neo / reForge**(A1111 形式の `parameters` に `<lora:...>` が残る)。メタデータ抽出は A1111/Forge 形式だけを実装する(MVP) |
 | 生成手段 | 作者の指定: API 生成に加え、Codex / Antigravity 等にも依頼して多様なパターンを作る。ComfyUI も使う(reForge や llama.cpp とは VRAM の都合で同時に動かせない) |
 
 ### 分類設計への影響(要反映)
 
 - **LoRA 照合は「単一名との完全一致」ではなく「taxonomy に列挙した LoRA 名の集合との完全一致」にする**。データセットで実際に使った版の名前(例: `fet-alisa-uniform-anima-v4u`)を列挙する。部分一致・前方一致にはしない。
-- **ComfyUI で生成した画像には A1111 形式の `parameters` が付かない**。LoRA 付き画像を ComfyUI で作る場合は、workflow JSON(`prompt` チャンク)の LoraLoader 系ノードの `lora_name` からの抽出が必要になる。
+- ComfyUI・外部サービスで生成した画像(LoRA なしの一般カテゴリ等)は A1111 形式の `parameters` を持たないため、メタデータなし(`metadata_unavailable`)として扱う。ComfyUI の workflow 解析は実装しない。
 - 外部の画像生成サービス(Codex / Antigravity 経由)の画像は、サービスごとに利用条件を確認して記録する。
