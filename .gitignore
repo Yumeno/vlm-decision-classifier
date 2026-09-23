@@ -1,0 +1,64 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+
+# ---- 秘密情報・ローカル設定 ----
+.env
+.env.*
+!.env.example
+*.local.yaml
+*.local.yml
+*.local.json
+.claude/settings.local.json
+
+# ---- 実行結果・一時ファイル ----
+# 公開する実験レポートは doc/experiments/ に明示的に置く(results/ は常に非追跡)
+results/
+logs/
+*.log
+tmp/
+scratch/
+
+# ---- データセット ----
+# 検収前・権利未確認の生成画像は dataset/staging/ に置き、コミットしない。
+# 検収・権利確認を通った画像だけを dataset/images/ へ移す。
+dataset/staging/
+dataset/rejected/
+
+# ---- モデル重み・LoRA・外部ランタイム(同梱しない) ----
+models/
+*.gguf
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.onnx
+# llama.cpp のクローン・ビルド物(パッチは doc/patches/ に差分として置く)
+llama.cpp/
+third_party/
+build-*/
+
+# ---- DB ----
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- OS / エディタ ----
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

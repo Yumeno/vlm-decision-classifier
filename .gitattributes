@@ -1,0 +1,14 @@
+* text=auto eol=lf
+
+# PowerShell 5.1 向けスクリプトは CRLF(かつ UTF-8 BOM 付きで保存すること)
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+
+# パッチは改行を含めて原文どおりに保持
+*.patch -text
+*.diff -text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
