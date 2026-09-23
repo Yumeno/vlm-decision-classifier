@@ -70,6 +70,27 @@ Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードす�
 - 秘密情報、個人パス、元プロジェクトの画像やDB、モデル重みが履歴を含めて混入していないことを確認する。
 - 実際のモデル・量子化・環境、画像別の結果、失敗例、使用したコミットをREADMEと実験レポートで示す。
 - ライセンスは公開前に確定し、コードと画像データの扱いをそれぞれ明記する。
+- 公開に切り替えた直後に、privateの無料プランでは使えないGitHub設定を有効化する（下記）。
+
+### 公開時のGitHub設定
+
+設定済み: Wiki・Projects無効、squash/merge commitのみ許可、merge後のブランチ自動削除、Dependabotアラートとセキュリティ更新、topics。
+
+公開への切替後に実行する（privateの無料プランではAPIが403を返す）:
+
+```powershell
+gh repo edit Yumeno/vlm-decision-classifier --visibility public --accept-visibility-change-consequences
+gh api -X PATCH repos/Yumeno/vlm-decision-classifier -f "security_and_analysis[secret_scanning][status]=enabled" -f "security_and_analysis[secret_scanning_push_protection][status]=enabled"
+```
+
+続けて、デフォルトブランチのruleset（削除禁止・force push禁止・PR必須、承認数0）を作成する。`gh api -X POST repos/Yumeno/vlm-decision-classifier/rulesets` に次のJSONを渡す:
+
+```json
+{"name":"protect-main","target":"branch","enforcement":"active",
+ "conditions":{"ref_name":{"include":["~DEFAULT_BRANCH"],"exclude":[]}},
+ "rules":[{"type":"deletion"},{"type":"non_fast_forward"},
+  {"type":"pull_request","parameters":{"required_approving_review_count":0,"dismiss_stale_reviews_on_push":false,"require_code_owner_review":false,"require_last_push_approval":false,"required_review_thread_resolution":false}}]}
+```
 
 ## 関連資料
 
