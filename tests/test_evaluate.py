@@ -285,6 +285,24 @@ def test_check_manifest_expected_unknown_choice_id(tmp_path, monkeypatch):
     assert any("expected.character has unknown choice id(s)" in e for e in result2.errors)
 
 
+def test_check_manifest_expected_multi_axis_non_string_element_is_type_error_not_crash(tmp_path, monkeypatch):
+    # list の要素自体が文字列でない(例: ネストしたlist)場合、`in known_ids`(set)で
+    # TypeError を送出せず、型エラーとして報告する。未知IDの要素があれば、それは別に報告する。
+    monkeypatch.chdir(tmp_path)
+    img = Path("img.png")
+    _make_plain_png(img)
+    case = _minimal_case("A01", "img.png", _sha256(img))
+    case["expected"]["character"] = ["alisa", ["nested", "list"], "not_a_real_character"]
+    _write_manifest(Path("manifest.jsonl"), [case])
+
+    result = evaluate.check_manifest("manifest.jsonl", _test_taxonomy(tmp_path))
+    assert any(
+        "expected.character has non-string element(s)" in e and "['nested', 'list']" in e
+        for e in result.errors
+    )
+    assert any("expected.character has unknown choice id(s)" in e and "not_a_real_character" in e for e in result.errors)
+
+
 def test_check_manifest_expected_multi_axis_must_be_a_list(tmp_path, monkeypatch):
     # 複数選択軸(character)が list でなければエラーにする(文字列を渡す典型ミスを検出)。
     monkeypatch.chdir(tmp_path)

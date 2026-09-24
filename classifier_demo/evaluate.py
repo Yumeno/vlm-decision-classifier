@@ -132,7 +132,12 @@ def check_manifest(manifest_path: str, taxonomy: Taxonomy) -> ManifestCheck:
                         f"case {case_id}: expected.{axis.id} must be a list (multi axis), got {value!r}"
                     )
                     continue
-                unknown = [v for v in value if v not in known_ids]
+                non_str = [v for v in value if not isinstance(v, str)]
+                if non_str:
+                    errors.append(
+                        f"case {case_id}: expected.{axis.id} has non-string element(s) {non_str}"
+                    )
+                unknown = [v for v in value if isinstance(v, str) and v not in known_ids]
                 if unknown:
                     errors.append(f"case {case_id}: expected.{axis.id} has unknown choice id(s) {unknown}")
             else:
