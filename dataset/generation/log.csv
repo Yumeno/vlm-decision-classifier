@@ -31,3 +31,10 @@ G07,1,,external:antigravity_cli,dataset/staging/G07_a1.jpg,47cb5f02364618fdf2d21
 N02,1,,external:antigravity_cli,dataset/staging/N02_a1.jpg,f0568a9248d2f11b11ae990468aa34ab780c2b8fd0293c7a1993806dbf378716,2026-09-24T17:28:32.196568+00:00,generated,外部生成(依頼1回、既定の出力先から回収)
 M03,1,,external:antigravity_cli,dataset/staging/M03_a1.jpg,637eb9747444a64cbbc6e6b42d39af9b7ecb8d1d28b06339265a4404a7988864,2026-09-24T17:29:42.595781+00:00,generated,外部生成(依頼1回、既定の出力先から回収)
 C02,1,,artificial_metadata,dataset/staging/C02_a1_injected.png,8ccbea3e13290f93ec25a94626961c7008221500d0fd7b45986caf850fd1dc30,,generated,C02_a1.png に C02_inject_metadata.py で A1111 形式の生成情報を人工的に書き込み(画素一致を検証)
+O06,2,,external:codex_cli,dataset/staging/O06_a2.png,e9a9c773fcd5298f74739b12ef7c282550eb9bb842ffeb56942e373854777189,2026-09-24T22:01:21.784967+00:00,generated,作者の検収で1回目を除外し、作者の指示で外部ツールにより作り直し
+O07,2,,external:codex_cli,,,2026-09-24T22:02:53.182858+00:00,error,画像ツールの安全判定で生成結果がブロックされ、画像が出力されなかった(Codex は再試行していない)
+G02,2,,external:codex_cli,dataset/staging/G02_a2.png,3870c156a62745ad4bd9a0c7fe16b1a3245e48b0c075dc728610271acc4fba16,2026-09-24T22:04:45.828503+00:00,generated,作者の検収で1回目を除外し、作者の指示で外部ツールにより作り直し
+O07,2b,,external:antigravity_cli,dataset/staging/O07_a2b.jpg,b3c38a8ccd3052a9ad91857ad236cc5eae3e5abdba3a68d497cf350763185b6a,2026-09-24T22:06:05.158427+00:00,generated,作者の検収で1回目を除外し、作者の指示で外部ツールにより作り直し
+O04,2,,external:antigravity_cli,dataset/staging/O04_a2.jpg,14e3102e273df8149d91401d0867a3b42966fe8c2d41ebabd09d559d16962eeb,2026-09-24T22:07:28.588014+00:00,generated,作者の検収で1回目を除外し、作者の指示で外部ツールにより作り直し
+O02,2,,external:antigravity_cli,dataset/staging/O02_a2.jpg,7fc22f2729c04dd261e0af74cd8cb8bb423614b273fb72d197f867a737a6e976,2026-09-24T22:08:39.623982+00:00,generated,作者の検収で1回目を除外し、作者の指示で外部ツールにより作り直し
+G07,2,,external:antigravity_cli,dataset/staging/G07_a2.jpg,6220fafcf769c185613c10645bbbbaba077a35cd650517bc437af2f945219ab7,2026-09-24T22:11:32.818139+00:00,generated,作者の検収で1回目を除外し、作者の指示で外部ツールにより作り直し
