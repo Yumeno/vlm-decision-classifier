@@ -31,11 +31,11 @@
 | `doc/phase0-sources-models.md` | 移植元の要点、使用モデルとSHA256、probe結果、画像生成の条件 | あり |
 | `doc/dataset-plan.md` | 正解付与規則、24枚の生成計画表、manifest仕様（画像生成前に固定） | あり |
 | `doc/worklog.md` | 作業記録（新しい順） | あり |
-| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、CLI（`probe`/`classify`） | Phase 2a 実装済み（分類コアのみ。`evaluate`・レポートは未実装） |
+| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`） | Phase 2b 実装済み（分類コア・評価器）。データセット・実験結果はまだ無い |
 | `taxonomy/default.yaml` | 一般分類と自作キャラの定義 | あり |
 | `dataset/` | 新規生成画像、manifest、データセット説明 | 未作成 |
 | `scripts/` | 評価、再現性チェック | 未作成 |
-| `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・pipeline） | あり |
+| `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・pipeline・評価器） | あり |
 | `doc/patches/` | llama.cpp画像キャッシュ改造の固定差分 | 未作成 |
 
 設計文書中のディレクトリ案は実装時の指針です。コードを追加した時点で、この表と起動方法を実態に合わせて更新してください。
@@ -60,7 +60,15 @@ py -3.12 -m venv .venv
 
 # 通常JSON分類ベースラインとの比較
 .venv\Scripts\python.exe -m classifier_demo classify path\to\image.png --model <モデルID> --mode json
+
+# manifestの検証(リポジトリルートから実行する。画像パスはカレントディレクトリ基準で解決する)
+.venv\Scripts\python.exe -m classifier_demo check-manifest --manifest dataset\manifest.jsonl
+
+# データセット全件の評価(check-manifestを内部で先に実行し、エラーがあれば中断する)
+.venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --model <モデルID> --output-dir results\<名前>
 ```
+
+`evaluate` は選択式(`choice`)と通常JSON(`json`)を既定で両方実行し(`--modes choice,json`)、ケースごとに交互の順で実行して順序効果を抑える。出力先(`--output-dir`)には `run.json`（実行条件・除外ケース）、`cases.csv`（ケース別採点）、`summary.md`（集計）、`cases/<case_id>.<mode>.json`（生の分類結果）を書き出す。`rights_confirmed` が true でないケースは評価から除外され、`run.json` の `excluded_cases` に理由とともに記録される。
 
 テスト実行（ネットワーク・実サーバー不要、偽バックエンドのみ使用）:
 
