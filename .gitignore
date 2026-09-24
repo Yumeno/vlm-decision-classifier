@@ -22,6 +22,7 @@ dist/
 *.local.yml
 *.local.json
 .claude/settings.local.json
+.claude/worktrees/
 
 # ---- 実行結果・一時ファイル ----
 # 公開する実験レポートは doc/experiments/ に明示的に置く(results/ は常に非追跡)
