@@ -196,7 +196,11 @@ def decide_multi_axis(backend, image_bytes: bytes, mime: str, axis: Axis) -> dic
 
     tags = [cid for cid in candidates if confirmations.get(cid, 0.0) >= YES_THRESHOLD]
 
-    if not tags:
+    # 確認(yes/no)が1件でも失敗した場合、この軸は失敗として扱う。
+    # 未確認のまま catch_all へフォールバックしない(確認できなかったことを隠さない)。
+    failed = bool(confirmation_errors)
+
+    if not tags and not failed:
         # __none__ を含む全体の argmax が catch_all の場合だけ、catch_all をフォールバックにする。
         # __none__ 自体が全体最高ならタグなしのままにする。
         overall_top = max(relative_scores, key=relative_scores.get)
@@ -209,5 +213,6 @@ def decide_multi_axis(backend, image_bytes: bytes, mime: str, axis: Axis) -> dic
         "confirmation_errors": confirmation_errors,
         "candidates": candidates,
         "tags": tags,
+        "failed": failed,
         "elapsed_ms": total_elapsed_ms,
     }

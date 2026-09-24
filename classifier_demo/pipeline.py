@@ -51,11 +51,16 @@ def classify(
     try:
         image_bytes, mime, original_size, sent_size = prepare_image(image_path, max_edge=max_edge)
         original_sha256 = file_sha256(image_path)
-        metadata_evidence = extract_evidence(image_path, taxonomy)
     except Exception as e:
         errors.append({"axis": None, "type": "image_error", "detail": f"{type(e).__name__}: {e}"})
 
     if image_bytes is not None:
+        try:
+            metadata_evidence = extract_evidence(image_path, taxonomy)
+        except Exception as e:
+            errors.append({"axis": None, "type": "metadata_error", "detail": f"{type(e).__name__}: {e}"})
+            metadata_evidence = {"format": "error", "loras": [], "prompt_tags": [], "matches": []}
+
         if mode == "choice":
             for axis in taxonomy.axes:
                 try:
@@ -67,8 +72,10 @@ def classify(
                             "confirmation_errors": result["confirmation_errors"],
                             "candidates": result["candidates"],
                             "tags": result["tags"],
+                            "failed": result["failed"],
                         }
-                        vision_tags[axis.id] = result["tags"]
+                        if not result["failed"]:
+                            vision_tags[axis.id] = result["tags"]
                         for cid, err in result["confirmation_errors"].items():
                             errors.append(
                                 {"axis": axis.id, "type": "candidate_confirmation_error", "detail": f"candidate {cid}: {err}"}

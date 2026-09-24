@@ -98,3 +98,68 @@ def test_classify_image_error_is_recorded_without_crashing(tmp_path):
     assert any(e["type"] == "image_error" for e in result["errors"])
     assert result["timing_ms"]["classification_wall_ms"] > 0
     assert result["request_count"] == 0
+
+
+def test_classify_character_confirmation_failure_excludes_from_vision_tags(tmp_path):
+    # character軸の確認(yes/no)が1件失敗した場合、その軸は失敗扱いとなり、
+    # vision_tags に character を入れない(catch_all へもフォールバックしない)。
+    image_path = tmp_path / "img.png"
+    _make_image_with_alisa_lora(image_path)
+    tax = taxonomy.load("taxonomy/default.yaml")
+
+    backend = FakeBackend(
+        [
+            make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # image_type
+            make_logprobs_response({"A": 0.8, "B": 0.1, "C": 0.05, "D": 0.05}),  # art_style
+            make_logprobs_response(
+                {"A": 0.7, "B": 0.1, "C": 0.1, "D": 0.05, "E": 0.03, "F": 0.02}
+            ),  # subject
+            make_logprobs_response(
+                {"A": 0.6, "B": 0.0001, "C": 0.1999, "D": 0.2}
+            ),  # character ranking -> alisa candidate only
+            urllib.error.URLError("connection refused"),  # alisa yes/no -> 通信失敗
+        ]
+    )
+
+    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64)
+
+    assert "character" not in result["vision_tags"]
+    assert result["axis_decisions"]["character"]["failed"] is True
+    assert result["axis_decisions"]["character"]["tags"] == []
+    # メタデータで alisa の LoRA が一致しているが、character軸が失敗しているので unknown
+    assert result["combined_evidence"] == {"alisa": "unknown"}
+    assert any(
+        e["axis"] == "character" and e["type"] == "candidate_confirmation_error" for e in result["errors"]
+    )
+
+
+def test_classify_metadata_error_is_recorded_and_classification_continues(tmp_path, monkeypatch):
+    image_path = tmp_path / "img.png"
+    Image.new("RGB", (16, 16), (0, 0, 0)).save(image_path)
+    tax = taxonomy.load("taxonomy/default.yaml")
+
+    def _raise(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(pipeline, "extract_evidence", _raise)
+
+    backend = FakeBackend(
+        [
+            make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # image_type
+            make_logprobs_response({"A": 0.8, "B": 0.1, "C": 0.05, "D": 0.05}),  # art_style
+            make_logprobs_response(
+                {"A": 0.7, "B": 0.1, "C": 0.1, "D": 0.05, "E": 0.03, "F": 0.02}
+            ),  # subject
+            make_logprobs_response(
+                {"A": 0.6, "B": 0.0001, "C": 0.1999, "D": 0.2}
+            ),  # character ranking -> alisa candidate only
+            make_logprobs_response({"A": 0.1, "B": 0.9}),  # alisa yes/no -> no
+        ]
+    )
+
+    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64)
+
+    assert result["metadata_evidence"] == {"format": "error", "loras": [], "prompt_tags": [], "matches": []}
+    assert any(e["type"] == "metadata_error" for e in result["errors"])
+    # メタデータ抽出が失敗しても分類自体は続行される
+    assert result["vision_tags"]["image_type"] == ["illustration"]

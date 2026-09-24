@@ -205,3 +205,19 @@ def test_decide_multi_axis_candidate_confirmation_error_recorded():
     assert "alisa" in result["confirmation_errors"]
     assert "URLError" in result["confirmation_errors"]["alisa"]
     assert result["tags"] == ["second_original"]
+    assert result["failed"] is True  # 確認が1件でも失敗した軸は失敗扱い
+
+
+def test_decide_multi_axis_confirmation_failure_skips_catch_all_fallback():
+    # 確認が失敗した軸では、他の理由でタグが空でも catch_all へフォールバックしない。
+    axis = _character_axis()
+    backend = FakeBackend(
+        [
+            make_logprobs_response({"A": 0.1, "B": 0.05, "C": 0.6, "D": 0.25}),  # ranking: other_original が全体最高
+            urllib.error.URLError("connection refused"),  # alisa yes/no -> 通信失敗
+            make_logprobs_response({"A": 0.1, "B": 0.9}),  # second_original yes/no -> no
+        ]
+    )
+    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    assert result["failed"] is True
+    assert result["tags"] == []
