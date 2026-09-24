@@ -8,6 +8,7 @@ from PIL import Image, PngImagePlugin
 
 from classifier_demo import evaluate
 from classifier_demo.__main__ import build_parser
+from classifier_demo.taxonomy import load as load_taxonomy
 from tests.fakes import FakeBackend, make_logprobs_response, make_text_response
 
 import urllib.error
@@ -88,6 +89,12 @@ axes:
     return str(path)
 
 
+def _test_taxonomy(tmp_path: Path):
+    """`_write_test_taxonomy` と同じ内容を Taxonomy オブジェクトとして返す
+    (check_manifest を taxonomy_path 経由でなく直接呼ぶテスト用)。"""
+    return load_taxonomy(_write_test_taxonomy(tmp_path))
+
+
 def _make_plain_png(path: Path) -> None:
     Image.new("RGB", (16, 16), (10, 20, 30)).save(path)
 
@@ -151,7 +158,7 @@ def test_check_manifest_missing_file(tmp_path, monkeypatch):
     case = _minimal_case("A01", "does_not_exist.png", "0" * 64)
     _write_manifest(Path("manifest.jsonl"), [case])
 
-    result = evaluate.check_manifest("manifest.jsonl")
+    result = evaluate.check_manifest("manifest.jsonl", _test_taxonomy(tmp_path))
     assert any("does not exist" in e for e in result.errors)
 
 
@@ -162,7 +169,7 @@ def test_check_manifest_sha_mismatch(tmp_path, monkeypatch):
     case = _minimal_case("A01", "img.png", "0" * 64)  # わざと違うsha256
     _write_manifest(Path("manifest.jsonl"), [case])
 
-    result = evaluate.check_manifest("manifest.jsonl")
+    result = evaluate.check_manifest("manifest.jsonl", _test_taxonomy(tmp_path))
     assert any("image_sha256 mismatch" in e for e in result.errors)
 
 
@@ -175,7 +182,7 @@ def test_check_manifest_duplicate_case_id(tmp_path, monkeypatch):
     case2 = _minimal_case("A01", "img.png", sha)
     _write_manifest(Path("manifest.jsonl"), [case1, case2])
 
-    result = evaluate.check_manifest("manifest.jsonl")
+    result = evaluate.check_manifest("manifest.jsonl", _test_taxonomy(tmp_path))
     assert any("duplicate case_id" in e for e in result.errors)
 
 
@@ -188,7 +195,7 @@ def test_check_manifest_bad_derived_from(tmp_path, monkeypatch):
     # 存在しないcase_idを参照
     case_unknown = _minimal_case("A01-strip", "img.png", sha, derived_from="does-not-exist")
     _write_manifest(Path("manifest.jsonl"), [case_unknown])
-    result = evaluate.check_manifest("manifest.jsonl")
+    result = evaluate.check_manifest("manifest.jsonl", _test_taxonomy(tmp_path))
     assert any("unknown case_id" in e for e in result.errors)
 
     # source_image_id が食い違う
@@ -197,7 +204,7 @@ def test_check_manifest_bad_derived_from(tmp_path, monkeypatch):
         "A01-strip", "img.png", sha, derived_from="A01", source_image_id="OTHER"
     )
     _write_manifest(Path("manifest2.jsonl"), [case_origin, case_bad_source])
-    result2 = evaluate.check_manifest("manifest2.jsonl")
+    result2 = evaluate.check_manifest("manifest2.jsonl", _test_taxonomy(tmp_path))
     assert any("different source_image_id" in e for e in result2.errors)
 
 
@@ -215,7 +222,7 @@ def test_check_manifest_nested_derivation_is_error(tmp_path, monkeypatch):
     )
     _write_manifest(Path("manifest.jsonl"), [origin, strip, nested])
 
-    result = evaluate.check_manifest("manifest.jsonl")
+    result = evaluate.check_manifest("manifest.jsonl", _test_taxonomy(tmp_path))
     assert any("itself derived" in e for e in result.errors)
 
 
@@ -235,12 +242,60 @@ def test_check_manifest_ok_counts_and_rights(tmp_path, monkeypatch):
 
     _write_manifest(Path("manifest.jsonl"), [origin, strip, other, unconfirmed])
 
-    result = evaluate.check_manifest("manifest.jsonl")
+    result = evaluate.check_manifest("manifest.jsonl", _test_taxonomy(tmp_path))
     assert result.errors == []
     assert result.scenario_counts == {"alisa_lora": 2, "similar": 1, "general": 1}
     assert result.source_count == 3  # A01, S01, BR01 (derived_from が null)
     assert result.derived_count == 1  # A01-strip
     assert result.rights_false_count == 1
+
+
+def test_check_manifest_expected_missing_axis_field(tmp_path, monkeypatch):
+    # taxonomy の軸(例: outfit)が expected に無ければエラーにする(ハードコードでなく
+    # taxonomy 由来で全軸をチェックしていることの確認)。
+    monkeypatch.chdir(tmp_path)
+    img = Path("img.png")
+    _make_plain_png(img)
+    case = _minimal_case("A01", "img.png", _sha256(img))
+    del case["expected"]["outfit"]
+    _write_manifest(Path("manifest.jsonl"), [case])
+
+    result = evaluate.check_manifest("manifest.jsonl", _test_taxonomy(tmp_path))
+    assert any("expected missing field(s) ['outfit']" in e for e in result.errors)
+
+
+def test_check_manifest_expected_unknown_choice_id(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    img = Path("img.png")
+    _make_plain_png(img)
+    sha = _sha256(img)
+
+    # 単一選択軸(image_type)に taxonomy に無い choice id
+    case_single = _minimal_case("A01", "img.png", sha)
+    case_single["expected"]["image_type"] = "not_a_real_choice"
+    _write_manifest(Path("manifest.jsonl"), [case_single])
+    result = evaluate.check_manifest("manifest.jsonl", _test_taxonomy(tmp_path))
+    assert any("expected.image_type has unknown choice id" in e for e in result.errors)
+
+    # 複数選択軸(character)の要素に taxonomy に無い choice id
+    case_multi = _minimal_case("A02", "img.png", sha)
+    case_multi["expected"]["character"] = ["alisa", "not_a_real_character"]
+    _write_manifest(Path("manifest2.jsonl"), [case_multi])
+    result2 = evaluate.check_manifest("manifest2.jsonl", _test_taxonomy(tmp_path))
+    assert any("expected.character has unknown choice id(s)" in e for e in result2.errors)
+
+
+def test_check_manifest_expected_multi_axis_must_be_a_list(tmp_path, monkeypatch):
+    # 複数選択軸(character)が list でなければエラーにする(文字列を渡す典型ミスを検出)。
+    monkeypatch.chdir(tmp_path)
+    img = Path("img.png")
+    _make_plain_png(img)
+    case = _minimal_case("A01", "img.png", _sha256(img))
+    case["expected"]["character"] = "alisa"  # list ではなく文字列(誤り)
+    _write_manifest(Path("manifest.jsonl"), [case])
+
+    result = evaluate.check_manifest("manifest.jsonl", _test_taxonomy(tmp_path))
+    assert any("expected.character must be a list (multi axis)" in e for e in result.errors)
 
 
 # ---------------------------------------------------------------------------

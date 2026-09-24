@@ -23,6 +23,7 @@ from . import pipeline, report
 from .decision import decide_axis
 from .image import prepare_image
 from .pipeline import _git_commit
+from .taxonomy import Taxonomy
 from .taxonomy import load as load_taxonomy
 
 VALID_MODES = {"choice", "json"}  # ペア比較(report.build_summary)は choice vs json の2方式のみを前提とする
@@ -53,7 +54,6 @@ REQUIRED_CASE_FIELDS = [
     "rights",
     "review",
 ]
-REQUIRED_EXPECTED_FIELDS = ["image_type", "art_style", "subject", "character"]
 REQUIRED_EXPECTED_METADATA_FIELDS = ["format", "loras", "trigger_words", "characters", "artificial"]
 
 
@@ -90,8 +90,13 @@ def _load_manifest_lines(manifest_path: str) -> tuple[list[dict], list[str]]:
     return cases, errors
 
 
-def check_manifest(manifest_path: str) -> ManifestCheck:
-    """manifest を検証する。パスは実行時のカレントディレクトリ(リポジトリルート想定)から解決する。"""
+def check_manifest(manifest_path: str, taxonomy: Taxonomy) -> ManifestCheck:
+    """manifest を検証する。パスは実行時のカレントディレクトリ(リポジトリルート想定)から解決する。
+
+    `expected` の各フィールドは taxonomy の軸一覧から検証する(ハードコードしない):
+    軸ごとにキーがあること、単一選択軸は文字列で choice id に含まれること、
+    複数選択軸は list で各要素が choice id に含まれること。
+    """
     cases, errors = _load_manifest_lines(manifest_path)
 
     seen_ids: set[str] = set()
@@ -114,9 +119,29 @@ def check_manifest(manifest_path: str) -> ManifestCheck:
         else:
             seen_ids.add(case_id)
 
-        missing_exp = [f for f in REQUIRED_EXPECTED_FIELDS if f not in case["expected"]]
-        if missing_exp:
-            errors.append(f"case {case_id}: expected missing field(s) {missing_exp}")
+        expected = case["expected"]
+        for axis in taxonomy.axes:
+            if axis.id not in expected:
+                errors.append(f"case {case_id}: expected missing field(s) ['{axis.id}']")
+                continue
+            value = expected[axis.id]
+            known_ids = {c.id for c in axis.choices}
+            if axis.multi:
+                if not isinstance(value, list):
+                    errors.append(
+                        f"case {case_id}: expected.{axis.id} must be a list (multi axis), got {value!r}"
+                    )
+                    continue
+                unknown = [v for v in value if v not in known_ids]
+                if unknown:
+                    errors.append(f"case {case_id}: expected.{axis.id} has unknown choice id(s) {unknown}")
+            else:
+                if not isinstance(value, str):
+                    errors.append(
+                        f"case {case_id}: expected.{axis.id} must be a string (single axis), got {value!r}"
+                    )
+                elif value not in known_ids:
+                    errors.append(f"case {case_id}: expected.{axis.id} has unknown choice id {value!r}")
 
         missing_meta = [
             f for f in REQUIRED_EXPECTED_METADATA_FIELDS if f not in case["expected_metadata"]
@@ -271,7 +296,9 @@ def run_evaluate(
         print(f"invalid --modes: {e}", file=sys.stderr)
         return 1
 
-    check = check_manifest(manifest_path)
+    taxonomy = load_taxonomy(taxonomy_path)
+
+    check = check_manifest(manifest_path, taxonomy)
     if check.errors:
         for e in check.errors:
             print(f"check-manifest error: {e}", file=sys.stderr)
@@ -291,8 +318,6 @@ def run_evaluate(
             "name": os.path.basename(runtime_info_path),
             "sha256": sha256_file(runtime_info_path),
         }
-
-    taxonomy = load_taxonomy(taxonomy_path)
 
     excluded_cases: list[dict] = []
     rights_excluded_ids: set[str] = set()

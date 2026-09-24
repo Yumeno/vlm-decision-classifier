@@ -104,7 +104,8 @@ def cmd_classify(args: argparse.Namespace) -> int:
 
 
 def cmd_check_manifest(args: argparse.Namespace) -> int:
-    result = evaluate.check_manifest(args.manifest)
+    taxonomy = load_taxonomy(args.taxonomy)
+    result = evaluate.check_manifest(args.manifest, taxonomy)
     print(f"cases: {len(result.cases)}")
     for scenario in sorted(result.scenario_counts):
         print(f"  scenario {scenario}: {result.scenario_counts[scenario]}")
@@ -171,6 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
         "check-manifest", help="validate dataset/manifest.jsonl (run from repo root)"
     )
     check_manifest_parser.add_argument("--manifest", default="dataset/manifest.jsonl")
+    check_manifest_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     check_manifest_parser.set_defaults(func=cmd_check_manifest)
 
     evaluate_parser = sub.add_parser(
