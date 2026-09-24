@@ -289,6 +289,17 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
     output_dir = str(tmp_path / "results")
 
+    runtime_info_path = tmp_path / "runtime.json"
+    runtime_info_content = {
+        "model_sha256": "deadbeef",
+        "mmproj_sha256": "cafef00d",
+        "server": "llama.cpp",
+        "server_commit": "abc1234",
+        "patched": False,
+        "gpu": "RTX 3090 24GB",
+    }
+    runtime_info_path.write_text(json.dumps(runtime_info_content), encoding="utf-8")
+
     exit_code = evaluate.run_evaluate(
         manifest_path=str(manifest_path),
         taxonomy_path=taxonomy_path,
@@ -299,6 +310,7 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
         runtime_label="test-runtime",
         note="test note",
         output_dir=output_dir,
+        runtime_info_path=str(runtime_info_path),
     )
     assert exit_code == 0
 
@@ -315,6 +327,11 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     assert "sha256" in run_data["manifest"]
     assert run_data["taxonomy"]["version"]
     assert run_data["taxonomy"]["sha256"]
+
+    # --- runtime_info: JSONの中身をそのまま保存し、ファイル名・SHA256を別途記録する ---
+    assert run_data["runtime_info"] == runtime_info_content
+    assert run_data["runtime_info_file"]["name"] == "runtime.json"
+    assert run_data["runtime_info_file"]["sha256"] == evaluate.sha256_file(str(runtime_info_path))
 
     # 絶対パス(tmp_pathの実体)が run.json のどこにも含まれない
     dumped = json.dumps(run_data)
@@ -358,10 +375,16 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     assert s01_choice["character_exact_match"] == "True"
 
     # A01 vs A01-strip: 画像判定は同じでもメタデータ検出は異なる
-    assert by_case_mode[("A01", "choice")]["detected_meta_format"] == "a1111"
-    assert by_case_mode[("A01", "choice")]["meta_chars_ok"] == "True"
-    assert by_case_mode[("A01-strip", "choice")]["detected_meta_format"] == "none"
-    assert by_case_mode[("A01-strip", "choice")]["meta_chars_ok"] == "True"  # 両方とも空集合
+    a01_choice = by_case_mode[("A01", "choice")]
+    assert a01_choice["detected_meta_format"] == "a1111"
+    assert a01_choice["meta_chars_ok"] == "True"
+    assert a01_choice["detected_meta_loras"] == "fet-alisa-uniform-anima-v4u:0.8"
+    assert a01_choice["meta_loras_ok"] == "True"
+    a01_strip_choice = by_case_mode[("A01-strip", "choice")]
+    assert a01_strip_choice["detected_meta_format"] == "none"
+    assert a01_strip_choice["meta_chars_ok"] == "True"  # 両方とも空集合
+    assert a01_strip_choice["detected_meta_loras"] == ""
+    assert a01_strip_choice["meta_loras_ok"] == "True"  # 両方とも空集合
 
     # G01: choiceは空集合同士で完全一致、jsonは形式不正で失敗 -> 期待が空集合でも不正解
     g01_choice = by_case_mode[("G01", "choice")]
@@ -378,7 +401,61 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     # --- summary.md ---
     summary_path = Path(output_dir) / "summary.md"
     summary_text = summary_path.read_text(encoding="utf-8")
-    assert "N=4" in summary_text
-    assert "キャラクター" in summary_text
-    assert "Latency" in summary_text
+    assert "N=4" in summary_text  # 全体件数(元画像3件+派生1件)
     assert "点推定を強い結論として扱わないこと" in summary_text
+
+    # 画像判定の集計(単一軸・キャラクター・シナリオ別・Latency・ペア比較)は
+    # 元画像3件(A01-stripを除く)だけを分母にする
+    assert "元画像 N=3 件" in summary_text
+    assert summary_text.count("元画像 N=3 件") >= 4  # 単一軸/キャラクター/シナリオ別/Latency の各見出し
+
+    # メタデータは全4ケース(派生を含む)を分母にする
+    assert "集計元モード: choice、元画像・派生を含む全ケース" in summary_text
+    assert "loras 完全一致率: 100.0% (4/4)" in summary_text
+    assert "trigger_words 完全一致率: 100.0% (4/4)" in summary_text
+
+    # 派生ケース節: A01-strip と元ケースA01のcharacter予測・正誤が同じかを一覧にする
+    assert "派生ケース(メタデータ除去コピー)" in summary_text
+    assert "| A01-strip | A01 | choice | alisa | alisa | 一致 | 正 | 正 | 一致 |" in summary_text
+    assert "| A01-strip | A01 | json | alisa | alisa | 一致 | 正 | 正 | 一致 |" in summary_text
+
+
+def test_run_evaluate_without_runtime_info_records_null(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "images").mkdir()
+    img_path = Path("images/A01.png")
+    _make_plain_png(img_path)
+    case = _minimal_case("A01", "images/A01.png", _sha256(img_path))
+    manifest_path = tmp_path / "manifest.jsonl"
+    _write_manifest(manifest_path, [case])
+
+    # choice: image_type/art_style/subject + character ranking(none優勢だがfloor境界で
+    # alisa/second_originalの両方が候補になり、それぞれ確認(no)が入る) = 6リクエスト
+    responses = [
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),
+        make_logprobs_response({"A": 0.8, "B": 0.05, "C": 0.05, "D": 0.05, "E": 0.03, "F": 0.02}),
+        make_logprobs_response({"C": 0.05, "D": 0.95}),
+        make_logprobs_response({"A": 0.1, "B": 0.9}),
+        make_logprobs_response({"A": 0.1, "B": 0.9}),
+    ]
+    backend = FakeBackend(responses)
+    taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
+    output_dir = str(tmp_path / "results")
+
+    exit_code = evaluate.run_evaluate(
+        manifest_path=str(manifest_path),
+        taxonomy_path=taxonomy_path,
+        backend=backend,
+        modes=["choice"],
+        max_edge=64,
+        warmup=0,
+        runtime_label=None,
+        note=None,
+        output_dir=output_dir,
+    )
+    assert exit_code == 0
+
+    run_data = json.loads((Path(output_dir) / "run.json").read_text(encoding="utf-8"))
+    assert run_data["runtime_info"] is None
+    assert run_data["runtime_info_file"] is None

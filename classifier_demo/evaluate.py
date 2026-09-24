@@ -234,6 +234,7 @@ def run_evaluate(
     runtime_label: str | None,
     note: str | None,
     output_dir: str,
+    runtime_info_path: str | None = None,
 ) -> int:
     check = check_manifest(manifest_path)
     if check.errors:
@@ -270,6 +271,16 @@ def run_evaluate(
 
     finished = datetime.now(timezone.utc).isoformat()
 
+    runtime_info = None
+    runtime_info_file = None
+    if runtime_info_path:
+        with open(runtime_info_path, "r", encoding="utf-8") as f:
+            runtime_info = json.load(f)
+        runtime_info_file = {
+            "name": os.path.basename(runtime_info_path),
+            "sha256": sha256_file(runtime_info_path),
+        }
+
     run_info = {
         "started": started,
         "finished": finished,
@@ -282,6 +293,8 @@ def run_evaluate(
         "max_edge": max_edge,
         "warmup": warmup_info,
         "runtime_label": runtime_label,
+        "runtime_info": runtime_info,
+        "runtime_info_file": runtime_info_file,
         "note": note,
         "platform": {"platform": platform.platform(), "python_version": sys.version},
         "case_counts": {

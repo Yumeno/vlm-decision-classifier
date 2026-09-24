@@ -132,6 +132,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         runtime_label=args.runtime_label,
         note=args.note,
         output_dir=args.output_dir,
+        runtime_info_path=args.runtime_info,
     )
 
 
@@ -173,6 +174,12 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_parser.add_argument("--max-edge", type=int, default=1024)
     evaluate_parser.add_argument("--warmup", type=int, default=1)
     evaluate_parser.add_argument("--runtime-label", default=None)
+    evaluate_parser.add_argument(
+        "--runtime-info",
+        default=None,
+        help="JSON file describing the run environment (model/mmproj SHA256, server commit, "
+        "patch, launch args, GPU offload, etc.); stored as-is in run.json",
+    )
     evaluate_parser.add_argument("--note", default=None)
     evaluate_parser.add_argument("--output-dir", required=True)
     evaluate_parser.set_defaults(func=cmd_evaluate)

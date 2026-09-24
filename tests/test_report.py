@@ -120,11 +120,112 @@ def test_score_metadata_match_and_mismatch():
     scored = report.score_metadata(case, result_ok)
     assert scored["format_ok"] is True
     assert scored["chars_ok"] is True
+    # loras/trigger_words とも期待値が空集合で検出も空集合なので一致扱い
+    assert scored["loras_ok"] is True
+    assert scored["triggers_ok"] is True
 
     result_wrong = {"metadata_evidence": {"format": "none", "loras": [], "prompt_tags": [], "matches": []}}
     scored = report.score_metadata(case, result_wrong)
     assert scored["format_ok"] is False
     assert scored["chars_ok"] is False
+
+
+def test_score_metadata_loras_match_with_normalized_name_and_weight():
+    case = _case()
+    case["expected_metadata"] = {
+        "format": "a1111",
+        "loras": [{"name": "Fet-Alisa-Uniform-Anima-v4u", "weight": 0.8}],
+        "trigger_words": [],
+        "characters": [],
+        "artificial": False,
+    }
+    result = {
+        "metadata_evidence": {
+            "format": "a1111",
+            # 検出側は前後空白・大小文字が異なっていても正規化後の名前で一致すればよい
+            "loras": [{"name": "  fet-alisa-uniform-anima-v4u  ", "weight": 0.8, "source": "a1111"}],
+            "prompt_tags": [],
+            "matches": [],
+        }
+    }
+    scored = report.score_metadata(case, result)
+    assert scored["loras_ok"] is True
+
+
+def test_score_metadata_loras_weight_mismatch_is_wrong():
+    case = _case()
+    case["expected_metadata"] = {
+        "format": "a1111",
+        "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0}],
+        "trigger_words": [],
+        "characters": [],
+        "artificial": False,
+    }
+    result = {
+        "metadata_evidence": {
+            "format": "a1111",
+            "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": 0.8, "source": "a1111"}],
+            "prompt_tags": [],
+            "matches": [],
+        }
+    }
+    scored = report.score_metadata(case, result)
+    assert scored["loras_ok"] is False
+
+
+def test_score_metadata_loras_none_weight_matches_none_weight():
+    # ComfyUI由来で strength_model が取得できない場合 weight は None。期待値も None なら一致。
+    case = _case()
+    case["expected_metadata"] = {
+        "format": "comfyui",
+        "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": None}],
+        "trigger_words": [],
+        "characters": [],
+        "artificial": False,
+    }
+    result = {
+        "metadata_evidence": {
+            "format": "comfyui",
+            "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": None, "source": "comfyui"}],
+            "prompt_tags": [],
+            "matches": [],
+        }
+    }
+    scored = report.score_metadata(case, result)
+    assert scored["loras_ok"] is True
+
+
+def test_score_metadata_triggers_match_and_mismatch():
+    case = _case()
+    case["expected_metadata"] = {
+        "format": "a1111",
+        "loras": [],
+        "trigger_words": ["fet_alisa_uniform"],
+        "characters": [],
+        "artificial": False,
+    }
+    result_match = {
+        "metadata_evidence": {
+            "format": "a1111",
+            "loras": [],
+            "prompt_tags": [],
+            "matches": [{"kind": "prompt_trigger", "value": "fet_alisa_uniform", "character": "alisa"}],
+        }
+    }
+    assert report.score_metadata(case, result_match)["triggers_ok"] is True
+
+    result_missing = {
+        "metadata_evidence": {"format": "a1111", "loras": [], "prompt_tags": [], "matches": []}
+    }
+    assert report.score_metadata(case, result_missing)["triggers_ok"] is False
+
+
+def test_format_loras():
+    assert report.format_loras([]) == ""
+    assert (
+        report.format_loras([{"name": "b", "weight": 1.0}, {"name": "a", "weight": None}])
+        == "a:None;b:1.0"
+    )
 
 
 def test_score_metadata_failed_evidence_forces_wrong_even_if_expected_matches_by_accident():
@@ -142,12 +243,16 @@ def test_score_metadata_failed_evidence_forces_wrong_even_if_expected_matches_by
     assert scored["failed"] is True
     assert scored["format_ok"] is False
     assert scored["chars_ok"] is False
+    assert scored["loras_ok"] is False
+    assert scored["triggers_ok"] is False
 
     result_none_evidence = {"metadata_evidence": None}
     scored = report.score_metadata(case, result_none_evidence)
     assert scored["failed"] is True
     assert scored["format_ok"] is False
     assert scored["chars_ok"] is False
+    assert scored["loras_ok"] is False
+    assert scored["triggers_ok"] is False
 
 
 def test_build_case_row_has_all_csv_fieldnames():
@@ -159,8 +264,8 @@ def test_build_case_row_has_all_csv_fieldnames():
         "expected": {"image_type": "illustration", "art_style": "anime_2d", "subject": "person", "character": ["alisa"]},
         "expected_metadata": {
             "format": "a1111",
-            "loras": [],
-            "trigger_words": [],
+            "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": 0.8}],
+            "trigger_words": ["fet_alisa_uniform"],
             "characters": ["alisa"],
             "artificial": False,
         },
@@ -174,9 +279,12 @@ def test_build_case_row_has_all_csv_fieldnames():
         },
         "metadata_evidence": {
             "format": "a1111",
-            "loras": [],
+            "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": 0.8, "source": "a1111"}],
             "prompt_tags": [],
-            "matches": [{"kind": "lora_name", "value": "x", "weight": 1.0, "character": "alisa"}],
+            "matches": [
+                {"kind": "lora_name", "value": "fet-alisa-uniform-anima-v4u", "weight": 0.8, "character": "alisa"},
+                {"kind": "prompt_trigger", "value": "fet_alisa_uniform", "character": "alisa"},
+            ],
         },
         "timing_ms": {"classification_wall_ms": 12.5},
         "request_count": 4,
@@ -186,4 +294,9 @@ def test_build_case_row_has_all_csv_fieldnames():
     assert set(row.keys()) == set(report.CSV_FIELDNAMES)
     assert row["ok_image_type"] is True
     assert row["character_exact_match"] is True
+    assert row["meta_loras_ok"] is True
+    assert row["meta_triggers_ok"] is True
+    assert row["expected_meta_artificial"] is False
+    assert row["expected_meta_loras"] == "fet-alisa-uniform-anima-v4u:0.8"
+    assert row["detected_meta_loras"] == "fet-alisa-uniform-anima-v4u:0.8"
     assert row["json_attempts"] == ""  # choice モードでは空

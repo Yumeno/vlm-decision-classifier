@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import csv
 import math
+import re
 import statistics
+
+_WS_RE = re.compile(r"\s+")
 
 # manifest の `expected` に含まれる単一軸(character は別扱い)。
 SINGLE_AXES = ["image_type", "art_style", "subject"]
@@ -44,6 +47,13 @@ CSV_FIELDNAMES = [
     "expected_meta_chars",
     "detected_meta_chars",
     "meta_chars_ok",
+    "expected_meta_loras",
+    "detected_meta_loras",
+    "meta_loras_ok",
+    "expected_meta_triggers",
+    "detected_meta_triggers",
+    "meta_triggers_ok",
+    "expected_meta_artificial",
     "classification_wall_ms",
     "request_count",
     "error_types",
@@ -99,15 +109,38 @@ def score_character(case: dict, result: dict) -> dict:
     }
 
 
+def _normalize_lora_name(name: str) -> str:
+    return _WS_RE.sub(" ", name.strip().lower())
+
+
+def _lora_set(loras: list[dict]) -> set[tuple[str, float | None]]:
+    return {(_normalize_lora_name(l["name"]), l.get("weight")) for l in loras}
+
+
+def format_loras(loras: list[dict]) -> str:
+    return ";".join(sorted(f"{l['name']}:{l.get('weight')}" for l in loras))
+
+
 def score_metadata(case: dict, result: dict) -> dict:
-    """メタデータの採点(format・character検出)。抽出自体が失敗した場合は常に不正解とする。"""
+    """メタデータの採点(format・character・LoRA・トリガーワード検出)。
+
+    抽出自体が失敗した場合は常に不正解とする(`artificial` はメタデータから検出できないため採点しない)。
+    """
     evidence = result.get("metadata_evidence")
     failed = evidence is None or evidence.get("format") == "error"
     detected_format = evidence["format"] if evidence else None
+    detected_loras = evidence["loras"] if evidence else []
     detected_chars = {m["character"] for m in evidence["matches"]} if evidence else set()
+    detected_triggers = (
+        {m["value"] for m in evidence["matches"] if m["kind"] == "prompt_trigger"} if evidence else set()
+    )
+
     expected_meta = case["expected_metadata"]
     expected_format = expected_meta["format"]
+    expected_loras = expected_meta.get("loras", [])
     expected_chars = set(expected_meta["characters"])
+    expected_triggers = set(expected_meta.get("trigger_words", []))
+
     return {
         "expected_format": expected_format,
         "detected_format": detected_format,
@@ -115,6 +148,13 @@ def score_metadata(case: dict, result: dict) -> dict:
         "expected_chars": expected_chars,
         "detected_chars": detected_chars,
         "chars_ok": (not failed) and detected_chars == expected_chars,
+        "expected_loras": expected_loras,
+        "detected_loras": detected_loras,
+        "loras_ok": (not failed) and _lora_set(detected_loras) == _lora_set(expected_loras),
+        "expected_triggers": expected_triggers,
+        "detected_triggers": detected_triggers,
+        "triggers_ok": (not failed) and detected_triggers == expected_triggers,
+        "expected_artificial": expected_meta.get("artificial"),
         "failed": failed,
     }
 
@@ -150,6 +190,13 @@ def build_case_row(case: dict, mode: str, order_index: int, result: dict) -> dic
     row["expected_meta_chars"] = ";".join(sorted(meta["expected_chars"]))
     row["detected_meta_chars"] = ";".join(sorted(meta["detected_chars"]))
     row["meta_chars_ok"] = meta["chars_ok"]
+    row["expected_meta_loras"] = format_loras(meta["expected_loras"])
+    row["detected_meta_loras"] = format_loras(meta["detected_loras"])
+    row["meta_loras_ok"] = meta["loras_ok"]
+    row["expected_meta_triggers"] = ";".join(sorted(meta["expected_triggers"]))
+    row["detected_meta_triggers"] = ";".join(sorted(meta["detected_triggers"]))
+    row["meta_triggers_ok"] = meta["triggers_ok"]
+    row["expected_meta_artificial"] = meta["expected_artificial"]
 
     timing = result.get("timing_ms") or {}
     row["classification_wall_ms"] = timing.get("classification_wall_ms", "")
@@ -194,37 +241,54 @@ def _is_success(result: dict) -> bool:
 def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[str]) -> str:
     """summary.md の本文を組み立てる。records は
     {"case", "mode", "order_index", "result"} の dict のリスト(実行順)。
+
+    画像判定(単一軸・character・シナリオ別・latency・モード間比較)は
+    派生ケース(メタデータ除去コピー)を含めると同じ画像が二重に効いてしまうため、
+    元画像ケース(`derived_from` が null)だけを分母にする(dataset-plan §1 の水増し防止)。
+    メタデータの採点は派生ケースが本題(画素同一・メタデータのみ相違)なので全ケースで出す。
     """
-    by_mode: dict[str, list[dict]] = {m: [] for m in modes}
+    source_cases = [c for c in evaluated_cases if not c.get("derived_from")]
+    derived_cases = [c for c in evaluated_cases if c.get("derived_from")]
+    n_source = len(source_cases)
+
+    records_source = [r for r in records if not r["case"].get("derived_from")]
+    by_mode_source: dict[str, list[dict]] = {m: [] for m in modes}
+    for r in records_source:
+        by_mode_source[r["mode"]].append(r)
+
+    by_mode_all: dict[str, list[dict]] = {m: [] for m in modes}
     for r in records:
-        by_mode[r["mode"]].append(r)
+        by_mode_all[r["mode"]].append(r)
 
     lines: list[str] = []
     lines.append("# 評価サマリー")
     lines.append("")
-    lines.append(f"評価ケース数(全体): N={len(evaluated_cases)}")
+    lines.append(
+        f"評価ケース数(全体): N={len(evaluated_cases)}"
+        f"(元画像 {n_source} 件 / 派生(メタデータ除去コピー) {len(derived_cases)} 件)"
+    )
     lines.append("")
 
-    lines.append("## 単一軸の正答率")
+    lines.append(f"## 単一軸の正答率(元画像 N={n_source} 件)")
     lines.append("")
     lines.append("| 軸 | " + " | ".join(modes) + " |")
     lines.append("|---|" + "---|" * len(modes))
     for axis_id in SINGLE_AXES:
         cells = []
         for mode in modes:
-            recs = by_mode[mode]
+            recs = by_mode_source[mode]
             n = len(recs)
             correct = sum(1 for r in recs if score_single_axis(r["case"], r["result"], axis_id)[2])
             cells.append(_pct_str(correct, n))
         lines.append(f"| {axis_id} | " + " | ".join(cells) + " |")
     lines.append("")
 
-    lines.append("## キャラクター")
+    lines.append(f"## キャラクター(元画像 N={n_source} 件)")
     lines.append("")
     lines.append("### 完全一致率(集合の完全一致。空集合どうしは一致)")
     lines.append("")
     char_scores_by_mode = {
-        mode: [score_character(r["case"], r["result"]) for r in by_mode[mode]] for mode in modes
+        mode: [score_character(r["case"], r["result"]) for r in by_mode_source[mode]] for mode in modes
     }
     lines.append("| " + " | ".join(modes) + " |")
     lines.append("|" + "---|" * len(modes))
@@ -262,15 +326,15 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
         lines.append(f"| micro | {micro_tp} | {micro_fp} | {micro_fn} | {mp:.2f} | {mr:.2f} | {mf1:.2f} |")
         lines.append("")
 
-    lines.append("## シナリオ別(キャラ完全一致・全軸正解)")
+    lines.append(f"## シナリオ別(キャラ完全一致・全軸正解、元画像 N={n_source} 件)")
     lines.append("")
-    scenarios = sorted({c.get("scenario", "") for c in evaluated_cases})
+    scenarios = sorted({c.get("scenario", "") for c in source_cases})
     for mode in modes:
         lines.append(f"### {mode}")
         lines.append("")
         lines.append("| シナリオ | N | キャラ完全一致 | 全軸正解 |")
         lines.append("|---|---|---|---|")
-        recs = by_mode[mode]
+        recs = by_mode_source[mode]
         for scenario in scenarios:
             sc_recs = [r for r in recs if r["case"].get("scenario", "") == scenario]
             n = len(sc_recs)
@@ -285,35 +349,61 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
             lines.append(f"| {scenario} | {n} | {_pct_str(char_exact, n)} | {_pct_str(all_ok, n)} |")
         lines.append("")
 
-    lines.append("## 元画像単位の集計")
-    lines.append("")
-    source_ids = sorted({c["source_image_id"] for c in evaluated_cases})
-    derived_count = sum(1 for c in evaluated_cases if c.get("derived_from"))
-    lines.append(f"元画像数: {len(source_ids)}  派生ケース数: {derived_count}")
-    lines.append("")
-    for mode in modes:
-        recs = [r for r in by_mode[mode] if not r["case"].get("derived_from")]
-        exact = sum(1 for r in recs if score_character(r["case"], r["result"])["exact_match"])
-        lines.append(f"- {mode}: 元画像のみのキャラ完全一致率 {_pct_str(exact, len(recs))}")
-    lines.append("")
-
-    lines.append("## メタデータ(モード非依存)")
+    lines.append("## メタデータ(全ケース、モード非依存)")
     lines.append("")
     meta_mode = "choice" if "choice" in modes else modes[0]
-    meta_recs = by_mode[meta_mode]
+    meta_recs = by_mode_all[meta_mode]
     n_meta = len(meta_recs)
-    format_ok = sum(1 for r in meta_recs if score_metadata(r["case"], r["result"])["format_ok"])
-    chars_ok = sum(1 for r in meta_recs if score_metadata(r["case"], r["result"])["chars_ok"])
-    lines.append(f"(集計元モード: {meta_mode})")
+    meta_scores = [score_metadata(r["case"], r["result"]) for r in meta_recs]
+    format_ok = sum(1 for s in meta_scores if s["format_ok"])
+    chars_ok = sum(1 for s in meta_scores if s["chars_ok"])
+    loras_ok = sum(1 for s in meta_scores if s["loras_ok"])
+    triggers_ok = sum(1 for s in meta_scores if s["triggers_ok"])
+    lines.append(f"(集計元モード: {meta_mode}、元画像・派生を含む全ケース)")
     lines.append("")
     lines.append(f"- format 正答率: {_pct_str(format_ok, n_meta)}")
     lines.append(f"- characters 完全一致率: {_pct_str(chars_ok, n_meta)}")
+    lines.append(f"- loras 完全一致率: {_pct_str(loras_ok, n_meta)}")
+    lines.append(f"- trigger_words 完全一致率: {_pct_str(triggers_ok, n_meta)}")
     lines.append("")
 
-    lines.append("## Latency")
+    lines.append("## 派生ケース(メタデータ除去コピー)")
+    lines.append("")
+    lines.append(
+        "画素は元ケースと同一で生成メタデータのみ除去したコピー。character の予測・正誤が"
+        "元ケースと同じかどうかを確認する(画像判定の集計には含めない)。"
+    )
+    lines.append("")
+    if derived_cases:
+        lines.append("| 派生ケース | 元ケース | mode | 元predicted | 派生predicted | 予測同一 | 元正誤 | 派生正誤 | 正誤同一 |")
+        lines.append("|---|---|---|---|---|---|---|---|---|")
+        records_by_case_mode = {(r["case"]["case_id"], r["mode"]): r for r in records}
+        for d in derived_cases:
+            for mode in modes:
+                d_rec = records_by_case_mode.get((d["case_id"], mode))
+                origin_rec = records_by_case_mode.get((d["derived_from"], mode))
+                if d_rec is None or origin_rec is None:
+                    continue
+                d_char = score_character(d, d_rec["result"])
+                o_char = score_character(origin_rec["case"], origin_rec["result"])
+                same_pred = d_char["predicted"] == o_char["predicted"]
+                same_correct = d_char["exact_match"] == o_char["exact_match"]
+                o_pred_str = ";".join(sorted(o_char["predicted"])) or "(空)"
+                d_pred_str = ";".join(sorted(d_char["predicted"])) or "(空)"
+                lines.append(
+                    f"| {d['case_id']} | {d['derived_from']} | {mode} | {o_pred_str} | {d_pred_str} | "
+                    f"{'一致' if same_pred else '不一致'} | "
+                    f"{'正' if o_char['exact_match'] else '誤'} | {'正' if d_char['exact_match'] else '誤'} | "
+                    f"{'一致' if same_correct else '不一致'} |"
+                )
+    else:
+        lines.append("派生ケースなし。")
+    lines.append("")
+
+    lines.append(f"## Latency(元画像 N={n_source} 件)")
     lines.append("")
     for mode in modes:
-        recs = by_mode[mode]
+        recs = by_mode_source[mode]
         lines.append(f"### {mode}")
         lines.append("")
         all_ms = [
@@ -347,13 +437,13 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
                 lines.append(f"- 平均試行回数: {statistics.mean(attempts):.2f}")
         lines.append("")
 
-    lines.append("## 失敗件数(エラー種別)")
+    lines.append("## 失敗件数(エラー種別、全ケース)")
     lines.append("")
     for mode in modes:
         lines.append(f"### {mode}")
         lines.append("")
         counts: dict[str, int] = {}
-        for r in by_mode[mode]:
+        for r in by_mode_all[mode]:
             for e in r["result"].get("errors") or []:
                 t = e.get("type", "unknown")
                 counts[t] = counts.get(t, 0) + 1
@@ -365,11 +455,11 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
         lines.append("")
 
     if len(modes) >= 2:
-        lines.append("## モード間のペア比較")
+        lines.append(f"## モード間のペア比較(元画像 N={n_source} 件)")
         lines.append("")
         base, other = modes[0], modes[1]
-        base_by_case = {r["case"]["case_id"]: r for r in by_mode[base]}
-        other_by_case = {r["case"]["case_id"]: r for r in by_mode[other]}
+        base_by_case = {r["case"]["case_id"]: r for r in by_mode_source[base]}
+        other_by_case = {r["case"]["case_id"]: r for r in by_mode_source[other]}
         common_ids = sorted(set(base_by_case) & set(other_by_case))
         char_base_wins = char_other_wins = 0
         all_base_wins = all_other_wins = 0
