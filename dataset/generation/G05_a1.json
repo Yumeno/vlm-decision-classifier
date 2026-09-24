@@ -1,0 +1,19 @@
+{
+  "tool": "forge_neo",
+  "request": {
+    "prompt": "masterpiece, best quality, score_7, safe, 1boy, old man, fisherman, harbor, boats, oil painting (medium), painterly, visible brushstrokes, upper body",
+    "negative_prompt": "worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw",
+    "seed": 20260905,
+    "steps": 36,
+    "cfg_scale": 4.5,
+    "sampler_name": "ER SDE",
+    "scheduler": "Simple",
+    "width": 1024,
+    "height": 1024
+  },
+  "returned_parameters": "masterpiece, best quality, score_7, safe, 1boy, old man, fisherman, harbor, boats, oil painting (medium), painterly, visible brushstrokes, upper body\nNegative prompt: worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw\nSteps: 36, Sampler: ER SDE, Schedule type: Simple, CFG scale: 4.5, Shift: 3.5, Seed: 20260905, Size: 1024x1024, Model: anima-base-v1.0, Model hash: bd43b7cffe, Module 1: qwen_image_vae, Module 2: qwen_3_06b_base, RNG: CPU, Emphasis: Original, Version: neo-2.29.1",
+  "version": "neo-2.29.1",
+  "elapsed_seconds": 28.39690520003205,
+  "png_sha256": "6a82db468e6af0f266fb52eeeea69f4af254cfd4d7865a8e29abf4ed96dc0d1a",
+  "generated_at": "2026-09-24T16:05:47.071221+00:00"
+}
