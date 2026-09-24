@@ -64,7 +64,7 @@ tests/
 |---|---|---|---|
 | `image_type` | illustration, comic, ui, other | いいえ | 画像の形式 |
 | `art_style` | anime_2d, painterly_2d, pixel_art, other | いいえ | 画風。実写の生成は要件に含めない |
-| `subject` | person, landscape, mecha_vehicle, object, creature, other | 必要なら | 一般カテゴリ。複数主題の扱いは正解付与規則で固定 |
+| `subject` | person, landscape, mecha_vehicle, object, creature, other | いいえ | 一般カテゴリ。主題が複数ある場合の優先規則は `dataset-plan.md` §2.3 |
 | `character` | alisa, second_original, other_original | はい | 正確な容姿基準を公開版で記入する |
 
 `other` は「該当なし」を表し、`character` に人物がいない場合と、人物はいるが候補外の場合を区別するため、必要なら `no_character` と `other_original` に分ける。候補の定義が不鮮明なときは推論前にtaxonomyを直し、評価後に都合よく変更しない。各軸・各候補はID、表示名、`criteria`、任意の`match_tags`、`required`、`multi`を持つ。候補数は1質問あたり19以下（`none`を含め最大20ラベル）に抑え、超過時は明示的にエラーか階層化する。
