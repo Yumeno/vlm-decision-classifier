@@ -136,6 +136,43 @@ def build_graph(slot: dict, cfg: dict, seed: int, template: dict, output_prefix:
     return graph
 
 
+def check_lora(url: str, cfg: dict) -> None:
+    """LoraLoaderModelOnlyの入力仕様と、使うlora_nameが選択肢にあることを確認する。違えば中断。"""
+    info = gc.http_get_json(f"{url}/object_info/LoraLoaderModelOnly")
+    node_info = info.get("LoraLoaderModelOnly")
+    if node_info is None:
+        print("[中断] ComfyUIにLoraLoaderModelOnlyノードが見つかりません。", file=sys.stderr)
+        sys.exit(1)
+
+    required = node_info.get("input", {}).get("required", {})
+    print(f"LoraLoaderModelOnly required inputs: {list(required.keys())}")
+
+    expected_keys = {"model", "lora_name", "strength_model"}
+    actual_keys = set(required.keys())
+    if actual_keys != expected_keys:
+        print(
+            f"[中断] LoraLoaderModelOnlyのrequired入力が想定と違います。"
+            f"想定: {sorted(expected_keys)} / 実際: {sorted(actual_keys)}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    lora_name_spec = required.get("lora_name")
+    choices: list[str] = []
+    if isinstance(lora_name_spec, list) and lora_name_spec and isinstance(lora_name_spec[0], list):
+        choices = lora_name_spec[0]
+
+    target = "Anima\\fet_alisa_uniform\\" + cfg["lora_comfy"] + ".safetensors"
+    if target not in choices:
+        candidates = [c for c in choices if cfg["lora_comfy"] in c]
+        print(
+            f"[中断] ComfyUIのlora_name選択肢に {target!r} が見つかりません。\n"
+            f"{cfg['lora_comfy']!r} を含む候補: {candidates}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 def submit(url: str, graph: dict, client_id: str) -> str:
     response = gc.http_post_json(
         f"{url}/prompt", {"prompt": graph, "client_id": client_id}, timeout=60
@@ -187,33 +224,65 @@ def generate_one(url: str, cfg: dict, template: dict, slot_id: str, attempt: int
     graph = build_graph(slot, cfg, seed, template, output_prefix)
     client_id = str(uuid.uuid4())
 
-    start = time.perf_counter()
-    prompt_id = submit(url, graph, client_id)
-    history_entry = wait_for_history(url, prompt_id)
-    elapsed = time.perf_counter() - start
+    # 送信直前にマーカーを書く。以降、結果にかかわらずこのslot+attemptは二度と送らない。
+    gc.write_submitted_marker(
+        slot_id,
+        attempt,
+        {
+            "slot_id": slot_id,
+            "attempt": attempt,
+            "seed": seed,
+            "tool": "comfyui",
+            "graph": graph,
+            "submitted_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
 
-    nodes = locate_nodes(graph)
-    output_node = history_entry["outputs"].get(nodes["output_id"])
-    if output_node is None:
-        raise RuntimeError(f"historyの出力に{nodes['output_id']}がありません: {history_entry}")
+    try:
+        start = time.perf_counter()
+        prompt_id = submit(url, graph, client_id)
+        gc.write_prompt_id(slot_id, attempt, prompt_id)
+        history_entry = wait_for_history(url, prompt_id)
+        elapsed = time.perf_counter() - start
 
-    png_bytes = fetch_image(url, output_node)
-    sha256 = gc.sha256_bytes(png_bytes)
-    generated_at = datetime.now(timezone.utc).isoformat()
+        nodes = locate_nodes(graph)
+        output_node = history_entry["outputs"].get(nodes["output_id"])
+        if output_node is None:
+            raise RuntimeError(f"historyの出力に{nodes['output_id']}がありません: {history_entry}")
 
-    img_path = gc.staging_image_path(slot_id, attempt)
-    img_path.parent.mkdir(parents=True, exist_ok=True)
-    img_path.write_bytes(png_bytes)
+        png_bytes = fetch_image(url, output_node)
+        sha256 = gc.sha256_bytes(png_bytes)
+        generated_at = datetime.now(timezone.utc).isoformat()
 
-    params_data = {
-        "tool": "comfyui",
-        "prompt_id": prompt_id,
-        "graph": graph,
-        "elapsed_seconds": elapsed,
-        "png_sha256": sha256,
-        "generated_at": generated_at,
-    }
-    gc.write_params(slot_id, attempt, params_data)
+        img_path = gc.staging_image_path(slot_id, attempt)
+        img_path.parent.mkdir(parents=True, exist_ok=True)
+        img_path.write_bytes(png_bytes)
+
+        params_data = {
+            "tool": "comfyui",
+            "prompt_id": prompt_id,
+            "graph": graph,
+            "elapsed_seconds": elapsed,
+            "png_sha256": sha256,
+            "generated_at": generated_at,
+        }
+        gc.write_params(slot_id, attempt, params_data)
+    except Exception as e:
+        # 送信後の失敗(タイムアウト・取得失敗・保存失敗など)は必ずログしてから次の枠へ進めるようにする
+        gc.append_log(
+            {
+                "slot_id": slot_id,
+                "attempt": attempt,
+                "seed": seed,
+                "tool": "comfyui",
+                "file": "",
+                "sha256": "",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "result": "error",
+                "reason": str(e)[:300],
+            }
+        )
+        raise
 
     gc.append_log(
         {
@@ -234,12 +303,13 @@ def generate_one(url: str, cfg: dict, template: dict, slot_id: str, attempt: int
 def main() -> None:
     parser = argparse.ArgumentParser(description="ComfyUI でdataset生成枠(comfyui)を生成する")
     parser.add_argument("--url", default="http://127.0.0.1:8188")
-    parser.add_argument("--attempt", type=int, default=1)
+    parser.add_argument("--attempt", type=int, default=1, choices=[1, 2])
     parser.add_argument("--slots", default=None, help="カンマ区切りのslot id。省略時はtool=comfyuiの全枠")
     args = parser.parse_args()
 
     cfg = gc.load_prompts()
     template = load_workflow()
+    check_lora(args.url, cfg)
 
     if args.slots:
         slot_ids = [s.strip() for s in args.slots.split(",") if s.strip()]

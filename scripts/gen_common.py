@@ -96,14 +96,46 @@ def params_json_path(slot_id: str, attempt: int) -> Path:
     return GENERATION_DIR / f"{slot_id}_a{attempt}.json"
 
 
+def submitted_marker_path(slot_id: str, attempt: int) -> Path:
+    return GENERATION_DIR / f"{slot_id}_a{attempt}.submitted.json"
+
+
+def prompt_id_path(slot_id: str, attempt: int) -> Path:
+    return GENERATION_DIR / f"{slot_id}_a{attempt}.prompt_id.txt"
+
+
 def check_not_generated(slot_id: str, attempt: int) -> None:
-    """同じ slot+attempt の画像/paramsが既にあれば拒否する(後選び防止)。"""
+    """同じ slot+attempt が既に送信済み/画像/paramsのいずれかがあれば拒否する(後選び防止)。
+
+    送信済みマーカーは、結果にかかわらず一度送ったら二度と送らない、という強い拒否。
+    """
+    marker = submitted_marker_path(slot_id, attempt)
     img = staging_image_path(slot_id, attempt)
     params = params_json_path(slot_id, attempt)
+    if marker.exists():
+        raise FileExistsError(f"既に送信済みマーカーが存在します(再送信しません): {marker}")
     if img.exists():
         raise FileExistsError(f"既に画像が存在します(再生成しません): {img}")
     if params.exists():
         raise FileExistsError(f"既にparamsが存在します(再生成しません): {params}")
+
+
+def write_submitted_marker(slot_id: str, attempt: int, data: dict) -> Path:
+    """生成リクエストを送る直前に呼ぶ。既存なら上書き拒否(=多重送信の防止)。"""
+    p = submitted_marker_path(slot_id, attempt)
+    if p.exists():
+        raise FileExistsError(f"既に送信済みマーカーが存在します(再送信しません): {p}")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    return p
+
+
+def write_prompt_id(slot_id: str, attempt: int, prompt_id: str) -> Path:
+    """ComfyUIのprompt_idを送信済みマーカーとは別ファイルに記録する(手動回収用)。"""
+    p = prompt_id_path(slot_id, attempt)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(prompt_id, encoding="utf-8")
+    return p
 
 
 def write_params(slot_id: str, attempt: int, data: dict) -> Path:

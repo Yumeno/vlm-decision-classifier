@@ -140,6 +140,38 @@ def test_check_not_generated_ok_when_absent(tmp_path, monkeypatch):
     gc.check_not_generated("A01", 1)  # 例外が出なければOK
 
 
+def test_write_submitted_marker_refuses_overwrite(tmp_path, monkeypatch):
+    monkeypatch.setattr(gc, "GENERATION_DIR", tmp_path)
+
+    gc.write_submitted_marker("A01", 1, {"slot_id": "A01", "attempt": 1, "seed": 1})
+    with pytest.raises(FileExistsError):
+        gc.write_submitted_marker("A01", 1, {"slot_id": "A01", "attempt": 1, "seed": 1})
+
+    data = json.loads((tmp_path / "A01_a1.submitted.json").read_text(encoding="utf-8"))
+    assert data["seed"] == 1
+
+
+def test_check_not_generated_raises_if_marker_exists_even_without_result(tmp_path, monkeypatch):
+    # 送信済みマーカーだけがある(=送信したが結果がまだ/失敗した)状態でも再送信を拒否する
+    monkeypatch.setattr(gc, "GENERATION_DIR", tmp_path)
+    monkeypatch.setattr(gc, "STAGING_DIR", tmp_path)
+
+    gc.write_submitted_marker("A01", 1, {"slot_id": "A01", "attempt": 1, "seed": 1})
+
+    assert not gc.staging_image_path("A01", 1).exists()
+    assert not gc.params_json_path("A01", 1).exists()
+    with pytest.raises(FileExistsError):
+        gc.check_not_generated("A01", 1)
+
+
+def test_check_not_generated_does_not_block_other_attempt(tmp_path, monkeypatch):
+    monkeypatch.setattr(gc, "GENERATION_DIR", tmp_path)
+    monkeypatch.setattr(gc, "STAGING_DIR", tmp_path)
+
+    gc.write_submitted_marker("A01", 1, {"slot_id": "A01", "attempt": 1, "seed": 1})
+    gc.check_not_generated("A01", 2)  # attempt違いは拒否されない
+
+
 # ---- append_log ----
 
 
