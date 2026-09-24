@@ -1,4 +1,4 @@
-version: "0.2.0"
+version: "0.3.0"
 axes:
   - id: image_type
     question: "What kind of image is this?"
@@ -37,7 +37,7 @@ axes:
       - id: alisa
         name: Alisa
         criteria: "girl with straight brown bob-cut hair with bangs and blue eyes, wearing a white collared long-sleeve shirt, a pink vest, a red string ribbon at the neck and a dark pink pencil skirt"
-        lora_names: [fet-alisa-uniform-anima-v4u]
+        lora_names: [fet-alisa-uniform-anima-v4u, fet-alisa-uniform-anima-v4u_comfy]  # 同じLoRAのForge用とComfyUI用ファイル
         trigger_words: [fet_alisa_uniform]
       - id: second_original
         name: Second original character
