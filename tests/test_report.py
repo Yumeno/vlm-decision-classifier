@@ -57,6 +57,23 @@ def test_score_single_axis_failed_axis_is_empty_pred_and_wrong():
     assert ok is False
 
 
+def test_score_single_axis_failed_is_explicitly_wrong_even_if_expected_is_falsy():
+    # 期待値が偶然""(あり得ない値だが)でも、軸が欠落している以上は明示的に不正解にする
+    # (pred=="" と expected=="" がたまたま一致することに頼らない)。
+    case = _case()
+    case["expected"]["image_type"] = ""
+    result_missing = {"vision_tags": {}}
+    expected, pred, ok = report.score_single_axis(case, result_missing, "image_type")
+    assert (expected, pred) == ("", "")
+    assert ok is False
+
+    # 空リストで存在する場合も失敗扱い
+    result_empty_list = {"vision_tags": {"image_type": []}}
+    expected, pred, ok = report.score_single_axis(case, result_empty_list, "image_type")
+    assert (expected, pred) == ("", "")
+    assert ok is False
+
+
 def test_score_character_exact_match():
     case = _case(expected_character=["alisa"])
     result = {"vision_tags": {"character": ["alisa"]}}
@@ -371,3 +388,64 @@ def test_build_case_row_has_all_csv_fieldnames():
     assert row["expected_meta_loras"] == "fet-alisa-uniform-anima-v4u:0.8"
     assert row["detected_meta_loras"] == "fet-alisa-uniform-anima-v4u:0.8"
     assert row["json_attempts"] == ""  # choice モードでは空
+
+
+def test_build_summary_scenario_table_shows_dash_when_no_source_case():
+    # 派生ケースの scenario が(通常はあり得ないが)元ケースと異なる場合でも、
+    # シナリオ一覧は全評価ケースから作り、元画像側に件数が無ければ「-」を出す。
+    source_case = {
+        "case_id": "S1",
+        "source_image_id": "S1",
+        "derived_from": None,
+        "scenario": "sceneA",
+        "expected": {"image_type": "illustration", "art_style": "anime_2d", "subject": "person", "character": []},
+        "expected_metadata": {
+            "format": "none",
+            "loras": [],
+            "trigger_words": [],
+            "characters": [],
+            "artificial": False,
+        },
+    }
+    derived_case = {
+        "case_id": "S1-strip",
+        "source_image_id": "S1",
+        "derived_from": "S1",
+        "scenario": "sceneB",
+        "expected": {"image_type": "illustration", "art_style": "anime_2d", "subject": "person", "character": []},
+        "expected_metadata": {
+            "format": "none",
+            "loras": [],
+            "trigger_words": [],
+            "characters": [],
+            "artificial": False,
+        },
+    }
+    result_ok = {
+        "vision_tags": {
+            "image_type": ["illustration"],
+            "art_style": ["anime_2d"],
+            "subject": ["person"],
+            "character": [],
+        },
+        "metadata_evidence": {"format": "none", "loras": [], "prompt_tags": [], "matches": []},
+        "timing_ms": {"classification_wall_ms": 10.0},
+        "request_count": 4,
+        "errors": [],
+    }
+    evaluated_cases = [source_case, derived_case]
+    records = [
+        {"case": source_case, "mode": "choice", "order_index": 0, "result": result_ok},
+        {"case": derived_case, "mode": "choice", "order_index": 0, "result": result_ok},
+    ]
+
+    summary_text = report.build_summary(evaluated_cases, records, ["choice"])
+
+    assert (
+        "| sceneA | 1 ／ 1 | 元画像 100.0% (1/1) ／ 全ケース 100.0% (1/1) | "
+        "元画像 100.0% (1/1) ／ 全ケース 100.0% (1/1) |" in summary_text
+    )
+    assert (
+        "| sceneB | - ／ 1 | 元画像 - ／ 全ケース 100.0% (1/1) | 元画像 - ／ 全ケース 100.0% (1/1) |"
+        in summary_text
+    )

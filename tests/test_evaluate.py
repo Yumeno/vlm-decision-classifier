@@ -3,9 +3,11 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
 from PIL import Image, PngImagePlugin
 
 from classifier_demo import evaluate
+from classifier_demo.__main__ import build_parser
 from tests.fakes import FakeBackend, make_logprobs_response, make_text_response
 
 import urllib.error
@@ -520,3 +522,101 @@ def test_run_evaluate_aborts_before_any_request_on_bad_runtime_info(tmp_path, mo
     assert exit_code2 == 1
     assert backend.request_count == 0
     assert not Path(output_dir_bad).exists()
+
+
+def test_validate_modes_rejects_invalid_and_duplicates():
+    with pytest.raises(ValueError):
+        evaluate.validate_modes(["choice", "xml"])
+    with pytest.raises(ValueError):
+        evaluate.validate_modes(["choice", "choice"])
+    with pytest.raises(ValueError):
+        evaluate.validate_modes([])
+    evaluate.validate_modes(["choice"])  # 例外なし
+    evaluate.validate_modes(["json", "choice"])  # 例外なし
+
+
+def test_cli_modes_rejects_invalid_choice_and_duplicates():
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["evaluate", "--model", "m", "--output-dir", "out", "--modes", "choice,xml"])
+    with pytest.raises(SystemExit):
+        parser.parse_args(["evaluate", "--model", "m", "--output-dir", "out", "--modes", "choice,choice"])
+    args = parser.parse_args(["evaluate", "--model", "m", "--output-dir", "out", "--modes", "json"])
+    assert args.modes == ["json"]
+
+
+def test_run_evaluate_aborts_on_invalid_modes(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "images").mkdir()
+    img_path = Path("images/A01.png")
+    _make_plain_png(img_path)
+    case = _minimal_case("A01", "images/A01.png", _sha256(img_path))
+    manifest_path = tmp_path / "manifest.jsonl"
+    _write_manifest(manifest_path, [case])
+
+    taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
+    backend = FakeBackend([])
+    output_dir = str(tmp_path / "results")
+
+    exit_code = evaluate.run_evaluate(
+        manifest_path=str(manifest_path),
+        taxonomy_path=taxonomy_path,
+        backend=backend,
+        modes=["choice", "choice"],  # 重複は直接呼び出しでも拒否する
+        max_edge=64,
+        warmup=0,
+        runtime_label=None,
+        note=None,
+        output_dir=output_dir,
+    )
+    assert exit_code == 1
+    assert backend.request_count == 0
+    assert not Path(output_dir).exists()
+
+
+def test_run_evaluate_records_warmup_details(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "images").mkdir()
+    img_path = Path("images/A01.png")
+    _make_plain_png(img_path)
+    case = _minimal_case("A01", "images/A01.png", _sha256(img_path))
+    manifest_path = tmp_path / "manifest.jsonl"
+    _write_manifest(manifest_path, [case])
+
+    # ウォームアップ2回(image_type軸への choose 呼び出し) + 本編1回(choice: image_type/art_style/
+    # subject + character ranking。none優勢だがfloor境界で両候補とも確認要、確認2回)= 計7リクエスト
+    responses = [
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # warmup 1
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # warmup 2
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # image_type
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # art_style
+        make_logprobs_response({"A": 0.8, "B": 0.05, "C": 0.05, "D": 0.05, "E": 0.03, "F": 0.02}),  # subject
+        make_logprobs_response({"C": 0.05, "D": 0.95}),  # character ranking
+        make_logprobs_response({"A": 0.1, "B": 0.9}),  # confirm alisa -> no
+        make_logprobs_response({"A": 0.1, "B": 0.9}),  # confirm second_original -> no
+    ]
+    backend = FakeBackend(responses)
+    taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
+    output_dir = str(tmp_path / "results")
+
+    exit_code = evaluate.run_evaluate(
+        manifest_path=str(manifest_path),
+        taxonomy_path=taxonomy_path,
+        backend=backend,
+        modes=["choice"],
+        max_edge=64,
+        warmup=2,
+        runtime_label=None,
+        note=None,
+        output_dir=output_dir,
+    )
+    assert exit_code == 0
+
+    run_data = json.loads((Path(output_dir) / "run.json").read_text(encoding="utf-8"))
+    warmup = run_data["warmup"]
+    assert warmup["count"] == 2
+    assert warmup["case_id"] == "A01"
+    assert warmup["axis_id"] == "image_type"
+    assert len(warmup["elapsed_ms"]) == 2
+    assert all(isinstance(v, (int, float)) for v in warmup["elapsed_ms"])
+    assert warmup["errors"] == 0

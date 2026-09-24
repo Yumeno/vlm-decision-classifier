@@ -80,12 +80,18 @@ def nearest_rank_percentile(values: list[float], pct: float) -> float:
 
 
 def score_single_axis(case: dict, result: dict, axis_id: str) -> tuple[str, str, bool]:
-    """単一軸1つの (expected, pred, ok) を返す。軸が失敗(欠落)していれば pred は空文字。"""
+    """単一軸1つの (expected, pred, ok) を返す。
+
+    軸が `vision_tags` に無い、または空(欠落・失敗)の場合は pred を空文字にし、
+    期待値が何であっても ok を明示的に False にする(character軸の失敗規則と同じ扱い)。
+    """
     tags = result.get("vision_tags") or {}
     axis_tags = tags.get(axis_id)
+    failed = not axis_tags
     pred = axis_tags[0] if axis_tags else ""
     expected = case["expected"][axis_id]
-    return expected, pred, pred == expected
+    ok = (not failed) and pred == expected
+    return expected, pred, ok
 
 
 def score_character(case: dict, result: dict) -> dict:
@@ -433,7 +439,10 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
         f"## シナリオ別(キャラ完全一致・全軸正解、元画像 N={n_source} 件。全ケース分母も併記)"
     )
     lines.append("")
-    scenarios = sorted({c.get("scenario", "") for c in source_cases})
+    # シナリオ一覧は元画像・派生を合わせた全評価ケースから作る(派生ケースだけにしか
+    # 現れないシナリオがあっても取りこぼさないため)。元画像側に件数が無いシナリオは
+    # 「元画像欄」を `-` にする(0/0 の割合表示にしない)。
+    scenarios = sorted({c.get("scenario", "") for c in evaluated_cases})
     for mode in modes:
         lines.append(f"### {mode}")
         lines.append("")
@@ -457,10 +466,17 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
                         count += 1
                 return count
 
-            char_exact_src = sum(1 for r in sc_recs_src if score_character(r["case"], r["result"])["exact_match"])
             char_exact_all = sum(1 for r in sc_recs_all if score_character(r["case"], r["result"])["exact_match"])
-            all_ok_src = _all_axes_ok_count(sc_recs_src)
             all_ok_all = _all_axes_ok_count(sc_recs_all)
+            if n_src == 0:
+                lines.append(
+                    f"| {scenario} | - ／ {n_all} | "
+                    f"元画像 - ／ 全ケース {_pct_str(char_exact_all, n_all)} | "
+                    f"元画像 - ／ 全ケース {_pct_str(all_ok_all, n_all)} |"
+                )
+                continue
+            char_exact_src = sum(1 for r in sc_recs_src if score_character(r["case"], r["result"])["exact_match"])
+            all_ok_src = _all_axes_ok_count(sc_recs_src)
             lines.append(
                 f"| {scenario} | {n_src} ／ {n_all} | "
                 f"{_dual_pct_str(char_exact_src, n_src, char_exact_all, n_all)} | "

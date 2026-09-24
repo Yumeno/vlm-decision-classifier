@@ -119,14 +119,23 @@ def cmd_check_manifest(args: argparse.Namespace) -> int:
     return 0
 
 
+def _modes_type(value: str) -> list[str]:
+    """--modes の argparse type。'choice,json' のようなCSVを検証済みのリストへ変換する。"""
+    modes = [m.strip() for m in value.split(",") if m.strip()]
+    try:
+        evaluate.validate_modes(modes)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(str(e))
+    return modes
+
+
 def cmd_evaluate(args: argparse.Namespace) -> int:
-    modes = [m.strip() for m in args.modes.split(",") if m.strip()]
     backend = ChatBackend(base_url=args.base_url, model=args.model)
     return evaluate.run_evaluate(
         manifest_path=args.manifest,
         taxonomy_path=args.taxonomy,
         backend=backend,
-        modes=modes,
+        modes=args.modes,
         max_edge=args.max_edge,
         warmup=args.warmup,
         runtime_label=args.runtime_label,
@@ -169,7 +178,12 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_parser.add_argument("--manifest", default="dataset/manifest.jsonl")
     evaluate_parser.add_argument("--model", required=True)
     evaluate_parser.add_argument("--base-url", default="http://127.0.0.1:1234/v1")
-    evaluate_parser.add_argument("--modes", default="choice,json")
+    evaluate_parser.add_argument(
+        "--modes",
+        default="choice,json",
+        type=_modes_type,
+        help="comma-separated, choice and/or json only, no duplicates (default: choice,json)",
+    )
     evaluate_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     evaluate_parser.add_argument("--max-edge", type=int, default=1024)
     evaluate_parser.add_argument("--warmup", type=int, default=1)

@@ -25,6 +25,20 @@ from .image import prepare_image
 from .pipeline import _git_commit
 from .taxonomy import load as load_taxonomy
 
+VALID_MODES = {"choice", "json"}  # ペア比較(report.build_summary)は choice vs json の2方式のみを前提とする
+
+
+def validate_modes(modes: list[str]) -> None:
+    """--modes の妥当性を検証する。不正なら ValueError を送出する。"""
+    if not modes:
+        raise ValueError("--modes must not be empty")
+    invalid = [m for m in modes if m not in VALID_MODES]
+    if invalid:
+        raise ValueError(f"invalid mode(s): {invalid} (choose from {sorted(VALID_MODES)})")
+    if len(modes) != len(set(modes)):
+        raise ValueError(f"duplicate modes are not allowed: {modes}")
+
+
 REQUIRED_CASE_FIELDS = [
     "case_id",
     "source_image_id",
@@ -204,13 +218,22 @@ def _classify_safe(image_path: str, taxonomy, backend, mode: str, max_edge: int)
 
 
 def _run_warmup(cases: list[dict], taxonomy, backend, warmup: int, max_edge: int) -> dict:
-    info = {"count": warmup, "elapsed_ms": 0.0, "errors": 0}
+    """先頭ケースの画像・先頭軸の選択式質問で `warmup` 回のウォームアップを送る。
+
+    使ったケースID・軸ID・試行回数・各試行のelapsed_msをそのまま記録する
+    (結果自体は破棄し、分類時間の計測には含めない)。
+    """
+    info: dict = {"count": warmup, "case_id": None, "axis_id": None, "elapsed_ms": [], "errors": 0}
     if warmup <= 0 or not cases:
         return info
 
+    case = cases[0]
     axis = taxonomy.axes[0]
+    info["case_id"] = case["case_id"]
+    info["axis_id"] = axis.id
+
     try:
-        image_bytes, mime, _, _ = prepare_image(cases[0]["image_path"], max_edge=max_edge)
+        image_bytes, mime, _, _ = prepare_image(case["image_path"], max_edge=max_edge)
     except Exception:
         info["errors"] += warmup
         return info
@@ -218,7 +241,7 @@ def _run_warmup(cases: list[dict], taxonomy, backend, warmup: int, max_edge: int
     for _ in range(warmup):
         try:
             result = decide_axis(backend, image_bytes, mime, axis)
-            info["elapsed_ms"] += result["elapsed_ms"]
+            info["elapsed_ms"].append(result["elapsed_ms"])
         except Exception:
             info["errors"] += 1
     return info
@@ -236,6 +259,12 @@ def run_evaluate(
     output_dir: str,
     runtime_info_path: str | None = None,
 ) -> int:
+    try:
+        validate_modes(modes)
+    except ValueError as e:
+        print(f"invalid --modes: {e}", file=sys.stderr)
+        return 1
+
     check = check_manifest(manifest_path)
     if check.errors:
         for e in check.errors:

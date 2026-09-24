@@ -148,7 +148,7 @@
 - `rights.terms`: 生成物の利用条件の根拠(ライセンス名と条項、外部サービスは規約名と確認日)。確認は作者が行う。
 - 除外・作り直しの履歴は manifest ではなく `dataset/generation/log.csv`(枠ID、attempt、seed、結果、理由)に残す。
 - 評価器は manifest にない画像を拾わない。`rights_confirmed` が true でないケースは公開用の結果に含めない。
-- データセット固定時に、使った taxonomy のバージョンと SHA256 を `dataset/DATASET_CARD.md` に記録する。評価の実行記録(`run.json`)はこの値と実際に使った taxonomy の SHA256 を両方残す。
+- データセット固定時に、データセット版・manifest の SHA256・taxonomy のバージョンと SHA256 を `dataset/DATASET_CARD.md` に記録する。評価の実行記録(`run.json`)は実際に使った manifest と taxonomy の SHA256 を記録し、DATASET_CARD の値と突き合わせて版を確認する。
 
 ## 5. 検収と版の固定
 
