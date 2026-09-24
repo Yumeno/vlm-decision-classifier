@@ -368,11 +368,11 @@ def run_evaluate(
         json.dump(run_info, f, ensure_ascii=False, indent=2)
 
     csv_rows = [
-        report.build_case_row(r["case"], r["mode"], r["order_index"], r["result"]) for r in records
+        report.build_case_row(r["case"], r["mode"], r["order_index"], r["result"], taxonomy) for r in records
     ]
-    report.write_cases_csv(os.path.join(output_dir, "cases.csv"), csv_rows)
+    report.write_cases_csv(os.path.join(output_dir, "cases.csv"), csv_rows, taxonomy)
 
-    summary_text = report.build_summary(evaluated_cases, records, modes)
+    summary_text = report.build_summary(evaluated_cases, records, modes, taxonomy)
     with open(os.path.join(output_dir, "summary.md"), "w", encoding="utf-8") as f:
         f.write(summary_text)
 

@@ -17,6 +17,77 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _write_test_taxonomy(tmp_path: Path) -> str:
+    """default.yaml から独立した、evaluate テスト専用の小さな taxonomy。
+
+    軸構成(単一選択3軸: image_type・art_style・subject + 複数選択2軸: outfit・character)を
+    固定し、FakeBackend の応答列(リクエスト順・件数)をテスト側で完全に制御できるようにする。
+    outfit は非catch_all候補を1つ(sailor_uniform)だけにしてあるので、ランキングの値に関わらず
+    常に「ランキング1回+確認1回」の2リクエストになる(候補フロアの境界に左右されない)。
+    character 軸は元の default.yaml と同じ構成(alisa の LoRA名・トリガーワードあり)。
+    """
+    content = """\
+version: "test-0.1"
+axes:
+  - id: image_type
+    question: "What kind of image is this?"
+    multi: false
+    allow_none: false
+    choices:
+      - {id: illustration, name: illustration, criteria: "illustration"}
+      - {id: comic, name: comic, criteria: "comic"}
+      - {id: ui, name: user interface, criteria: "ui"}
+      - {id: other, name: other, criteria: "other"}
+  - id: art_style
+    question: "What is the art style of this image?"
+    multi: false
+    allow_none: false
+    choices:
+      - {id: anime_2d, name: anime style, criteria: "anime"}
+      - {id: painterly_2d, name: painterly, criteria: "painterly"}
+      - {id: pixel_art, name: pixel art, criteria: "pixel"}
+      - {id: other, name: other, criteria: "other"}
+  - id: subject
+    question: "What is the main subject of this image?"
+    multi: false
+    allow_none: false
+    choices:
+      - {id: person, name: person, criteria: "person"}
+      - {id: landscape, name: landscape, criteria: "landscape"}
+      - {id: mecha_vehicle, name: mecha or vehicle, criteria: "mecha"}
+      - {id: object, name: object, criteria: "object"}
+      - {id: creature, name: creature, criteria: "creature"}
+      - {id: other, name: other, criteria: "other"}
+  - id: outfit
+    question: "What outfit is worn by the characters in this image?"
+    multi: true
+    allow_none: true
+    choices:
+      - {id: sailor_uniform, name: sailor uniform, criteria: "sailor uniform"}
+      - {id: other, name: other clothing, criteria: "other clothing", catch_all: true}
+  - id: character
+    question: "Which character appears in this image?"
+    multi: true
+    allow_none: true
+    choices:
+      - id: alisa
+        name: Alisa
+        criteria: "alisa"
+        lora_names: [fet-alisa-uniform-anima-v4u]
+        trigger_words: [fet_alisa_uniform]
+      - id: second_original
+        name: Second original character
+        criteria: "second"
+      - id: other_original
+        name: other character
+        criteria: "other"
+        catch_all: true
+"""
+    path = tmp_path / "test_taxonomy.yaml"
+    path.write_text(content, encoding="utf-8")
+    return str(path)
+
+
 def _make_plain_png(path: Path) -> None:
     Image.new("RGB", (16, 16), (10, 20, 30)).save(path)
 
@@ -40,7 +111,13 @@ def _minimal_case(case_id: str, image_path: str, image_sha256: str, **overrides)
         "image_sha256": image_sha256,
         "split": "test",
         "scenario": "general",
-        "expected": {"image_type": "illustration", "art_style": "anime_2d", "subject": "person", "character": []},
+        "expected": {
+            "image_type": "illustration",
+            "art_style": "anime_2d",
+            "subject": "person",
+            "outfit": [],
+            "character": [],
+        },
         "expected_metadata": {
             "format": "none",
             "loras": [],
@@ -194,7 +271,13 @@ def _build_synthetic_dataset(tmp_path: Path):
         "images/A01.png",
         _sha256(a01_path),
         scenario="alisa_lora",
-        expected={"image_type": "illustration", "art_style": "anime_2d", "subject": "person", "character": ["alisa"]},
+        expected={
+            "image_type": "illustration",
+            "art_style": "anime_2d",
+            "subject": "person",
+            "outfit": ["sailor_uniform"],
+            "character": ["alisa"],
+        },
         expected_metadata={
             "format": "a1111",
             "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": 0.8}],
@@ -210,7 +293,13 @@ def _build_synthetic_dataset(tmp_path: Path):
         derived_from="A01",
         source_image_id="A01",
         scenario="alisa_lora",
-        expected={"image_type": "illustration", "art_style": "anime_2d", "subject": "person", "character": ["alisa"]},
+        expected={
+            "image_type": "illustration",
+            "art_style": "anime_2d",
+            "subject": "person",
+            "outfit": ["sailor_uniform"],
+            "character": ["alisa"],
+        },
         expected_metadata={
             "format": "none",
             "loras": [],
@@ -228,6 +317,7 @@ def _build_synthetic_dataset(tmp_path: Path):
             "image_type": "illustration",
             "art_style": "anime_2d",
             "subject": "person",
+            "outfit": ["sailor_uniform"],
             "character": ["second_original"],
         },
     )
@@ -236,7 +326,13 @@ def _build_synthetic_dataset(tmp_path: Path):
         "images/G01.png",
         _sha256(g01_path),
         scenario="general",
-        expected={"image_type": "illustration", "art_style": "anime_2d", "subject": "landscape", "character": []},
+        expected={
+            "image_type": "illustration",
+            "art_style": "anime_2d",
+            "subject": "landscape",
+            "outfit": [],
+            "character": [],
+        },
     )
     br01 = _minimal_case("BR01", "images/BR01.png", _sha256(br01_path), scenario="general")
     br01["rights"] = {"terms": "test-license", "rights_confirmed": False}
@@ -247,7 +343,12 @@ def _build_synthetic_dataset(tmp_path: Path):
 
 
 def _build_response_queue(modes: list[str]) -> list:
-    """評価順(A01, A01-strip, S01, G01)・交互モード順に対応する応答列を組み立てる。"""
+    """評価順(A01, A01-strip, S01, G01)・交互モード順に対応する応答列を組み立てる。
+
+    choice モードの軸呼び出し順は taxonomy の並び: image_type, art_style, subject,
+    outfit, character。outfit は非catch_all候補が sailor_uniform 1つだけなので、
+    ランキングの値に関わらず常に「ランキング1回+確認1回」の2リクエストになる。
+    """
     alisa_ranking = make_logprobs_response({"A": 0.97, "B": 0.000001, "C": 0.01, "D": 0.02})
     alisa_confirm_yes = make_logprobs_response({"A": 0.95, "B": 0.05})
     second_ranking = make_logprobs_response({"B": 0.97, "C": 0.01, "D": 0.02})
@@ -260,30 +361,62 @@ def _build_response_queue(modes: list[str]) -> list:
     subj_person = make_logprobs_response({"A": 0.8, "B": 0.05, "C": 0.05, "D": 0.05, "E": 0.03, "F": 0.02})
     subj_landscape = make_logprobs_response({"A": 0.05, "B": 0.8, "C": 0.05, "D": 0.05, "E": 0.03, "F": 0.02})
 
+    # outfit: 候補は sailor_uniform 1つだけなので、ランキングの値によらず常に1候補になる。
+    outfit_ranking_worn = make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.05})
+    outfit_ranking_none = make_logprobs_response({"A": 0.03, "B": 0.02, "C": 0.95})
+    outfit_confirm_yes = make_logprobs_response({"A": 0.9, "B": 0.1})
+    outfit_confirm_no = make_logprobs_response({"A": 0.1, "B": 0.9})
+
     json_alisa = make_text_response(
-        json.dumps({"image_type": "illustration", "art_style": "anime_2d", "subject": "person", "character": ["alisa"]})
+        json.dumps(
+            {
+                "image_type": "illustration",
+                "art_style": "anime_2d",
+                "subject": "person",
+                "outfit": ["sailor_uniform"],
+                "character": ["alisa"],
+            }
+        )
     )
     json_second = make_text_response(
         json.dumps(
-            {"image_type": "illustration", "art_style": "anime_2d", "subject": "person", "character": ["second_original"]}
+            {
+                "image_type": "illustration",
+                "art_style": "anime_2d",
+                "subject": "person",
+                "outfit": ["sailor_uniform"],
+                "character": ["second_original"],
+            }
         )
     )
     json_bad = make_text_response("not valid json at all")
 
     responses_by_case_mode = {
-        ("A01", "choice"): [it_illustration, as_anime, subj_person, alisa_ranking, alisa_confirm_yes],
+        ("A01", "choice"): [
+            it_illustration, as_anime, subj_person,
+            outfit_ranking_worn, outfit_confirm_yes,
+            alisa_ranking, alisa_confirm_yes,
+        ],
         ("A01", "json"): [json_alisa],
-        ("A01-strip", "choice"): [it_illustration, as_anime, subj_person, alisa_ranking, alisa_confirm_yes],
+        ("A01-strip", "choice"): [
+            it_illustration, as_anime, subj_person,
+            outfit_ranking_worn, outfit_confirm_yes,
+            alisa_ranking, alisa_confirm_yes,
+        ],
         ("A01-strip", "json"): [json_alisa],
         ("S01", "choice"): [
             urllib.error.URLError("connection refused"),  # image_type axis を失敗させる
             as_anime,
             subj_person,
-            second_ranking,
-            second_confirm_yes,
+            outfit_ranking_worn, outfit_confirm_yes,
+            second_ranking, second_confirm_yes,
         ],
         ("S01", "json"): [json_second],
-        ("G01", "choice"): [it_illustration, as_anime, subj_landscape, none_ranking, confirm_no, confirm_no],
+        ("G01", "choice"): [
+            it_illustration, as_anime, subj_landscape,
+            outfit_ranking_none, outfit_confirm_no,
+            none_ranking, confirm_no, confirm_no,
+        ],
         ("G01", "json"): [json_bad, json_bad, json_bad],  # 形式不正が再試行込みで失敗し続ける
     }
 
@@ -306,7 +439,7 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     modes = ["choice", "json"]
     backend = FakeBackend(_build_response_queue(modes))
 
-    taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
+    taxonomy_path = _write_test_taxonomy(tmp_path)
     output_dir = str(tmp_path / "results")
 
     runtime_info_path = tmp_path / "runtime.json"
@@ -397,7 +530,9 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     # 他の軸は失敗の影響を受けず続行している
     assert s01_choice["ok_art_style"] == "True"
     assert s01_choice["pred_character"] == "second_original"
-    assert s01_choice["character_exact_match"] == "True"
+    assert s01_choice["exact_character"] == "True"
+    assert s01_choice["pred_outfit"] == "sailor_uniform"
+    assert s01_choice["exact_outfit"] == "True"
 
     # A01 vs A01-strip: 画像判定は同じでもメタデータ検出は異なる
     a01_choice = by_case_mode[("A01", "choice")]
@@ -415,12 +550,18 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     g01_choice = by_case_mode[("G01", "choice")]
     assert g01_choice["expected_character"] == ""
     assert g01_choice["pred_character"] == ""
-    assert g01_choice["character_exact_match"] == "True"
-    assert g01_choice["char_axis_failed"] == "False"
+    assert g01_choice["exact_character"] == "True"
+    assert g01_choice["character_axis_failed"] == "False"
+    assert g01_choice["expected_outfit"] == ""
+    assert g01_choice["pred_outfit"] == ""
+    assert g01_choice["exact_outfit"] == "True"
+    assert g01_choice["outfit_axis_failed"] == "False"
 
     g01_json = by_case_mode[("G01", "json")]
-    assert g01_json["char_axis_failed"] == "True"
-    assert g01_json["character_exact_match"] == "False"
+    assert g01_json["character_axis_failed"] == "True"
+    assert g01_json["exact_character"] == "False"
+    assert g01_json["outfit_axis_failed"] == "True"
+    assert g01_json["exact_outfit"] == "False"
     assert g01_json["json_attempts"] == "3"
 
     # --- summary.md ---
@@ -429,10 +570,10 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     assert "N=4" in summary_text  # 全体件数(元画像3件+派生1件)
     assert "点推定を強い結論として扱わないこと" in summary_text
 
-    # 画像判定の集計(単一軸・キャラクター・シナリオ別・Latency・ペア比較)は
+    # 画像判定の集計(単一軸・複数選択軸・シナリオ別・Latency・ペア比較)は
     # 元画像3件(A01-stripを除く)だけを分母にする
     assert "元画像 N=3 件" in summary_text
-    assert summary_text.count("元画像 N=3 件") >= 4  # 単一軸/キャラクター/シナリオ別/Latency の各見出し
+    assert summary_text.count("元画像 N=3 件") >= 5  # 単一軸/outfit/character/シナリオ別/Latency の各見出し
 
     # メタデータは全4ケース(派生を含む)を分母にする
     assert "集計元モード: choice、元画像・派生を含む全ケース" in summary_text
@@ -445,15 +586,19 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     assert "| A01-strip | A01 | json | alisa | alisa | 一致 | 正 | 正 | 一致 |" in summary_text
 
     # 画像判定の主集計(元画像分母)には全ケース分母の参考値も併記する
-    assert "／ 全ケース" in summary_text  # 単一軸・キャラクター完全一致・シナリオ別のセル併記
-    assert "TP(元)" in summary_text and "TP(全)" in summary_text  # キャラ別TP/FP/FNは列を2つにする
+    assert "／ 全ケース" in summary_text  # 単一軸・完全一致率・シナリオ別のセル併記
+    assert "TP(元)" in summary_text and "TP(全)" in summary_text  # 候補別TP/FP/FNは列を2つにする
     assert "- 元画像:" in summary_text and "- 全ケース:" in summary_text  # Latency
     assert "### 元画像(choice vs json" in summary_text
     assert "### 全ケース(choice vs json" in summary_text
 
+    # 複数選択軸(outfit・character)ごとにセクションが出る(taxonomy由来で汎用化されている)
+    assert "## outfit(集合" in summary_text
+    assert "## character(集合" in summary_text
+
     # macro Precision/Recall/F1(micro の隣、TP/FP/FN列は対象外)
     assert "| macro | - | - | - | - | - | - |" in summary_text
-    assert "macro はキャラ別値" in summary_text
+    assert "macro は候補別値" in summary_text
 
     # artificial は採点対象外である旨の注記
     assert "`artificial` は画像から検出できない記録上の事実なので採点対象外" in summary_text
@@ -468,18 +613,21 @@ def test_run_evaluate_without_runtime_info_records_null(tmp_path, monkeypatch):
     manifest_path = tmp_path / "manifest.jsonl"
     _write_manifest(manifest_path, [case])
 
-    # choice: image_type/art_style/subject + character ranking(none優勢だがfloor境界で
-    # alisa/second_originalの両方が候補になり、それぞれ確認(no)が入る) = 6リクエスト
+    # choice: image_type/art_style/subject + outfit(ランキング+確認1回、候補1つのみ) +
+    # character ranking(none優勢だがfloor境界でalisa/second_originalの両方が候補になり、
+    # それぞれ確認(no)が入る) = 3 + 2 + 1 + 2 = 8リクエスト
     responses = [
         make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),
         make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),
         make_logprobs_response({"A": 0.8, "B": 0.05, "C": 0.05, "D": 0.05, "E": 0.03, "F": 0.02}),
+        make_logprobs_response({"A": 0.03, "B": 0.02, "C": 0.95}),  # outfit ranking(noneを優勢に)
+        make_logprobs_response({"A": 0.1, "B": 0.9}),  # outfit confirm -> no
         make_logprobs_response({"C": 0.05, "D": 0.95}),
         make_logprobs_response({"A": 0.1, "B": 0.9}),
         make_logprobs_response({"A": 0.1, "B": 0.9}),
     ]
     backend = FakeBackend(responses)
-    taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
+    taxonomy_path = _write_test_taxonomy(tmp_path)
     output_dir = str(tmp_path / "results")
 
     exit_code = evaluate.run_evaluate(
@@ -510,7 +658,7 @@ def test_run_evaluate_aborts_before_any_request_on_bad_runtime_info(tmp_path, mo
     manifest_path = tmp_path / "manifest.jsonl"
     _write_manifest(manifest_path, [case])
 
-    taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
+    taxonomy_path = _write_test_taxonomy(tmp_path)
 
     # 存在しないruntime-infoファイル -> チェックにも評価にも進まない
     backend = FakeBackend([])
@@ -582,7 +730,7 @@ def test_run_evaluate_aborts_on_invalid_modes(tmp_path, monkeypatch):
     manifest_path = tmp_path / "manifest.jsonl"
     _write_manifest(manifest_path, [case])
 
-    taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
+    taxonomy_path = _write_test_taxonomy(tmp_path)
     backend = FakeBackend([])
     output_dir = str(tmp_path / "results")
 
@@ -612,19 +760,22 @@ def test_run_evaluate_records_warmup_details(tmp_path, monkeypatch):
     _write_manifest(manifest_path, [case])
 
     # ウォームアップ2回(image_type軸への choose 呼び出し) + 本編1回(choice: image_type/art_style/
-    # subject + character ranking。none優勢だがfloor境界で両候補とも確認要、確認2回)= 計7リクエスト
+    # subject + outfit(ランキング+確認1回) + character ranking。none優勢だがfloor境界で両候補とも
+    # 確認要、確認2回)= 2 + 3 + 2 + 1 + 2 = 10リクエスト
     responses = [
         make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # warmup 1
         make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # warmup 2
         make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # image_type
         make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # art_style
         make_logprobs_response({"A": 0.8, "B": 0.05, "C": 0.05, "D": 0.05, "E": 0.03, "F": 0.02}),  # subject
+        make_logprobs_response({"A": 0.03, "B": 0.02, "C": 0.95}),  # outfit ranking
+        make_logprobs_response({"A": 0.1, "B": 0.9}),  # outfit confirm -> no
         make_logprobs_response({"C": 0.05, "D": 0.95}),  # character ranking
         make_logprobs_response({"A": 0.1, "B": 0.9}),  # confirm alisa -> no
         make_logprobs_response({"A": 0.1, "B": 0.9}),  # confirm second_original -> no
     ]
     backend = FakeBackend(responses)
-    taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
+    taxonomy_path = _write_test_taxonomy(tmp_path)
     output_dir = str(tmp_path / "results")
 
     exit_code = evaluate.run_evaluate(
@@ -668,7 +819,7 @@ def test_run_evaluate_excludes_derived_case_when_source_excluded(tmp_path, monke
     _write_manifest(manifest_path, [origin, strip])
 
     backend = FakeBackend([])
-    taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
+    taxonomy_path = _write_test_taxonomy(tmp_path)
     output_dir = str(tmp_path / "results")
 
     exit_code = evaluate.run_evaluate(
