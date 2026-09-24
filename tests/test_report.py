@@ -228,6 +228,77 @@ def test_format_loras():
     )
 
 
+def test_score_metadata_loras_duplicate_counts_are_preserved():
+    # 同じLoRA指定が2回記録されているケース。set化すると1件に潰れて誤って一致してしまうため、
+    # 多重集合(Counter)で比較し、件数のずれを不一致として検出する。
+    case = _case()
+    case["expected_metadata"] = {
+        "format": "a1111",
+        "loras": [
+            {"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0},
+            {"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0},
+        ],
+        "trigger_words": [],
+        "characters": [],
+        "artificial": False,
+    }
+
+    result_missing_dup = {
+        "metadata_evidence": {
+            "format": "a1111",
+            "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0, "source": "a1111"}],
+            "prompt_tags": [],
+            "matches": [],
+        }
+    }
+    assert report.score_metadata(case, result_missing_dup)["loras_ok"] is False
+
+    result_matching_dup = {
+        "metadata_evidence": {
+            "format": "a1111",
+            "loras": [
+                {"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0, "source": "a1111"},
+                {"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0, "source": "a1111"},
+            ],
+            "prompt_tags": [],
+            "matches": [],
+        }
+    }
+    assert report.score_metadata(case, result_matching_dup)["loras_ok"] is True
+
+
+def test_pred_label_shows_failed_distinctly_from_genuine_empty():
+    ok_empty = report.score_character(_case(expected_character=[]), {"vision_tags": {"character": []}})
+    assert report._pred_label(ok_empty) == "(空)"
+
+    failed = report.score_character(_case(expected_character=[]), {"vision_tags": {}})
+    assert report._pred_label(failed) == "FAILED"
+
+    has_chars = report.score_character(_case(expected_character=["alisa"]), {"vision_tags": {"character": ["alisa"]}})
+    assert report._pred_label(has_chars) == "alisa"
+
+
+def test_same_pred_label_distinguishes_both_failed_from_genuine_match():
+    ok_empty_1 = report.score_character(_case(expected_character=[]), {"vision_tags": {"character": []}})
+    ok_empty_2 = report.score_character(_case(expected_character=[]), {"vision_tags": {"character": []}})
+    assert report._same_pred_label(ok_empty_1, ok_empty_2) == "一致"
+
+    failed_1 = report.score_character(_case(expected_character=[]), {"vision_tags": {}})
+    failed_2 = report.score_character(_case(expected_character=[]), {"vision_tags": {}})
+    # 両方失敗している場合、予測集合は偶然どちらも空集合になるが、
+    # 本物の一致とは区別して「同一(失敗)」と表示する。
+    assert report._same_pred_label(failed_1, failed_2) == "同一(失敗)"
+
+    # 片方だけ失敗している場合は不一致扱い
+    assert report._same_pred_label(ok_empty_1, failed_1) == "不一致"
+
+    has_alisa = report.score_character(_case(expected_character=["alisa"]), {"vision_tags": {"character": ["alisa"]}})
+    has_second = report.score_character(
+        _case(expected_character=["second_original"]), {"vision_tags": {"character": ["second_original"]}}
+    )
+    assert report._same_pred_label(has_alisa, has_second) == "不一致"
+
+
 def test_score_metadata_failed_evidence_forces_wrong_even_if_expected_matches_by_accident():
     case = _case(expected_character=[])
     case["expected_metadata"] = {

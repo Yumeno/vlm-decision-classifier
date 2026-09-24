@@ -321,6 +321,9 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     assert run_data["case_counts"]["evaluated"] == 4
     assert run_data["case_counts"]["excluded"] == 1
     assert run_data["excluded_cases"] == [{"case_id": "BR01", "reason": "rights_not_confirmed"}]
+    # manifest全体(BR01含む)と実際に評価したケース(BR01除く)のシナリオ別件数を分けて記録する
+    assert run_data["case_counts"]["manifest_by_scenario"] == {"alisa_lora": 2, "similar": 1, "general": 2}
+    assert run_data["case_counts"]["evaluated_by_scenario"] == {"alisa_lora": 2, "similar": 1, "general": 1}
     assert run_data["modes"] == modes
     assert run_data["runtime_label"] == "test-runtime"
     assert run_data["note"] == "test note"
@@ -419,6 +422,13 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     assert "| A01-strip | A01 | choice | alisa | alisa | 一致 | 正 | 正 | 一致 |" in summary_text
     assert "| A01-strip | A01 | json | alisa | alisa | 一致 | 正 | 正 | 一致 |" in summary_text
 
+    # 画像判定の主集計(元画像分母)には全ケース分母の参考値も併記する
+    assert "／ 全ケース" in summary_text  # 単一軸・キャラクター完全一致・シナリオ別のセル併記
+    assert "TP(元)" in summary_text and "TP(全)" in summary_text  # キャラ別TP/FP/FNは列を2つにする
+    assert "- 元画像:" in summary_text and "- 全ケース:" in summary_text  # Latency
+    assert "### 元画像(choice vs json" in summary_text
+    assert "### 全ケース(choice vs json" in summary_text
+
 
 def test_run_evaluate_without_runtime_info_records_null(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
@@ -459,3 +469,54 @@ def test_run_evaluate_without_runtime_info_records_null(tmp_path, monkeypatch):
     run_data = json.loads((Path(output_dir) / "run.json").read_text(encoding="utf-8"))
     assert run_data["runtime_info"] is None
     assert run_data["runtime_info_file"] is None
+
+
+def test_run_evaluate_aborts_before_any_request_on_bad_runtime_info(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "images").mkdir()
+    img_path = Path("images/A01.png")
+    _make_plain_png(img_path)
+    case = _minimal_case("A01", "images/A01.png", _sha256(img_path))
+    manifest_path = tmp_path / "manifest.jsonl"
+    _write_manifest(manifest_path, [case])
+
+    taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
+
+    # 存在しないruntime-infoファイル -> チェックにも評価にも進まない
+    backend = FakeBackend([])
+    output_dir_missing = str(tmp_path / "results-missing")
+    exit_code = evaluate.run_evaluate(
+        manifest_path=str(manifest_path),
+        taxonomy_path=taxonomy_path,
+        backend=backend,
+        modes=["choice"],
+        max_edge=64,
+        warmup=1,  # warmupより前にruntime-infoを読むことを確認するため意図的に1にする
+        runtime_label=None,
+        note=None,
+        output_dir=output_dir_missing,
+        runtime_info_path=str(tmp_path / "does_not_exist.json"),
+    )
+    assert exit_code == 1
+    assert backend.request_count == 0  # warmupすら始まっていない
+    assert not Path(output_dir_missing).exists()
+
+    # 壊れたJSON -> 同様に評価を始めない
+    bad_json_path = tmp_path / "bad.json"
+    bad_json_path.write_text("{not valid json", encoding="utf-8")
+    output_dir_bad = str(tmp_path / "results-bad")
+    exit_code2 = evaluate.run_evaluate(
+        manifest_path=str(manifest_path),
+        taxonomy_path=taxonomy_path,
+        backend=backend,
+        modes=["choice"],
+        max_edge=64,
+        warmup=1,
+        runtime_label=None,
+        note=None,
+        output_dir=output_dir_bad,
+        runtime_info_path=str(bad_json_path),
+    )
+    assert exit_code2 == 1
+    assert backend.request_count == 0
+    assert not Path(output_dir_bad).exists()

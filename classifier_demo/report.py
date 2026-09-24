@@ -10,6 +10,7 @@ import csv
 import math
 import re
 import statistics
+from collections import Counter
 
 _WS_RE = re.compile(r"\s+")
 
@@ -113,8 +114,9 @@ def _normalize_lora_name(name: str) -> str:
     return _WS_RE.sub(" ", name.strip().lower())
 
 
-def _lora_set(loras: list[dict]) -> set[tuple[str, float | None]]:
-    return {(_normalize_lora_name(l["name"]), l.get("weight")) for l in loras}
+def _lora_multiset(loras: list[dict]) -> Counter:
+    """正規化名+weightの組を多重集合として数える(重複LoRA指定を潰さないため`set`にしない)。"""
+    return Counter((_normalize_lora_name(l["name"]), l.get("weight")) for l in loras)
 
 
 def format_loras(loras: list[dict]) -> str:
@@ -150,7 +152,7 @@ def score_metadata(case: dict, result: dict) -> dict:
         "chars_ok": (not failed) and detected_chars == expected_chars,
         "expected_loras": expected_loras,
         "detected_loras": detected_loras,
-        "loras_ok": (not failed) and _lora_set(detected_loras) == _lora_set(expected_loras),
+        "loras_ok": (not failed) and _lora_multiset(detected_loras) == _lora_multiset(expected_loras),
         "expected_triggers": expected_triggers,
         "detected_triggers": detected_triggers,
         "triggers_ok": (not failed) and detected_triggers == expected_triggers,
@@ -234,8 +236,108 @@ def _pct_str(numerator: int, denominator: int) -> str:
     return f"{numerator / denominator:.1%} ({numerator}/{denominator})"
 
 
+def _dual_pct_str(numerator_src: int, denominator_src: int, numerator_all: int, denominator_all: int) -> str:
+    """画像判定の主集計(元画像分母)と、水増し確認用の参考値(全ケース分母)を並記する。"""
+    return f"元画像 {_pct_str(numerator_src, denominator_src)} ／ 全ケース {_pct_str(numerator_all, denominator_all)}"
+
+
 def _is_success(result: dict) -> bool:
     return not (result.get("errors") or [])
+
+
+def _char_stats(scores: list[dict]) -> dict[str, dict]:
+    """キャラごとの tp/fp/fn/precision/recall/f1 と micro集計を返す。"""
+    stats: dict[str, dict] = {}
+    micro_tp = micro_fp = micro_fn = 0
+    for ch in CHARACTERS:
+        tp = sum(1 for s in scores if ch in s["tp"])
+        fp = sum(1 for s in scores if ch in s["fp"])
+        fn = sum(1 for s in scores if ch in s["fn"])
+        micro_tp += tp
+        micro_fp += fp
+        micro_fn += fn
+        precision = tp / (tp + fp) if (tp + fp) else 0.0
+        recall = tp / (tp + fn) if (tp + fn) else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+        stats[ch] = {"tp": tp, "fp": fp, "fn": fn, "precision": precision, "recall": recall, "f1": f1}
+    mp = micro_tp / (micro_tp + micro_fp) if (micro_tp + micro_fp) else 0.0
+    mr = micro_tp / (micro_tp + micro_fn) if (micro_tp + micro_fn) else 0.0
+    mf1 = 2 * mp * mr / (mp + mr) if (mp + mr) else 0.0
+    stats["micro"] = {"tp": micro_tp, "fp": micro_fp, "fn": micro_fn, "precision": mp, "recall": mr, "f1": mf1}
+    return stats
+
+
+def _pred_label(char_score: dict) -> str:
+    if char_score["failed"]:
+        return "FAILED"
+    predicted = char_score["predicted"]
+    return ";".join(sorted(predicted)) if predicted else "(空)"
+
+
+def _same_pred_label(o_char: dict, d_char: dict) -> str:
+    """予測が同じかどうかのラベル。両方失敗している場合は偶然の一致と区別する。"""
+    if o_char["failed"] and d_char["failed"]:
+        return "同一(失敗)"
+    if o_char["failed"] != d_char["failed"]:
+        return "不一致"
+    return "一致" if o_char["predicted"] == d_char["predicted"] else "不一致"
+
+
+def _latency_block(recs: list[dict], mode: str) -> list[str]:
+    lines: list[str] = []
+    all_ms = [
+        r["result"]["timing_ms"]["classification_wall_ms"]
+        for r in recs
+        if (r["result"].get("timing_ms") or {}).get("classification_wall_ms") is not None
+    ]
+    success_ms = [
+        r["result"]["timing_ms"]["classification_wall_ms"]
+        for r in recs
+        if _is_success(r["result"]) and (r["result"].get("timing_ms") or {}).get("classification_wall_ms") is not None
+    ]
+    if all_ms:
+        lines.append(
+            f"  - 全件(N={len(all_ms)}): mean={statistics.mean(all_ms):.1f}ms "
+            f"p50={nearest_rank_percentile(all_ms, 50):.1f}ms p90={nearest_rank_percentile(all_ms, 90):.1f}ms"
+        )
+    else:
+        lines.append("  - 全件: N=0")
+    if success_ms:
+        lines.append(
+            f"  - 成功のみ(N={len(success_ms)}): mean={statistics.mean(success_ms):.1f}ms "
+            f"p50={nearest_rank_percentile(success_ms, 50):.1f}ms p90={nearest_rank_percentile(success_ms, 90):.1f}ms"
+        )
+    req_counts = [r["result"].get("request_count", 0) for r in recs if r["result"].get("request_count") is not None]
+    if req_counts:
+        lines.append(f"  - 平均リクエスト数: {statistics.mean(req_counts):.2f}")
+    if mode == "json" and recs:
+        fmt_errors = sum(1 for r in recs if (r["result"].get("json_baseline") or {}).get("tags") is None)
+        attempts = [len((r["result"].get("json_baseline") or {}).get("attempts") or []) for r in recs]
+        lines.append(f"  - 形式不正率: {_pct_str(fmt_errors, len(recs))}")
+        if attempts:
+            lines.append(f"  - 平均試行回数: {statistics.mean(attempts):.2f}")
+    return lines
+
+
+def _pair_compare(base_by_case: dict[str, dict], other_by_case: dict[str, dict]) -> tuple[int, int, int, int, int]:
+    common_ids = sorted(set(base_by_case) & set(other_by_case))
+    char_base_wins = char_other_wins = 0
+    all_base_wins = all_other_wins = 0
+    for cid in common_ids:
+        rb, ro = base_by_case[cid], other_by_case[cid]
+        cb = score_character(rb["case"], rb["result"])["exact_match"]
+        co = score_character(ro["case"], ro["result"])["exact_match"]
+        if cb and not co:
+            char_base_wins += 1
+        elif co and not cb:
+            char_other_wins += 1
+        ab = cb and all(score_single_axis(rb["case"], rb["result"], a)[2] for a in SINGLE_AXES)
+        ao = co and all(score_single_axis(ro["case"], ro["result"], a)[2] for a in SINGLE_AXES)
+        if ab and not ao:
+            all_base_wins += 1
+        elif ao and not ab:
+            all_other_wins += 1
+    return char_base_wins, char_other_wins, all_base_wins, all_other_wins, len(common_ids)
 
 
 def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[str]) -> str:
@@ -269,84 +371,101 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
     )
     lines.append("")
 
-    lines.append(f"## 単一軸の正答率(元画像 N={n_source} 件)")
+    lines.append(f"## 単一軸の正答率(元画像 N={n_source} 件。全ケース分母も併記)")
     lines.append("")
     lines.append("| 軸 | " + " | ".join(modes) + " |")
     lines.append("|---|" + "---|" * len(modes))
     for axis_id in SINGLE_AXES:
         cells = []
         for mode in modes:
-            recs = by_mode_source[mode]
-            n = len(recs)
-            correct = sum(1 for r in recs if score_single_axis(r["case"], r["result"], axis_id)[2])
-            cells.append(_pct_str(correct, n))
+            recs_src = by_mode_source[mode]
+            recs_all = by_mode_all[mode]
+            correct_src = sum(1 for r in recs_src if score_single_axis(r["case"], r["result"], axis_id)[2])
+            correct_all = sum(1 for r in recs_all if score_single_axis(r["case"], r["result"], axis_id)[2])
+            cells.append(_dual_pct_str(correct_src, len(recs_src), correct_all, len(recs_all)))
         lines.append(f"| {axis_id} | " + " | ".join(cells) + " |")
     lines.append("")
 
-    lines.append(f"## キャラクター(元画像 N={n_source} 件)")
+    lines.append(f"## キャラクター(元画像 N={n_source} 件。全ケース分母も併記)")
     lines.append("")
     lines.append("### 完全一致率(集合の完全一致。空集合どうしは一致)")
     lines.append("")
-    char_scores_by_mode = {
+    char_scores_by_mode_source = {
         mode: [score_character(r["case"], r["result"]) for r in by_mode_source[mode]] for mode in modes
+    }
+    char_scores_by_mode_all = {
+        mode: [score_character(r["case"], r["result"]) for r in by_mode_all[mode]] for mode in modes
     }
     lines.append("| " + " | ".join(modes) + " |")
     lines.append("|" + "---|" * len(modes))
     cells = []
     for mode in modes:
-        scores = char_scores_by_mode[mode]
-        exact = sum(1 for s in scores if s["exact_match"])
-        cells.append(_pct_str(exact, len(scores)))
+        scores_src = char_scores_by_mode_source[mode]
+        scores_all = char_scores_by_mode_all[mode]
+        exact_src = sum(1 for s in scores_src if s["exact_match"])
+        exact_all = sum(1 for s in scores_all if s["exact_match"])
+        cells.append(_dual_pct_str(exact_src, len(scores_src), exact_all, len(scores_all)))
     lines.append("| " + " | ".join(cells) + " |")
     lines.append("")
 
-    lines.append("### キャラ別 TP/FP/FN・Precision/Recall/F1")
+    lines.append("### キャラ別 TP/FP/FN・Precision/Recall/F1(各列は 元画像 / 全ケース)")
     lines.append("")
     for mode in modes:
         lines.append(f"#### {mode}")
         lines.append("")
-        lines.append("| キャラ | TP | FP | FN | Precision | Recall | F1 |")
-        lines.append("|---|---|---|---|---|---|---|")
-        scores = char_scores_by_mode[mode]
-        micro_tp = micro_fp = micro_fn = 0
-        for ch in CHARACTERS:
-            tp = sum(1 for s in scores if ch in s["tp"])
-            fp = sum(1 for s in scores if ch in s["fp"])
-            fn = sum(1 for s in scores if ch in s["fn"])
-            micro_tp += tp
-            micro_fp += fp
-            micro_fn += fn
-            precision = tp / (tp + fp) if (tp + fp) else 0.0
-            recall = tp / (tp + fn) if (tp + fn) else 0.0
-            f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
-            lines.append(f"| {ch} | {tp} | {fp} | {fn} | {precision:.2f} | {recall:.2f} | {f1:.2f} |")
-        mp = micro_tp / (micro_tp + micro_fp) if (micro_tp + micro_fp) else 0.0
-        mr = micro_tp / (micro_tp + micro_fn) if (micro_tp + micro_fn) else 0.0
-        mf1 = 2 * mp * mr / (mp + mr) if (mp + mr) else 0.0
-        lines.append(f"| micro | {micro_tp} | {micro_fp} | {micro_fn} | {mp:.2f} | {mr:.2f} | {mf1:.2f} |")
+        lines.append(
+            "| キャラ | TP(元) | TP(全) | FP(元) | FP(全) | FN(元) | FN(全) | "
+            "Precision(元) | Precision(全) | Recall(元) | Recall(全) | F1(元) | F1(全) |"
+        )
+        lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        stats_src = _char_stats(char_scores_by_mode_source[mode])
+        stats_all = _char_stats(char_scores_by_mode_all[mode])
+        for ch in CHARACTERS + ["micro"]:
+            s, a = stats_src[ch], stats_all[ch]
+            lines.append(
+                f"| {ch} | {s['tp']} | {a['tp']} | {s['fp']} | {a['fp']} | {s['fn']} | {a['fn']} | "
+                f"{s['precision']:.2f} | {a['precision']:.2f} | {s['recall']:.2f} | {a['recall']:.2f} | "
+                f"{s['f1']:.2f} | {a['f1']:.2f} |"
+            )
         lines.append("")
 
-    lines.append(f"## シナリオ別(キャラ完全一致・全軸正解、元画像 N={n_source} 件)")
+    lines.append(
+        f"## シナリオ別(キャラ完全一致・全軸正解、元画像 N={n_source} 件。全ケース分母も併記)"
+    )
     lines.append("")
     scenarios = sorted({c.get("scenario", "") for c in source_cases})
     for mode in modes:
         lines.append(f"### {mode}")
         lines.append("")
-        lines.append("| シナリオ | N | キャラ完全一致 | 全軸正解 |")
+        lines.append("| シナリオ | N(元画像/全ケース) | キャラ完全一致 | 全軸正解 |")
         lines.append("|---|---|---|---|")
-        recs = by_mode_source[mode]
+        recs_src = by_mode_source[mode]
+        recs_all = by_mode_all[mode]
         for scenario in scenarios:
-            sc_recs = [r for r in recs if r["case"].get("scenario", "") == scenario]
-            n = len(sc_recs)
-            if n == 0:
+            sc_recs_src = [r for r in recs_src if r["case"].get("scenario", "") == scenario]
+            sc_recs_all = [r for r in recs_all if r["case"].get("scenario", "") == scenario]
+            n_src = len(sc_recs_src)
+            n_all = len(sc_recs_all)
+            if n_src == 0 and n_all == 0:
                 continue
-            char_exact = sum(1 for r in sc_recs if score_character(r["case"], r["result"])["exact_match"])
-            all_ok = 0
-            for r in sc_recs:
-                axes_ok = all(score_single_axis(r["case"], r["result"], a)[2] for a in SINGLE_AXES)
-                if axes_ok and score_character(r["case"], r["result"])["exact_match"]:
-                    all_ok += 1
-            lines.append(f"| {scenario} | {n} | {_pct_str(char_exact, n)} | {_pct_str(all_ok, n)} |")
+
+            def _all_axes_ok_count(recs: list[dict]) -> int:
+                count = 0
+                for r in recs:
+                    axes_ok = all(score_single_axis(r["case"], r["result"], a)[2] for a in SINGLE_AXES)
+                    if axes_ok and score_character(r["case"], r["result"])["exact_match"]:
+                        count += 1
+                return count
+
+            char_exact_src = sum(1 for r in sc_recs_src if score_character(r["case"], r["result"])["exact_match"])
+            char_exact_all = sum(1 for r in sc_recs_all if score_character(r["case"], r["result"])["exact_match"])
+            all_ok_src = _all_axes_ok_count(sc_recs_src)
+            all_ok_all = _all_axes_ok_count(sc_recs_all)
+            lines.append(
+                f"| {scenario} | {n_src} ／ {n_all} | "
+                f"{_dual_pct_str(char_exact_src, n_src, char_exact_all, n_all)} | "
+                f"{_dual_pct_str(all_ok_src, n_src, all_ok_all, n_all)} |"
+            )
         lines.append("")
 
     lines.append("## メタデータ(全ケース、モード非依存)")
@@ -375,7 +494,9 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
     )
     lines.append("")
     if derived_cases:
-        lines.append("| 派生ケース | 元ケース | mode | 元predicted | 派生predicted | 予測同一 | 元正誤 | 派生正誤 | 正誤同一 |")
+        lines.append(
+            "| 派生ケース | 元ケース | mode | 元predicted | 派生predicted | 予測同一 | 元正誤 | 派生正誤 | 正誤同一 |"
+        )
         lines.append("|---|---|---|---|---|---|---|---|---|")
         records_by_case_mode = {(r["case"]["case_id"], r["mode"]): r for r in records}
         for d in derived_cases:
@@ -386,13 +507,10 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
                     continue
                 d_char = score_character(d, d_rec["result"])
                 o_char = score_character(origin_rec["case"], origin_rec["result"])
-                same_pred = d_char["predicted"] == o_char["predicted"]
                 same_correct = d_char["exact_match"] == o_char["exact_match"]
-                o_pred_str = ";".join(sorted(o_char["predicted"])) or "(空)"
-                d_pred_str = ";".join(sorted(d_char["predicted"])) or "(空)"
                 lines.append(
-                    f"| {d['case_id']} | {d['derived_from']} | {mode} | {o_pred_str} | {d_pred_str} | "
-                    f"{'一致' if same_pred else '不一致'} | "
+                    f"| {d['case_id']} | {d['derived_from']} | {mode} | "
+                    f"{_pred_label(o_char)} | {_pred_label(d_char)} | {_same_pred_label(o_char, d_char)} | "
                     f"{'正' if o_char['exact_match'] else '誤'} | {'正' if d_char['exact_match'] else '誤'} | "
                     f"{'一致' if same_correct else '不一致'} |"
                 )
@@ -400,41 +518,15 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
         lines.append("派生ケースなし。")
     lines.append("")
 
-    lines.append(f"## Latency(元画像 N={n_source} 件)")
+    lines.append(f"## Latency(元画像 N={n_source} 件。全ケース分母(N={len(evaluated_cases)} 件)も併記)")
     lines.append("")
     for mode in modes:
-        recs = by_mode_source[mode]
         lines.append(f"### {mode}")
         lines.append("")
-        all_ms = [
-            r["result"]["timing_ms"]["classification_wall_ms"]
-            for r in recs
-            if (r["result"].get("timing_ms") or {}).get("classification_wall_ms") is not None
-        ]
-        success_ms = [
-            r["result"]["timing_ms"]["classification_wall_ms"]
-            for r in recs
-            if _is_success(r["result"]) and (r["result"].get("timing_ms") or {}).get("classification_wall_ms") is not None
-        ]
-        if all_ms:
-            lines.append(
-                f"- 全件(N={len(all_ms)}): mean={statistics.mean(all_ms):.1f}ms "
-                f"p50={nearest_rank_percentile(all_ms, 50):.1f}ms p90={nearest_rank_percentile(all_ms, 90):.1f}ms"
-            )
-        if success_ms:
-            lines.append(
-                f"- 成功のみ(N={len(success_ms)}): mean={statistics.mean(success_ms):.1f}ms "
-                f"p50={nearest_rank_percentile(success_ms, 50):.1f}ms p90={nearest_rank_percentile(success_ms, 90):.1f}ms"
-            )
-        req_counts = [r["result"].get("request_count", 0) for r in recs if r["result"].get("request_count") is not None]
-        if req_counts:
-            lines.append(f"- 平均リクエスト数: {statistics.mean(req_counts):.2f}")
-        if mode == "json" and recs:
-            fmt_errors = sum(1 for r in recs if (r["result"].get("json_baseline") or {}).get("tags") is None)
-            attempts = [len((r["result"].get("json_baseline") or {}).get("attempts") or []) for r in recs]
-            lines.append(f"- 形式不正率: {_pct_str(fmt_errors, len(recs))}")
-            if attempts:
-                lines.append(f"- 平均試行回数: {statistics.mean(attempts):.2f}")
+        lines.append("- 元画像:")
+        lines.extend(_latency_block(by_mode_source[mode], mode))
+        lines.append("- 全ケース:")
+        lines.extend(_latency_block(by_mode_all[mode], mode))
         lines.append("")
 
     lines.append("## 失敗件数(エラー種別、全ケース)")
@@ -455,32 +547,30 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
         lines.append("")
 
     if len(modes) >= 2:
-        lines.append(f"## モード間のペア比較(元画像 N={n_source} 件)")
+        lines.append(f"## モード間のペア比較(元画像 N={n_source} 件。全ケース分母も併記)")
         lines.append("")
         base, other = modes[0], modes[1]
-        base_by_case = {r["case"]["case_id"]: r for r in by_mode_source[base]}
-        other_by_case = {r["case"]["case_id"]: r for r in by_mode_source[other]}
-        common_ids = sorted(set(base_by_case) & set(other_by_case))
-        char_base_wins = char_other_wins = 0
-        all_base_wins = all_other_wins = 0
-        for cid in common_ids:
-            rb, ro = base_by_case[cid], other_by_case[cid]
-            cb = score_character(rb["case"], rb["result"])["exact_match"]
-            co = score_character(ro["case"], ro["result"])["exact_match"]
-            if cb and not co:
-                char_base_wins += 1
-            elif co and not cb:
-                char_other_wins += 1
-            ab = cb and all(score_single_axis(rb["case"], rb["result"], a)[2] for a in SINGLE_AXES)
-            ao = co and all(score_single_axis(ro["case"], ro["result"], a)[2] for a in SINGLE_AXES)
-            if ab and not ao:
-                all_base_wins += 1
-            elif ao and not ab:
-                all_other_wins += 1
-        lines.append(f"({base} vs {other}、N={len(common_ids)})")
+
+        base_by_case_src = {r["case"]["case_id"]: r for r in by_mode_source[base]}
+        other_by_case_src = {r["case"]["case_id"]: r for r in by_mode_source[other]}
+        cb_wins_src, co_wins_src, ab_wins_src, ao_wins_src, n_common_src = _pair_compare(
+            base_by_case_src, other_by_case_src
+        )
+        lines.append(f"### 元画像({base} vs {other}、N={n_common_src})")
         lines.append("")
-        lines.append(f"- キャラ完全一致: {base}のみ正解 {char_base_wins} 件 / {other}のみ正解 {char_other_wins} 件")
-        lines.append(f"- 全軸正解: {base}のみ正解 {all_base_wins} 件 / {other}のみ正解 {all_other_wins} 件")
+        lines.append(f"- キャラ完全一致: {base}のみ正解 {cb_wins_src} 件 / {other}のみ正解 {co_wins_src} 件")
+        lines.append(f"- 全軸正解: {base}のみ正解 {ab_wins_src} 件 / {other}のみ正解 {ao_wins_src} 件")
+        lines.append("")
+
+        base_by_case_all = {r["case"]["case_id"]: r for r in by_mode_all[base]}
+        other_by_case_all = {r["case"]["case_id"]: r for r in by_mode_all[other]}
+        cb_wins_all, co_wins_all, ab_wins_all, ao_wins_all, n_common_all = _pair_compare(
+            base_by_case_all, other_by_case_all
+        )
+        lines.append(f"### 全ケース({base} vs {other}、N={n_common_all})")
+        lines.append("")
+        lines.append(f"- キャラ完全一致: {base}のみ正解 {cb_wins_all} 件 / {other}のみ正解 {co_wins_all} 件")
+        lines.append(f"- 全軸正解: {base}のみ正解 {ab_wins_all} 件 / {other}のみ正解 {ao_wins_all} 件")
         lines.append("")
 
     lines.append("## 注記")

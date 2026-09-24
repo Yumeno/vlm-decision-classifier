@@ -242,15 +242,33 @@ def run_evaluate(
             print(f"check-manifest error: {e}", file=sys.stderr)
         return 1
 
+    # runtime-info は評価を始める前に読む。読めない/不正なら評価そのものを始めない。
+    runtime_info = None
+    runtime_info_file = None
+    if runtime_info_path:
+        try:
+            with open(runtime_info_path, "r", encoding="utf-8") as f:
+                runtime_info = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"runtime-info error: failed to read {runtime_info_path}: {e}", file=sys.stderr)
+            return 1
+        runtime_info_file = {
+            "name": os.path.basename(runtime_info_path),
+            "sha256": sha256_file(runtime_info_path),
+        }
+
     taxonomy = load_taxonomy(taxonomy_path)
 
     excluded_cases: list[dict] = []
     evaluated_cases: list[dict] = []
+    evaluated_by_scenario: dict[str, int] = {}
     for case in check.cases:
         if case["rights"].get("rights_confirmed") is not True:
             excluded_cases.append({"case_id": case["case_id"], "reason": "rights_not_confirmed"})
         else:
             evaluated_cases.append(case)
+            scenario = case.get("scenario", "<missing>")
+            evaluated_by_scenario[scenario] = evaluated_by_scenario.get(scenario, 0) + 1
 
     cases_dir = os.path.join(output_dir, "cases")
     os.makedirs(cases_dir, exist_ok=True)
@@ -270,16 +288,6 @@ def run_evaluate(
                 json.dump(result, f, ensure_ascii=False, indent=2)
 
     finished = datetime.now(timezone.utc).isoformat()
-
-    runtime_info = None
-    runtime_info_file = None
-    if runtime_info_path:
-        with open(runtime_info_path, "r", encoding="utf-8") as f:
-            runtime_info = json.load(f)
-        runtime_info_file = {
-            "name": os.path.basename(runtime_info_path),
-            "sha256": sha256_file(runtime_info_path),
-        }
 
     run_info = {
         "started": started,
@@ -301,7 +309,8 @@ def run_evaluate(
             "total": len(check.cases),
             "evaluated": len(evaluated_cases),
             "excluded": len(excluded_cases),
-            "by_scenario": check.scenario_counts,
+            "manifest_by_scenario": check.scenario_counts,
+            "evaluated_by_scenario": evaluated_by_scenario,
         },
         "excluded_cases": excluded_cases,
     }
