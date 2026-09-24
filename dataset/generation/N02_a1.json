@@ -1,0 +1,16 @@
+{
+  "slot_id": "N02",
+  "attempt": 1,
+  "tool": "external:antigravity_cli",
+  "file": "dataset/staging/N02_a1.jpg",
+  "format": "JPEG",
+  "size": [
+    1024,
+    1024
+  ],
+  "bytes": 696829,
+  "sha256": "f0568a9248d2f11b11ae990468aa34ab780c2b8fd0293c7a1993806dbf378716",
+  "source_basename": "N02_import.jpg",
+  "imported_at": "2026-09-24T17:28:32.196568+00:00",
+  "response_note": "Antigravity 応答(agy 1.2.7、generate_image を1回呼び出し。画像モデルは取得不可)。conversation_id=3057b12e-5eca-419f-85f7-3378c71ecd5b。antigravity-artifact import で検証(jpeg 1024x1024)のうえ取り込み。参照画像: dataset/staging/_ref/alisa_ref.png(作者の既存 Alisa 画像、メタデータ除去済み。データセットには含めない)。\nIMAGE_NAME: alisa_bridge_sunset / ASPECT_RATIO: 1:1 / REFERENCE_IMAGES: [dataset/staging/_ref/alisa_ref.png]\nPROMPT: Anime style illustration, vibrant full color. Depict the exact same girl from the reference image in a new scene. The girl has straight brown bob cut hair with bangs and vivid blue eyes. She is wearing a white collared long-sleeve shirt, a pastel pink vest, a red thin string ribbon tie at her collar, and a dark pink tight skirt. Her pink vest and red string ribbon tie are clearly and prominently visible. She is standing on a bridge over a river in the evening at sunset, looking out and admiring the riverside scenery. Upper body composition clearly showing her face, hair, and clothing. Beautiful golden hour sunset glow in the sky reflecting on the river water. Sole female character only, exactly one person, no other people in background or foreground. No text, no letters, no logos, no watermarks.\n"
+}

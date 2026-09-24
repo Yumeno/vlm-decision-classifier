@@ -1,0 +1,7 @@
+{
+  "slot_id": "M03",
+  "attempt": 1,
+  "tool": "external:antigravity_cli",
+  "spec": "タスク: 評価用データセットの画像を1枚生成する(枠 M03)\n\n用途: ローカルVLMによる画像分類デモの評価用データセットに入れる画像。公開予定。\n\n内容: 学校の中庭で、2人の人物が並んで立ち、話している。上半身以上が写る構図。\n人物1(必須条件をすべて守る): 茶髪のストレートなボブカット、前髪あり、青い目の少女。紺のブレザー、緑のネクタイ、白い襟付きシャツ、グレーのプリーツスカート。紺のブレザーと緑のネクタイがはっきり見えること。\n人物2: 短い黒髪の少年。白いTシャツとジーンズ(私服)。\nスタイル: アニメ調のイラスト。フルカラー。\n必須条件:\n- 画面にいる人物はこの2人だけ(背景に人物を描かない)。\n- 2人の服装がどちらもはっきり分かること。\n- 文字・ロゴを描かない。\n- アスペクト比: 4:3。\n- 参照画像は使わない。\n補完してよい項目: 表情、ポーズ、背景の細部、配色(人物の必須条件は除く)。\n\n重要(データセットの運用規則): 画像生成は ちょうど1回だけ 行うこと。生成結果を見て作り直したり、複数枚を生成して選んだりしないこと。\n\nDo NOT copy, move or convert the generated file and do NOT run any shell commands.\nWhen done, report on separate lines (one ARTIFACT_PATH line for the single generated image):\nARTIFACT_PATH: <absolute path of the generated file>\nIMAGE_NAME: <the ImageName value you passed to the image tool>\nASPECT_RATIO: <the AspectRatio value you passed>\nPROMPT: <the full Prompt text you passed to the image tool>\nDo not report or guess the image model name.\n",
+  "submitted_at": "2026-09-24T17:28:43.596535+00:00"
+}

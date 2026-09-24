@@ -1,0 +1,16 @@
+{
+  "slot_id": "G08",
+  "attempt": 1,
+  "tool": "external:codex_cli",
+  "file": "dataset/staging/G08_a1.png",
+  "format": "PNG",
+  "size": [
+    1672,
+    941
+  ],
+  "bytes": 1621011,
+  "sha256": "40af23d1da027897a88f5a7b22b0e6a6ddd9f4dbfbd9b6432dd2ecf0d472f330",
+  "source_basename": "exec-885e3d45-91dc-48c6-8a31-35cf9bb56e62.png",
+  "imported_at": "2026-09-24T17:22:42.347042+00:00",
+  "response_note": "Codex 応答(codex-cli 0.155.1、wrapper 表示のテキストモデル gpt-5.6-terra。画像モデルは取得不可)。生成1回、ツール既定の出力先から依頼側が回収(依頼後に作られた画像はこの1枚のみ)。\n画像生成プロンプト全文:\nA polished fantasy RPG inventory screen UI mockup only, presented as a full-bleed flat user interface with no device frame, no laptop, no smartphone, no monitor, no physical environment. 16:9 landscape composition. Full-color flat UI design with a dark navy-blue background, warm gold accents, and muted teal panels. A clear item-slot grid on the left and center containing only stylized item icons: sword, red potion bottles, blue potion bottles, round shield, helmet, leather boots, ring, scroll, key, gem, bow, and small bag. No people, no characters, no faces, no creatures. One selected item slot is highlighted. On the right, a detailed item information panel showing a large sword icon and only short English labels such as \"Inventory\", \"Sword\", \"Gold\", \"Rare\", and simple stat abbreviations. Include a gold coin icon and a visible \"Gold\" counter in the top area. Crisp readable hierarchy, clean game HUD layout, rounded panels, subtle ornamental fantasy motifs, professional game interface mockup. Avoid paragraphs, avoid long text, avoid logos, avoid watermarks.\n"
+}

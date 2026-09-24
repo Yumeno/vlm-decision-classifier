@@ -1,0 +1,16 @@
+{
+  "slot_id": "M03",
+  "attempt": 1,
+  "tool": "external:antigravity_cli",
+  "file": "dataset/staging/M03_a1.jpg",
+  "format": "JPEG",
+  "size": [
+    1200,
+    896
+  ],
+  "bytes": 908128,
+  "sha256": "637eb9747444a64cbbc6e6b42d39af9b7ecb8d1d28b06339265a4404a7988864",
+  "source_basename": "M03_import.jpg",
+  "imported_at": "2026-09-24T17:29:42.595781+00:00",
+  "response_note": "Antigravity 応答(agy 1.2.7、generate_image を1回呼び出し。画像モデルは取得不可)。conversation_id=c329d411-2d44-438a-b2d3-0e305325988e。antigravity-artifact import で検証(jpeg 1200x896)のうえ取り込み。参照画像なし。\nIMAGE_NAME: m03_school_courtyard / ASPECT_RATIO: 4:3\nPROMPT: Anime-style full color illustration of two people standing side by side in a school courtyard, engaged in conversation. Upper body and waist visible (medium shot). Exactly two people in the frame, no other people or background characters. On one side, an anime girl with a straight brown bob haircut, front bangs, and bright blue eyes, wearing a school uniform consisting of a navy blue blazer, a green necktie, a crisp white collared shirt, and a gray pleated skirt, with the navy blazer and green necktie clearly visible. Beside her, an anime teenage boy with short black hair, wearing casual clothes consisting of a plain white t-shirt and classic blue denim jeans. Both of their outfits are clearly identifiable and distinct. Bright daylight, detailed school courtyard background with trees, grass, and clean architecture. Clean linework, vibrant anime art style, completely devoid of text, words, logos, captions, speech bubbles, or watermarks.\n"
+}

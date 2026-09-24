@@ -23,3 +23,11 @@ M02,1,20260942,comfyui,dataset\staging\M02_a1.png,58f496979d7cc213e415ee1ad3ad2c
 O02,1,20260962,comfyui,dataset\staging\O02_a1.png,c2bf3fabd5d3c6c41ef862415ae6992579d7e42d6749ef2f26c9ca0e6c42b5b0,2026-09-24T17:09:47.616698+00:00,generated,
 O04,1,20260964,comfyui,dataset\staging\O04_a1.png,366f3f3e1b0a32f643fb1bc8a4c64fe478422f11dc83937e8337dc3f6af09bb8,2026-09-24T17:10:09.869473+00:00,generated,
 O06,1,20260966,comfyui,dataset\staging\O06_a1.png,80957c46483c47620778bae88ed1ad4ae413c28c318f0185a8c1297e3a57e22e,2026-09-24T17:10:31.954274+00:00,generated,
+G06,1,,external:codex_cli,dataset/staging/G06_a1.png,18ea9b18bfb12bfa80fc0c65f659d7ecde201efed14c2cd2d0bc90d48e5eedf9,2026-09-24T17:21:18.273029+00:00,generated,外部生成(依頼1回、既定の出力先から回収)
+G08,1,,external:codex_cli,dataset/staging/G08_a1.png,40af23d1da027897a88f5a7b22b0e6a6ddd9f4dbfbd9b6432dd2ecf0d472f330,2026-09-24T17:22:42.347042+00:00,generated,外部生成(依頼1回、既定の出力先から回収)
+N01,1,,external:codex_cli,dataset/staging/N01_a1.png,796d7677109806a7a7ff9fcb95c745ad6ab232ac80f3dd22e472a889f0131f6e,2026-09-24T17:24:10.485458+00:00,generated,外部生成(依頼1回、既定の出力先から回収)
+C02,1,,external:codex_cli,dataset/staging/C02_a1.png,abe5720380b69532e868e4487a63542b206750cefacf1c20282edcf8b3c24a90,2026-09-24T17:25:49.534266+00:00,generated,外部生成(依頼1回、既定の出力先から回収)
+G07,1,,external:antigravity_cli,dataset/staging/G07_a1.jpg,47cb5f02364618fdf2d216f8f23dcabcecee6379fe55b218b4caa4bf2919d7e3,2026-09-24T17:27:18.939280+00:00,generated,外部生成(依頼1回、既定の出力先から回収)
+N02,1,,external:antigravity_cli,dataset/staging/N02_a1.jpg,f0568a9248d2f11b11ae990468aa34ab780c2b8fd0293c7a1993806dbf378716,2026-09-24T17:28:32.196568+00:00,generated,外部生成(依頼1回、既定の出力先から回収)
+M03,1,,external:antigravity_cli,dataset/staging/M03_a1.jpg,637eb9747444a64cbbc6e6b42d39af9b7ecb8d1d28b06339265a4404a7988864,2026-09-24T17:29:42.595781+00:00,generated,外部生成(依頼1回、既定の出力先から回収)
+C02,1,,artificial_metadata,dataset/staging/C02_a1_injected.png,8ccbea3e13290f93ec25a94626961c7008221500d0fd7b45986caf850fd1dc30,,generated,C02_a1.png に C02_inject_metadata.py で A1111 形式の生成情報を人工的に書き込み(画素一致を検証)
