@@ -29,13 +29,13 @@
 | `doc/basic-design.md` | 分類・データ・アダプタ設計 | あり |
 | `doc/implementation-experiment-plan.md` | 実装順と実験行列 | あり |
 | `doc/phase0-sources-models.md` | 移植元の要点、使用モデルとSHA256、probe結果、画像生成の条件 | あり |
-| `doc/dataset-plan.md` | 正解付与規則、24枚の生成計画表、manifest仕様（画像生成前に固定） | あり |
+| `doc/dataset-plan.md` | 正解付与規則、31枠の生成計画表、manifest仕様、検収と正解付与の経緯 | あり |
 | `doc/worklog.md` | 作業記録（新しい順） | あり |
-| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`） | Phase 2b 実装済み（分類コア・評価器）。データセット・実験結果はまだ無い |
-| `taxonomy/default.yaml` | 一般分類と自作キャラの定義 | あり |
-| `dataset/` | 新規生成画像、manifest、データセット説明 | 未作成 |
-| `scripts/` | 評価、再現性チェック | 未作成 |
-| `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・pipeline・評価器） | あり |
+| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`） | あり（分類コア・評価器） |
+| `taxonomy/default.yaml` | 分類体系 0.4.0（7軸）と自作キャラの定義 | あり |
+| `dataset/` | 評価用データセット v1.0.0(`images/` 35ケース、`manifest.jsonl`、`DATASET_CARD.md`、正解の一次記録 `labels/`、生成記録 `generation/`) | あり |
+| `scripts/` | データセットの生成（Forge/ComfyUI）、メタデータ除去、データセット組み立て | あり |
+| `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・pipeline・評価器・生成スクリプト） | あり |
 | `doc/patches/` | llama.cpp画像キャッシュ改造の固定差分 | 未作成 |
 
 設計文書中のディレクトリ案は実装時の指針です。コードを追加した時点で、この表と起動方法を実態に合わせて更新してください。

@@ -1,0 +1,7 @@
+{
+  "confirmed_by": "author",
+  "confirmed_at": "2026-09-25",
+  "scope": "all 31 source images of dataset v1.0.0 and their metadata-stripped derived copies",
+  "how": "作者がチャット上で「全件確認済みでよい」と回答(Claude Code セッション、2026-09-25)。根拠として、Anima 生成物は CircleStone Labs Non-Commercial License v1.2 §2.e、Codex 生成物は OpenAI の規約、Antigravity 生成物は Google の規約、N01/N02 の参照画像は作者の自作キャラクター、を提示したうえでの確認。",
+  "slots": ["A01","A02","A03","A04","C01","C02","G01","G02","G03","G04","G05","G06","G07","G08","M01","M02","M03","N01","N02","N03","O01","O02","O03","O04","O05","O06","O07","S01","S02","S03","S04"]
+}
