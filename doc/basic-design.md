@@ -71,7 +71,7 @@ tests/
 
 ### 4.2 キャラの証拠
 
-`fet_alisa_uniform` はLoRA指定名の照合対象。`<lora:fet_alisa_uniform:0.8>` 等の名前部分を抽出し、規定の大文字小文字・空白正規化後に**名前の完全一致**で照合する。重み値は証拠に保存するが、重みがあるだけで見た目への作用を保証しない。メタデータが欠けてもvision判定を省略しない。
+LoRA はベースモデルごとに版があり名前が異なる(例: Anima 用 `fet-alisa-uniform-anima-v4u`、SDXL 用 `fet_alisa_uniform_ilpen2`)。taxonomy の各キャラには照合対象の LoRA 名を**集合で列挙**する。`<lora:fet-alisa-uniform-anima-v4u:0.8>` 等の名前部分を抽出し、規定の大文字小文字・空白正規化後に、列挙した名前のいずれかと**完全一致**した場合だけ採用する(部分一致・前方一致はしない)。重み値は証拠に保存するが、重みがあるだけで見た目への作用を保証しない。メタデータが欠けてもvision判定を省略しない。
 
 キャラの外見基準は作者が具体的に記入し、曖昧な「似ている」だけにしない。特徴的な髪・瞳・服・装飾の組合せと、似た別キャラとの識別点を併記する。LoRA名は質問文中に正解を漏らさず、`vision_only`実験ではメタデータをモデルに一切渡さない。メタデータ補助モードは別条件として扱い、正解ラベルとの混同を避ける。
 
@@ -127,7 +127,7 @@ GemmaのGGUF配布元、量子化、視覚コンポーネントは接続試験�
   "profile": "qwen-llama-stock",
   "model": {"id": "<server model id>", "file_sha256": "<sha256>", "runtime_commit": "<sha>"},
   "taxonomy_sha256": "<sha256>",
-  "metadata_evidence": [{"kind": "lora_name", "value": "fet_alisa_uniform", "weight": 0.8, "matched_character": "alisa"}],
+  "metadata_evidence": [{"kind": "lora_name", "value": "fet-alisa-uniform-anima-v4u", "weight": 0.8, "matched_character": "alisa"}],
   "axis_decisions": {"character": {"choices": {"alisa": 0.83, "second_original": 0.12, "other_original": 0.05}, "confirmations": {"alisa": 0.94}}},
   "vision_tags": {"character": ["alisa"]},
   "combined_evidence": {"alisa": "confirmed_by_both"},

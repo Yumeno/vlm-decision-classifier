@@ -7,7 +7,7 @@
 ## 何を実演するか
 
 1. `image_type`、`art_style`、`subject`、`character` などの独立した軸で画像を分類します。複数人の画像ではキャラクターを複数選べるようにします。
-2. 自作キャラクター「Alisa」を、画像上の容姿と、PNG生成情報に記録された `fet_alisa_uniform` というLoRA名の二経路で調べます。LoRA名の記録は**生成時の指定の証拠**であり、実際にLoRAが効いたことや、そのキャラクターが画面に写っていることの証明ではありません。
+2. 自作キャラクター「Alisa」を、画像上の容姿と、PNG生成情報に記録されたAlisa用LoRA名（例: `fet-alisa-uniform-anima-v4u`）の二経路で調べます。LoRA名の記録は**生成時の指定の証拠**であり、実際にLoRAが効いたことや、そのキャラクターが画面に写っていることの証明ではありません。
 3. 同じ専用画像データセットで、通常の**分類JSONを生成させる方式**と、回答ラベルの確率分布を読む**選択式方式**の正答率、所要時間、形式不正、再試行を比較します。
 4. 通常版 **Qwen3.5 9B GGUF** と **Gemma 4 12B** の対応GGUFを評価します。GemmaはSFW画像での実用性を中心に確認します。Qwenではさらに、同じllama.cppコミットからビルドした未改造版と画像キャッシュ改造版を比較します。
 
@@ -28,6 +28,8 @@
 | `doc/requirements.md` | 要件、対象範囲、公開条件 | あり |
 | `doc/basic-design.md` | 分類・データ・アダプタ設計 | あり |
 | `doc/implementation-experiment-plan.md` | 実装順と実験行列 | あり |
+| `doc/phase0-sources-models.md` | 移植元の要点、使用モデルとSHA256、probe結果、画像生成の条件 | あり |
+| `doc/worklog.md` | 作業記録（新しい順） | あり |
 | `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン | 未実装 |
 | `taxonomy/` | 一般分類と自作キャラの定義 | 未作成 |
 | `dataset/` | 新規生成画像、manifest、データセット説明 | 未作成 |
