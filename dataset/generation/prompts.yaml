@@ -1,7 +1,7 @@
 # データセット生成のプロンプト表(dataset-plan.md §3 の枠ごと)。生成前に固定する。
 # 共通設定は Anima base v1.0 の推奨(30-50 steps, CFG 4-5, er_sde)に従う。
 # seed: 枠ごとに固定。作り直し(attempt 2)は seed + 1(dataset-plan §2.7)。
-version: "1.0.0"
+version: "1.1.0"   # 1.1.0: O01〜O07 を追加(既存枠は不変)
 base_model: anima-base-v1.0            # SHA256 bd43b7cffe1ed1153d9c41e7beb2f18cb1273eafbaa3af3edd6a173dc90a006e
 lora_forge: fet-alisa-uniform-anima-v4u         # Forge Neo 用
 lora_comfy: fet-alisa-uniform-anima-v4u_comfy   # ComfyUI 用(同じ LoRA を ComfyUI 形式に変換したファイル)
@@ -37,4 +37,12 @@ slots:
   - {id: M01, tool: forge,   seed: 20260941, size: [1152, 896],  lora_weight: 0.8,  trigger: true,  prompt: "2girls, side by side, upper body, office. The girl on the left: {alisa}. The girl on the right: {second}"}
   - {id: M02, tool: comfyui, seed: 20260942, size: [1152, 896],  lora_weight: 0.8,  trigger: true,  prompt: "1girl, 1boy, upper body, office. The girl: {alisa}. The man: short black hair, grey suit, glasses"}
   - {id: C01, tool: forge,   seed: 20260951, size: [1024, 1024], lora_weight: 0.0,  trigger: false, prompt: "1girl, {second}, corridor, upper body"}
+  # --- 0.2 で追加(服装・場面・色の群、人物は other_original 想定) ---
+  - {id: O01, tool: forge,   seed: 20260961, size: [1024, 1024], lora_weight: null, trigger: false, prompt: "1girl, black hair, long hair, sailor uniform, serafuku, classroom, sitting at desk, eating, bento, chopsticks, upper body"}
+  - {id: O02, tool: comfyui, seed: 20260962, size: [1024, 1024], lora_weight: null, trigger: false, prompt: "1girl, blonde hair, maid, maid headdress, apron, serving tea, holding tray, cafe, cowboy shot"}
+  - {id: O03, tool: forge,   seed: 20260963, size: [896, 1152],  lora_weight: null, trigger: false, prompt: "1girl, black hair, ponytail, miko, white kimono, hakama, shrine, sweeping, holding broom, full body, greyscale, monochrome"}
+  - {id: O04, tool: comfyui, seed: 20260964, size: [1024, 1024], lora_weight: null, trigger: false, prompt: "1girl, nun, habit, veil, church garden, walking, cowboy shot, lineart, monochrome, white background"}
+  - {id: O05, tool: forge,   seed: 20260965, size: [896, 1152],  lora_weight: null, trigger: false, prompt: "1girl, red hair, one-piece swimsuit, beach, playing volleyball, jumping, sunny day, full body"}
+  - {id: O06, tool: comfyui, seed: 20260966, size: [1152, 896],  lora_weight: null, trigger: false, prompt: "1boy, knight, full armor, helmet, holding sword, fighting, monster, battle, dynamic pose, greyscale, monochrome"}
+  - {id: O07, tool: forge,   seed: 20260967, size: [1024, 1024], lora_weight: null, trigger: false, prompt: "1girl, short hair, hoodie, sitting on bed, playing video games, holding game controller, bedroom, lineart, monochrome"}
 # 外部生成(このファイルの対象外。依頼文は params_file に記録する): G06, G07, G08, N01, N02, M03, C02 の元画像
