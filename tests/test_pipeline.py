@@ -1,3 +1,4 @@
+import urllib.error
 from pathlib import Path
 
 from PIL import Image, PngImagePlugin
@@ -57,3 +58,43 @@ def test_classify_choice_mode_records_axis_failure_and_succeeds_others(tmp_path)
     assert result["request_count"] == 4
     assert "axis_decisions" in result
     assert "image_type" in result["axis_decisions"]
+
+
+def test_classify_records_request_error_and_continues_other_axes(tmp_path):
+    image_path = tmp_path / "img.png"
+    Image.new("RGB", (16, 16), (0, 0, 0)).save(image_path)
+    tax = taxonomy.load("taxonomy/default.yaml")
+
+    backend = FakeBackend(
+        [
+            urllib.error.URLError("connection refused"),  # image_type -> 通信失敗
+            make_logprobs_response({"A": 0.8, "B": 0.1, "C": 0.05, "D": 0.05}),  # art_style -> anime_2d
+            make_logprobs_response(
+                {"A": 0.7, "B": 0.1, "C": 0.1, "D": 0.05, "E": 0.03, "F": 0.02}
+            ),  # subject -> person
+            make_logprobs_response(
+                {"A": 0.6, "B": 0.0001, "C": 0.1999, "D": 0.2}
+            ),  # character ranking -> alisa top, second_original below floor
+            make_logprobs_response({"A": 0.9, "B": 0.1}),  # alisa yes/no -> yes
+        ]
+    )
+
+    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64)
+
+    assert "image_type" not in result["vision_tags"]
+    assert result["vision_tags"]["art_style"] == ["anime_2d"]
+    assert any(e["axis"] == "image_type" and e["type"] == "request_error" for e in result["errors"])
+
+
+def test_classify_image_error_is_recorded_without_crashing(tmp_path):
+    missing_path = tmp_path / "does_not_exist.png"
+    tax = taxonomy.load("taxonomy/default.yaml")
+    backend = FakeBackend([])
+
+    result = pipeline.classify(str(missing_path), tax, backend, mode="choice", max_edge=64)
+
+    assert result["vision_tags"] == {}
+    assert result["metadata_evidence"] is None
+    assert any(e["type"] == "image_error" for e in result["errors"])
+    assert result["timing_ms"]["classification_wall_ms"] > 0
+    assert result["request_count"] == 0

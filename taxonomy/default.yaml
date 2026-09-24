@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.2.0"
 axes:
   - id: image_type
     question: "What kind of image is this?"
@@ -41,7 +41,7 @@ axes:
         trigger_words: [fet_alisa_uniform]
       - id: second_original
         name: Second original character
-        criteria: "girl with brown bob-cut hair and blue eyes similar to Alisa, but wearing a different outfit (not a pink vest with a red ribbon and dark pink pencil skirt)"
+        criteria: "girl with straight brown bob-cut hair with bangs and blue eyes, wearing a navy blazer, a green necktie and a grey pleated skirt"
       - id: other_original
         name: other character
         criteria: "any other character"

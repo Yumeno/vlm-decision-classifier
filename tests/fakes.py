@@ -62,6 +62,8 @@ class FakeBackend:
     def chat(self, messages, **params):
         self.request_count += 1
         response = self._responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
         return response, 1.0
 
     def list_models(self):

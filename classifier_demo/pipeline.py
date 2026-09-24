@@ -44,48 +44,65 @@ def classify(
     json_baseline_result = None
     per_axis_timing: dict[str, float] = {}
 
-    image_bytes, mime, original_size, sent_size = prepare_image(image_path, max_edge=max_edge)
-    original_sha256 = file_sha256(image_path)
-    metadata_evidence = extract_evidence(image_path, taxonomy)
+    image_bytes = mime = None
+    original_size = sent_size = None
+    original_sha256 = None
+    metadata_evidence = None
+    try:
+        image_bytes, mime, original_size, sent_size = prepare_image(image_path, max_edge=max_edge)
+        original_sha256 = file_sha256(image_path)
+        metadata_evidence = extract_evidence(image_path, taxonomy)
+    except Exception as e:
+        errors.append({"axis": None, "type": "image_error", "detail": f"{type(e).__name__}: {e}"})
 
-    if mode == "choice":
-        for axis in taxonomy.axes:
-            try:
-                if axis.multi:
-                    result = decision.decide_multi_axis(backend, image_bytes, mime, axis)
-                    axis_decisions[axis.id] = {
-                        "relative_scores": result["relative_scores"],
-                        "confirmations": result["confirmations"],
-                        "candidates": result["candidates"],
-                        "tags": result["tags"],
-                    }
-                    vision_tags[axis.id] = result["tags"]
-                else:
-                    result = decision.decide_axis(backend, image_bytes, mime, axis)
-                    axis_decisions[axis.id] = {
-                        "relative_scores": result["relative_scores"],
-                        "selected": result["selected"],
-                    }
-                    selected = result["selected"]
-                    vision_tags[axis.id] = [] if selected == decision.NONE_ID else [selected]
-                per_axis_timing[axis.id] = result["elapsed_ms"]
-            except decision.DecisionError as e:
-                errors.append({"axis": axis.id, "type": e.error_type, "detail": e.detail})
-    elif mode == "json":
-        json_baseline_result = json_baseline.classify_json(backend, image_bytes, mime, taxonomy)
-        if json_baseline_result["tags"] is not None:
-            vision_tags = json_baseline_result["tags"]
+    if image_bytes is not None:
+        if mode == "choice":
+            for axis in taxonomy.axes:
+                try:
+                    if axis.multi:
+                        result = decision.decide_multi_axis(backend, image_bytes, mime, axis)
+                        axis_decisions[axis.id] = {
+                            "relative_scores": result["relative_scores"],
+                            "confirmations": result["confirmations"],
+                            "confirmation_errors": result["confirmation_errors"],
+                            "candidates": result["candidates"],
+                            "tags": result["tags"],
+                        }
+                        vision_tags[axis.id] = result["tags"]
+                        for cid, err in result["confirmation_errors"].items():
+                            errors.append(
+                                {"axis": axis.id, "type": "candidate_confirmation_error", "detail": f"candidate {cid}: {err}"}
+                            )
+                    else:
+                        result = decision.decide_axis(backend, image_bytes, mime, axis)
+                        axis_decisions[axis.id] = {
+                            "relative_scores": result["relative_scores"],
+                            "selected": result["selected"],
+                        }
+                        selected = result["selected"]
+                        vision_tags[axis.id] = [] if selected == decision.NONE_ID else [selected]
+                    per_axis_timing[axis.id] = result["elapsed_ms"]
+                except decision.DecisionError as e:
+                    errors.append({"axis": axis.id, "type": e.error_type, "detail": e.detail})
+                except decision.REQUEST_EXCEPTIONS as e:
+                    errors.append(
+                        {"axis": axis.id, "type": "request_error", "detail": f"{type(e).__name__}: {e}"}
+                    )
+        elif mode == "json":
+            json_baseline_result = json_baseline.classify_json(backend, image_bytes, mime, taxonomy)
+            if json_baseline_result["tags"] is not None:
+                vision_tags = json_baseline_result["tags"]
+            else:
+                errors.append(
+                    {"axis": None, "type": "json_format_error", "detail": json_baseline_result["error"]}
+                )
         else:
-            errors.append(
-                {"axis": None, "type": "json_format_error", "detail": json_baseline_result["error"]}
-            )
-    else:
-        raise ValueError(f"unknown mode: {mode}")
+            raise ValueError(f"unknown mode: {mode}")
 
     has_character_axis = any(a.id == "character" for a in taxonomy.axes)
     character_axis_failed = has_character_axis and "character" not in vision_tags
 
-    metadata_character_ids = {m["character"] for m in metadata_evidence["matches"]}
+    metadata_character_ids = {m["character"] for m in metadata_evidence["matches"]} if metadata_evidence else set()
     vision_character_ids = set(vision_tags.get("character", []))
     combined_evidence: dict[str, str] = {}
     for cid in metadata_character_ids | vision_character_ids:
@@ -107,8 +124,8 @@ def classify(
         "image": {
             "name": os.path.basename(image_path),
             "sha256": original_sha256,
-            "original_size": list(original_size),
-            "sent_size": list(sent_size),
+            "original_size": list(original_size) if original_size else None,
+            "sent_size": list(sent_size) if sent_size else None,
         },
         "mode": mode,
         "model": {"id": backend.model, "base_url": backend.base_url},

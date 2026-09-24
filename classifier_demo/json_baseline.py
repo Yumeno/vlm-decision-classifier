@@ -8,9 +8,13 @@ from __future__ import annotations
 import json
 import re
 import time
+import urllib.error
 
 from .decision import _data_url
 from .taxonomy import Taxonomy
+
+# backend.chat 自体の通信失敗(サーバー応答の形式・接続エラー)。再試行はしない。
+REQUEST_EXCEPTIONS = (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError)
 
 MAX_RETRIES = 2
 JSON_PARAMS = {"temperature": 0, "max_tokens": 256}
@@ -26,7 +30,8 @@ def _build_prompt(taxonomy: Taxonomy) -> str:
         choice_desc = ", ".join(f"{c.id} ({c.criteria})" for c in axis.choices)
         lines.append(f"- {axis.id}: {choice_desc}")
 
-    example = {axis.id: ([axis.choices[0].id] if axis.multi else axis.choices[0].id) for axis in taxonomy.axes}
+    # 例には実在の選択肢idを入れない(選択式にない誘導をJSON方式だけに与えないため)。
+    example = {axis.id: (["<id>", "..."] if axis.multi else "<id>") for axis in taxonomy.axes}
     return (
         "Classify the image on each axis below using only the listed choice ids.\n"
         + "\n".join(lines)
@@ -64,7 +69,7 @@ def _parse_and_validate(text: str, taxonomy: Taxonomy) -> dict[str, list[str]]:
             for v in value:
                 if v not in known_ids:
                     raise ValueError(f"axis {axis.id}: unknown choice id {v!r}")
-            tags[axis.id] = list(value)
+            tags[axis.id] = list(dict.fromkeys(value))  # 順序を保って重複除去
         else:
             if not isinstance(value, str) or value not in known_ids:
                 raise ValueError(f"axis {axis.id}: unknown choice id {value!r}")
@@ -101,7 +106,14 @@ def classify_json(backend, image_bytes: bytes, mime: str, taxonomy: Taxonomy) ->
     start = time.perf_counter_ns()
 
     for _ in range(MAX_RETRIES + 1):
-        response, elapsed_ms = backend.chat(messages, **JSON_PARAMS)
+        try:
+            response, elapsed_ms = backend.chat(messages, **JSON_PARAMS)
+        except REQUEST_EXCEPTIONS as e:
+            error = f"{type(e).__name__}: {e}"
+            attempts.append({"elapsed_ms": None, "raw_text": "", "error": error})
+            tags = None
+            break  # 通信失敗は再試行しない
+
         if first_attempt_ms is None:
             first_attempt_ms = elapsed_ms
         raw_text = _extract_text(response)

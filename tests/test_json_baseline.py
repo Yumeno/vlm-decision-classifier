@@ -1,3 +1,5 @@
+import urllib.error
+
 from classifier_demo import json_baseline
 from classifier_demo.taxonomy import Axis, Choice, Taxonomy
 from tests.fakes import FakeBackend, make_text_response
@@ -76,3 +78,29 @@ def test_classify_json_retries_exhausted_records_failure():
     assert result["error"] is not None
     assert len(result["attempts"]) == 3
     assert all(a["error"] is not None for a in result["attempts"])
+
+
+def test_classify_json_dedupes_multi_select_ids():
+    text = '{"image_type": "illustration", "character": ["alisa", "alisa", "other_original"]}'
+    backend = FakeBackend([make_text_response(text)])
+    tax = _small_taxonomy()
+    result = json_baseline.classify_json(backend, b"img", "image/png", tax)
+    assert result["tags"]["character"] == ["alisa", "other_original"]
+
+
+def test_classify_json_request_error_stops_without_retry():
+    backend = FakeBackend([urllib.error.URLError("connection refused"), make_text_response("unused")])
+    tax = _small_taxonomy()
+    result = json_baseline.classify_json(backend, b"img", "image/png", tax)
+    assert result["tags"] is None
+    assert "URLError" in result["error"]
+    assert len(result["attempts"]) == 1  # 通信失敗は再試行しない
+
+
+def test_build_prompt_example_uses_placeholder_not_real_choice_id():
+    tax = _small_taxonomy()
+    prompt = json_baseline._build_prompt(tax)
+    assert "<id>" in prompt
+    # 先頭選択肢(illustration/alisa)を回答例として誘導しない
+    assert '"illustration"' not in prompt.split("shape:")[-1]
+    assert '"alisa"' not in prompt.split("shape:")[-1]

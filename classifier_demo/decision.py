@@ -7,9 +7,14 @@
 from __future__ import annotations
 
 import base64
+import json
 import math
+import urllib.error
 
 from .taxonomy import Axis, Choice
+
+# yes/no の通信失敗を候補単位で捕捉する対象(pipeline側の軸単位の捕捉と同じ集合)
+REQUEST_EXCEPTIONS = (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError)
 
 LABELS = list("ABCDEFGHIJKLMNOPQRST")  # 最大20ラベル
 
@@ -83,10 +88,13 @@ def pool_labels(top_logprobs: list[dict], labels: list[str]) -> dict[str, float]
         token = tok.get("token", "")
         letter = token.strip().upper()
         if letter in mass:
-            mass[letter] += math.exp(tok["logprob"])
+            try:
+                mass[letter] += math.exp(tok["logprob"])
+            except OverflowError:
+                mass[letter] = math.inf
 
     total = sum(mass.values())
-    if total == 0:
+    if total == 0 or not math.isfinite(total):
         observed = [repr(t.get("token", "")) for t in top_logprobs[:6]]
         raise DecisionError("no_label_tokens", f"no listed label token observed; top tokens: {observed}")
 
@@ -171,23 +179,34 @@ def decide_multi_axis(backend, image_bytes: bytes, mime: str, axis: Axis) -> dic
 
     by_id = {c.id: c for c in axis.choices}
     confirmations: dict[str, float] = {}
+    confirmation_errors: dict[str, str] = {}
     total_elapsed_ms = ranking["elapsed_ms"]
     for cid in candidates:
         c = by_id[cid]
-        yn = yes_no(backend, image_bytes, mime, c.name, c.criteria)
+        try:
+            yn = yes_no(backend, image_bytes, mime, c.name, c.criteria)
+        except DecisionError as e:
+            confirmation_errors[cid] = f"{e.error_type}: {e.detail}"
+            continue
+        except REQUEST_EXCEPTIONS as e:
+            confirmation_errors[cid] = f"{type(e).__name__}: {e}"
+            continue
         confirmations[cid] = yn["p_yes"]
         total_elapsed_ms += yn["elapsed_ms"]
 
-    tags = [cid for cid in candidates if confirmations[cid] >= YES_THRESHOLD]
+    tags = [cid for cid in candidates if confirmations.get(cid, 0.0) >= YES_THRESHOLD]
 
-    if not tags and non_none_ids:
-        top_non_none = max(non_none_ids, key=lambda cid: relative_scores[cid])
-        if top_non_none in catch_all_ids:
-            tags = [top_non_none]
+    if not tags:
+        # __none__ を含む全体の argmax が catch_all の場合だけ、catch_all をフォールバックにする。
+        # __none__ 自体が全体最高ならタグなしのままにする。
+        overall_top = max(relative_scores, key=relative_scores.get)
+        if overall_top in catch_all_ids:
+            tags = [overall_top]
 
     return {
         "relative_scores": relative_scores,
         "confirmations": confirmations,
+        "confirmation_errors": confirmation_errors,
         "candidates": candidates,
         "tags": tags,
         "elapsed_ms": total_elapsed_ms,

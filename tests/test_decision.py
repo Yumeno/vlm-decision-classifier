@@ -13,6 +13,7 @@ from classifier_demo.decision import (
 )
 from classifier_demo.taxonomy import Axis, Choice
 from tests.fakes import FakeBackend, make_logprobs_response
+import urllib.error
 
 
 def test_pool_labels_merges_token_variants():
@@ -49,6 +50,14 @@ def test_pool_labels_zero_mass_raises_with_observed_tokens():
         pool_labels(top_logprobs, ["A", "B"])
     assert exc_info.value.error_type == "no_label_tokens"
     assert "'X'" in exc_info.value.detail
+
+
+def test_pool_labels_non_finite_mass_raises():
+    # logprob が極端に大きいと exp() が inf になり得る -> 非有限値も no_label_tokens 扱い
+    top_logprobs = [{"token": "A", "logprob": 1e6}]
+    with pytest.raises(DecisionError) as exc_info:
+        pool_labels(top_logprobs, ["A", "B"])
+    assert exc_info.value.error_type == "no_label_tokens"
 
 
 def test_extract_top_logprobs_thinking_detected():
@@ -165,3 +174,34 @@ def test_decide_multi_axis_none_top_no_fallback():
     result = decide_multi_axis(backend, b"img", "image/png", axis)
     assert result["tags"] == []
     assert result["relative_scores"][NONE_ID] == pytest.approx(0.8)
+
+
+def test_decide_multi_axis_none_top_overrides_catch_all_among_non_none():
+    # catch_all(other_original) は __none__ を除く候補の中では最高スコアだが、
+    # __none__ を含めた全体では __none__ が最高 -> catch_all フォールバックは適用しない。
+    axis = _character_axis()
+    backend = FakeBackend(
+        [
+            make_logprobs_response({"A": 0.05, "B": 0.05, "C": 0.3, "D": 0.6}),  # ranking
+            make_logprobs_response({"A": 0.1, "B": 0.9}),  # alisa yes/no -> no
+            make_logprobs_response({"A": 0.1, "B": 0.9}),  # second_original yes/no -> no
+        ]
+    )
+    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    assert result["tags"] == []
+
+
+def test_decide_multi_axis_candidate_confirmation_error_recorded():
+    axis = _character_axis()
+    backend = FakeBackend(
+        [
+            make_logprobs_response({"A": 0.5, "B": 0.3, "C": 0.15, "D": 0.05}),  # ranking
+            urllib.error.URLError("connection refused"),  # alisa yes/no -> 通信失敗
+            make_logprobs_response({"A": 0.9, "B": 0.1}),  # second_original yes/no -> yes
+        ]
+    )
+    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    assert "alisa" not in result["confirmations"]
+    assert "alisa" in result["confirmation_errors"]
+    assert "URLError" in result["confirmation_errors"]["alisa"]
+    assert result["tags"] == ["second_original"]
