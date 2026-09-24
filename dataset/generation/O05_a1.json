@@ -1,0 +1,19 @@
+{
+  "tool": "forge_neo",
+  "request": {
+    "prompt": "masterpiece, best quality, score_7, safe, 1girl, red hair, one-piece swimsuit, beach, playing volleyball, jumping, sunny day, full body",
+    "negative_prompt": "worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw",
+    "seed": 20260965,
+    "steps": 36,
+    "cfg_scale": 4.5,
+    "sampler_name": "ER SDE",
+    "scheduler": "Simple",
+    "width": 896,
+    "height": 1152
+  },
+  "returned_parameters": "masterpiece, best quality, score_7, safe, 1girl, red hair, one-piece swimsuit, beach, playing volleyball, jumping, sunny day, full body\nNegative prompt: worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw\nSteps: 36, Sampler: ER SDE, Schedule type: Simple, CFG scale: 4.5, Shift: 3.5, Seed: 20260965, Size: 896x1152, Model: anima-base-v1.0, Model hash: bd43b7cffe, Module 1: qwen_image_vae, Module 2: qwen_3_06b_base, RNG: CPU, Version: neo-2.29.1",
+  "version": "neo-2.29.1",
+  "elapsed_seconds": 28.571756999997888,
+  "png_sha256": "698b551f182f1b422fac35edffcf0a838ebe9b0b0a9e23ec3bd2f0fa4d50892d",
+  "generated_at": "2026-09-24T16:25:13.480071+00:00"
+}
