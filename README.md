@@ -29,6 +29,7 @@
 | `doc/basic-design.md` | 分類・データ・アダプタ設計 | あり |
 | `doc/implementation-experiment-plan.md` | 実装順と実験行列 | あり |
 | `doc/phase0-sources-models.md` | 移植元の要点、使用モデルとSHA256、probe結果、画像生成の条件 | あり |
+| `doc/dataset-plan.md` | 正解付与規則、24枚の生成計画表、manifest仕様（画像生成前に固定） | あり |
 | `doc/worklog.md` | 作業記録（新しい順） | あり |
 | `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン | 未実装 |
 | `taxonomy/` | 一般分類と自作キャラの定義 | 未作成 |
