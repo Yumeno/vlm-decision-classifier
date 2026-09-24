@@ -2,6 +2,30 @@
 
 新しい順。compact 後の文脈復元用。詳細は各 PR と `doc/` を参照。
 
+## 2026-09-25 — Phase 1: 7軸化とデータセット31枠の生成
+
+**やったこと**
+- 作者の判断で taxonomy を 0.4.0(7軸: image_type・art_style・color・subject・situation・outfit・character)に拡張した。データセット計画を 0.2 にし、服装・場面・色の群 O01〜O07 を追加した(元画像31枠)。Codex(gpt-6-luna)で5ラウンドのレビューを行い、収束した。
+  - 拡張は Forge 担当10枚の生成後・正解付与前。生成記録は拡張前にコミット `7cb8882` で固定した。
+- 生成スクリプト(Forge/ComfyUI・送信済みマーカー・上書き拒否・LoRA 事前確認)を Sonnet が実装した。Codex で3ラウンドのレビューを行い、収束した。
+- 生成: Forge Neo 14枠、ComfyUI 10枠、外部7枠(Codex CLI 4: G06・G08・N01・C02元画像、Antigravity CLI 3: G07・N02・M03)。すべて attempt 1、作り直しなし。C02 は人工メタデータを書き込んだ(画素一致を検証)。
+- 検収用の一覧ページ(artifact、非公開)を作った。各枠の画像・7軸の狙い・確認ポイントを載せている。
+
+**試行錯誤(記事用)**
+- Forge Neo は API の `override_settings` でのチェックポイント切り替えが効かなかった。最初の試し生成は `paleVeilAnima_alternative` で生成されてしまい、データセットには使っていない(`dataset/staging/_setup/`)。`/sdapi/v1/options` でモデルを切り替えて解決し、作業後に元へ戻した。
+- ComfyUI の LoRA は `_comfy` 変換版のファイル名になるので、taxonomy の照合名に追加した(0.3.0)。実画像で A1111 形式・ComfyUI 形式とも照合できることを確認した。C01 は重み0でも記録として一致した。
+- Codex CLI(0.155.1)は `-SandboxMode workspace-write` を指定してもワークスペースに保存できず、画像は `~/.codex/generated_images/` に出力された。依頼後に作られた画像がちょうど1枚であることを確認して回収した。
+- Antigravity(agy 1.2.7)は ARTIFACT_PATH を報告させる方式で、`antigravity-artifact import` で検証してから取り込んだ。
+- 1枚あたりの生成時間: Forge 約29秒、ComfyUI 約22〜74秒。
+
+**レビュー運用の気づき**
+- Codex の指摘には誤りもあった(`LoraLoaderModelOnly` に `strength_clip` が必要という指摘)。ComfyUI の `/object_info` で実際の定義を確かめ、却下が正しかったことを確認した。
+
+**次の一手**
+- 作者による検収(除外の有無)と、31枠 × 7軸の正解付与。
+- 採用画像を `dataset/images/` に移し、派生ケース(A01〜A04 の strip)を作って manifest を書き、`dataset-v1.0.0` として固定する。
+- PR: #4(分類コア)は merge 待ち。Phase 2b(評価器)とデータセット生成は、その後に順に PR にする。
+
 ## 2026-09-24 — Phase 2b(評価器)
 
 **やったこと**
