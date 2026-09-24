@@ -39,7 +39,7 @@ axes:
       - {id: creature, name: creature, criteria: "animal or non-humanoid creature"}
       - {id: other, name: other, criteria: "none of the above"}
   - id: situation
-    question: "What situation do the characters in this image appear to be in? If several apply, choose the first that applies in this order: battle, sports, meal, hobby, work or study, daily life."
+    question: "What situation do the characters in this image appear to be in? If there is no character, choose other. If several apply, choose the first that applies in this order: battle, sports, meal, hobby, work or study, daily life."
     multi: false
     allow_none: false
     choices:
@@ -51,7 +51,7 @@ axes:
       - {id: battle, name: battle, criteria: "fighting or combat"}
       - {id: other, name: other, criteria: "none of the above, including images with no character"}
   - id: outfit
-    question: "What kinds of outfits are worn by the characters in this image?"
+    question: "What kinds of outfits are worn by the characters in this image? Ignore tiny background figures."
     multi: true
     allow_none: true   # "none of the above" = no character present
     choices:
@@ -64,7 +64,7 @@ axes:
       - {id: nun, name: nun's habit, criteria: "nun's habit with a veil"}
       - {id: other, name: other clothing, criteria: "clothing whose type is recognizable but fits none of the above", catch_all: true}
   - id: character
-    question: "Which character appears in this image?"
+    question: "Which character appears in this image? Ignore tiny background figures."
     multi: true
     allow_none: true   # "none of the above" = no character present
     choices:
