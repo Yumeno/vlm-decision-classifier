@@ -142,6 +142,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         note=args.note,
         output_dir=args.output_dir,
         runtime_info_path=args.runtime_info,
+        dataset_version=args.dataset_version,
     )
 
 
@@ -193,6 +194,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="JSON file describing the run environment (model/mmproj SHA256, server commit, "
         "patch, launch args, GPU offload, etc.); stored as-is in run.json",
+    )
+    evaluate_parser.add_argument(
+        "--dataset-version",
+        default=None,
+        help="dataset version tag (e.g. dataset-v1.0.0) to cross-check against DATASET_CARD.md; "
+        "stored as-is in run.json",
     )
     evaluate_parser.add_argument("--note", default=None)
     evaluate_parser.add_argument("--output-dir", required=True)

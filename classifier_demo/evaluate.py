@@ -163,6 +163,11 @@ def check_manifest(manifest_path: str) -> ManifestCheck:
             errors.append(
                 f"case {case_id}: derived_from case {derived_from} has a different source_image_id"
             )
+        elif origin.get("derived_from") is not None:
+            errors.append(
+                f"case {case_id}: derived_from case {derived_from} is itself derived "
+                "(nested derivation is not allowed)"
+            )
 
     return ManifestCheck(
         cases=cases,
@@ -258,6 +263,7 @@ def run_evaluate(
     note: str | None,
     output_dir: str,
     runtime_info_path: str | None = None,
+    dataset_version: str | None = None,
 ) -> int:
     try:
         validate_modes(modes)
@@ -289,15 +295,29 @@ def run_evaluate(
     taxonomy = load_taxonomy(taxonomy_path)
 
     excluded_cases: list[dict] = []
-    evaluated_cases: list[dict] = []
-    evaluated_by_scenario: dict[str, int] = {}
+    rights_excluded_ids: set[str] = set()
+    provisionally_evaluated: list[dict] = []
     for case in check.cases:
         if case["rights"].get("rights_confirmed") is not True:
             excluded_cases.append({"case_id": case["case_id"], "reason": "rights_not_confirmed"})
+            rights_excluded_ids.add(case["case_id"])
+        else:
+            provisionally_evaluated.append(case)
+
+    # 元ケースがrights未確認で除外された派生ケースも合わせて除外する。派生の派生は
+    # check_manifest で禁止しているため、1段だけ見れば連鎖は起きない。
+    evaluated_cases: list[dict] = []
+    for case in provisionally_evaluated:
+        derived_from = case.get("derived_from")
+        if derived_from and derived_from in rights_excluded_ids:
+            excluded_cases.append({"case_id": case["case_id"], "reason": "source excluded"})
         else:
             evaluated_cases.append(case)
-            scenario = case.get("scenario", "<missing>")
-            evaluated_by_scenario[scenario] = evaluated_by_scenario.get(scenario, 0) + 1
+
+    evaluated_by_scenario: dict[str, int] = {}
+    for case in evaluated_cases:
+        scenario = case.get("scenario", "<missing>")
+        evaluated_by_scenario[scenario] = evaluated_by_scenario.get(scenario, 0) + 1
 
     cases_dir = os.path.join(output_dir, "cases")
     os.makedirs(cases_dir, exist_ok=True)
@@ -324,6 +344,7 @@ def run_evaluate(
         "tool_commit": {"commit": _git_commit(), "dirty": _git_dirty()},
         "manifest": {"path": _relpath(manifest_path), "sha256": sha256_file(manifest_path)},
         "taxonomy": {"version": taxonomy.version, "sha256": taxonomy.sha256},
+        "dataset_version": dataset_version,
         "model": backend.model,
         "base_url": backend.base_url,
         "modes": modes,

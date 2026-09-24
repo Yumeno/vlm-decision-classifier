@@ -124,6 +124,24 @@ def test_check_manifest_bad_derived_from(tmp_path, monkeypatch):
     assert any("different source_image_id" in e for e in result2.errors)
 
 
+def test_check_manifest_nested_derivation_is_error(tmp_path, monkeypatch):
+    # 派生の派生(derived_from が指す先自体も derived_from を持つ)は禁止する
+    monkeypatch.chdir(tmp_path)
+    img = Path("img.png")
+    _make_plain_png(img)
+    sha = _sha256(img)
+
+    origin = _minimal_case("A01", "img.png", sha, source_image_id="A01")
+    strip = _minimal_case("A01-strip", "img.png", sha, derived_from="A01", source_image_id="A01")
+    nested = _minimal_case(
+        "A01-strip-strip", "img.png", sha, derived_from="A01-strip", source_image_id="A01"
+    )
+    _write_manifest(Path("manifest.jsonl"), [origin, strip, nested])
+
+    result = evaluate.check_manifest("manifest.jsonl")
+    assert any("itself derived" in e for e in result.errors)
+
+
 def test_check_manifest_ok_counts_and_rights(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     img = Path("img.png")
@@ -313,12 +331,14 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
         note="test note",
         output_dir=output_dir,
         runtime_info_path=str(runtime_info_path),
+        dataset_version="dataset-v1.0.0",
     )
     assert exit_code == 0
 
     # --- run.json ---
     run_json_path = Path(output_dir) / "run.json"
     run_data = json.loads(run_json_path.read_text(encoding="utf-8"))
+    assert run_data["dataset_version"] == "dataset-v1.0.0"
     assert run_data["case_counts"]["total"] == 5
     assert run_data["case_counts"]["evaluated"] == 4
     assert run_data["case_counts"]["excluded"] == 1
@@ -431,6 +451,13 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     assert "### 元画像(choice vs json" in summary_text
     assert "### 全ケース(choice vs json" in summary_text
 
+    # macro Precision/Recall/F1(micro の隣、TP/FP/FN列は対象外)
+    assert "| macro | - | - | - | - | - | - |" in summary_text
+    assert "macro はキャラ別値" in summary_text
+
+    # artificial は採点対象外である旨の注記
+    assert "`artificial` は画像から検出できない記録上の事実なので採点対象外" in summary_text
+
 
 def test_run_evaluate_without_runtime_info_records_null(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
@@ -471,6 +498,7 @@ def test_run_evaluate_without_runtime_info_records_null(tmp_path, monkeypatch):
     run_data = json.loads((Path(output_dir) / "run.json").read_text(encoding="utf-8"))
     assert run_data["runtime_info"] is None
     assert run_data["runtime_info_file"] is None
+    assert run_data["dataset_version"] is None  # --dataset-version 未指定時
 
 
 def test_run_evaluate_aborts_before_any_request_on_bad_runtime_info(tmp_path, monkeypatch):
@@ -620,3 +648,45 @@ def test_run_evaluate_records_warmup_details(tmp_path, monkeypatch):
     assert len(warmup["elapsed_ms"]) == 2
     assert all(isinstance(v, (int, float)) for v in warmup["elapsed_ms"])
     assert warmup["errors"] == 0
+
+
+def test_run_evaluate_excludes_derived_case_when_source_excluded(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "images").mkdir()
+    img_path = Path("images/A01.png")
+    _make_plain_png(img_path)
+    sha = _sha256(img_path)
+
+    origin = _minimal_case("A01", "images/A01.png", sha, scenario="alisa_lora")
+    origin["rights"] = {"terms": "test-license", "rights_confirmed": False}
+    # A01-strip自体は rights_confirmed=true だが、元ケースA01が除外されているので
+    # 連動して除外されるべき(派生の派生は check_manifest で禁止済み)。
+    strip = _minimal_case(
+        "A01-strip", "images/A01.png", sha, derived_from="A01", source_image_id="A01", scenario="alisa_lora"
+    )
+    manifest_path = tmp_path / "manifest.jsonl"
+    _write_manifest(manifest_path, [origin, strip])
+
+    backend = FakeBackend([])
+    taxonomy_path = str(Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml")
+    output_dir = str(tmp_path / "results")
+
+    exit_code = evaluate.run_evaluate(
+        manifest_path=str(manifest_path),
+        taxonomy_path=taxonomy_path,
+        backend=backend,
+        modes=["choice"],
+        max_edge=64,
+        warmup=0,
+        runtime_label=None,
+        note=None,
+        output_dir=output_dir,
+    )
+    assert exit_code == 0
+    assert backend.request_count == 0  # 評価対象ケースが0件になっている
+
+    run_data = json.loads((Path(output_dir) / "run.json").read_text(encoding="utf-8"))
+    assert run_data["case_counts"]["evaluated"] == 0
+    assert run_data["case_counts"]["excluded"] == 2
+    excluded = {e["case_id"]: e["reason"] for e in run_data["excluded_cases"]}
+    assert excluded == {"A01": "rights_not_confirmed", "A01-strip": "source excluded"}

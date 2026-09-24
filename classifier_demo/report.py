@@ -273,6 +273,31 @@ def _char_stats(scores: list[dict]) -> dict[str, dict]:
     return stats
 
 
+def _macro_prf1(stats: dict[str, dict]) -> dict:
+    """CHARACTERSのキャラ別値を単純平均したmacro Precision/Recall/F1。
+
+    分母(Precisionは TP+FP、Recallは TP+FN)が0で値を定義できないキャラは、
+    そのキャラだけ平均から除く(0として扱うと過小評価になるため)。F1はPrecision・
+    Recallの両方が定義できるキャラのみで平均する。1件も無ければ None(n/a)。
+    """
+    precisions = [stats[ch]["precision"] for ch in CHARACTERS if (stats[ch]["tp"] + stats[ch]["fp"]) > 0]
+    recalls = [stats[ch]["recall"] for ch in CHARACTERS if (stats[ch]["tp"] + stats[ch]["fn"]) > 0]
+    f1s = [
+        stats[ch]["f1"]
+        for ch in CHARACTERS
+        if (stats[ch]["tp"] + stats[ch]["fp"]) > 0 and (stats[ch]["tp"] + stats[ch]["fn"]) > 0
+    ]
+    return {
+        "precision": statistics.mean(precisions) if precisions else None,
+        "recall": statistics.mean(recalls) if recalls else None,
+        "f1": statistics.mean(f1s) if f1s else None,
+    }
+
+
+def _macro_val(value: float | None) -> str:
+    return f"{value:.2f}" if value is not None else "n/a"
+
+
 def _pred_label(char_score: dict) -> str:
     if char_score["failed"]:
         return "FAILED"
@@ -416,6 +441,12 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
 
     lines.append("### キャラ別 TP/FP/FN・Precision/Recall/F1(各列は 元画像 / 全ケース)")
     lines.append("")
+    lines.append(
+        "micro は全キャラ合算のTP/FP/FNから計算。macro はキャラ別値(TP/FP/FNの列は対象外)の"
+        "単純平均で、分母(Precisionは TP+FP、Recallは TP+FN)が0で値を定義できないキャラは"
+        "平均から除く(該当時は `n/a`)。"
+    )
+    lines.append("")
     for mode in modes:
         lines.append(f"#### {mode}")
         lines.append("")
@@ -433,6 +464,14 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
                 f"{s['precision']:.2f} | {a['precision']:.2f} | {s['recall']:.2f} | {a['recall']:.2f} | "
                 f"{s['f1']:.2f} | {a['f1']:.2f} |"
             )
+        macro_src = _macro_prf1(stats_src)
+        macro_all = _macro_prf1(stats_all)
+        lines.append(
+            f"| macro | - | - | - | - | - | - | "
+            f"{_macro_val(macro_src['precision'])} | {_macro_val(macro_all['precision'])} | "
+            f"{_macro_val(macro_src['recall'])} | {_macro_val(macro_all['recall'])} | "
+            f"{_macro_val(macro_src['f1'])} | {_macro_val(macro_all['f1'])} |"
+        )
         lines.append("")
 
     lines.append(
@@ -500,6 +539,10 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
     lines.append(f"- characters 完全一致率: {_pct_str(chars_ok, n_meta)}")
     lines.append(f"- loras 完全一致率: {_pct_str(loras_ok, n_meta)}")
     lines.append(f"- trigger_words 完全一致率: {_pct_str(triggers_ok, n_meta)}")
+    lines.append(
+        "- `artificial` は画像から検出できない記録上の事実なので採点対象外"
+        "(ケース別CSVに期待値のみ出力)。"
+    )
     lines.append("")
 
     lines.append("## 派生ケース(メタデータ除去コピー)")

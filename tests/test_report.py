@@ -449,3 +449,30 @@ def test_build_summary_scenario_table_shows_dash_when_no_source_case():
         "| sceneB | - ／ 1 | 元画像 - ／ 全ケース 100.0% (1/1) | 元画像 - ／ 全ケース 100.0% (1/1) |"
         in summary_text
     )
+
+
+def test_macro_prf1_excludes_undefined_characters():
+    # alisa: TP=1,FP=0,FN=0 -> precision/recallとも定義可(ともに1.0)
+    # second_original: 一度も予測にも期待にも出ない(TP=FP=FN=0) -> precision/recallとも未定義、平均から除外
+    # other_original: TP=0,FP=1,FN=0 -> precisionは定義可(0.0)、recallは未定義(TP+FN=0)
+    stats = {
+        "alisa": {"tp": 1, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+        "second_original": {"tp": 0, "fp": 0, "fn": 0, "precision": 0.0, "recall": 0.0, "f1": 0.0},
+        "other_original": {"tp": 0, "fp": 1, "fn": 0, "precision": 0.0, "recall": 0.0, "f1": 0.0},
+    }
+    macro = report._macro_prf1(stats)
+    assert macro["precision"] == pytest.approx((1.0 + 0.0) / 2)  # alisa, other_original の平均
+    assert macro["recall"] == pytest.approx(1.0)  # alisaのみ(other_originalはrecall未定義で除外)
+    # F1はprecision・recallの両方が定義できるキャラのみ(alisaのみ)
+    assert macro["f1"] == pytest.approx(1.0)
+
+
+def test_macro_prf1_all_undefined_returns_none():
+    stats = {ch: {"tp": 0, "fp": 0, "fn": 0, "precision": 0.0, "recall": 0.0, "f1": 0.0} for ch in report.CHARACTERS}
+    macro = report._macro_prf1(stats)
+    assert macro == {"precision": None, "recall": None, "f1": None}
+
+
+def test_macro_val_formats_and_handles_none():
+    assert report._macro_val(0.5) == "0.50"
+    assert report._macro_val(None) == "n/a"
