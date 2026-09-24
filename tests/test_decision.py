@@ -208,6 +208,64 @@ def test_decide_multi_axis_candidate_confirmation_error_recorded():
     assert result["failed"] is True  # 確認が1件でも失敗した軸は失敗扱い
 
 
+def _outfit_axis() -> Axis:
+    # character 以外の複数選択軸(例: outfit)でも decide_multi_axis が
+    # 同じルールで動くことを示すための軸。catch_all + allow_none の構成は character と同じ。
+    return Axis(
+        id="outfit",
+        question="What kinds of outfits are worn by the characters in this image?",
+        multi=True,
+        allow_none=True,
+        choices=[
+            Choice(id="sailor_uniform", name="sailor school uniform", criteria="sailor criteria"),
+            Choice(id="maid", name="maid outfit", criteria="maid criteria"),
+            Choice(id="other", name="other clothing", criteria="other criteria", catch_all=True),
+        ],
+    )
+
+
+def test_decide_multi_axis_non_character_axis_follows_same_rules():
+    """decide_multi_axis は character 専用ではなく、multi=True な軸なら
+    (outfit のような)character 以外でも同じ規則(none-top/ catch_all フォールバック/
+    確認失敗時の扱い)で動く。"""
+    axis = _outfit_axis()
+
+    # __none__ が全体最高 -> タグなし、catch_all へフォールバックしない
+    backend = FakeBackend(
+        [
+            make_logprobs_response({"A": 0.1, "B": 0.05, "C": 0.05, "D": 0.8}),  # ranking: none top
+            make_logprobs_response({"A": 0.1, "B": 0.9}),  # sailor_uniform yes/no -> no
+            make_logprobs_response({"A": 0.1, "B": 0.9}),  # maid yes/no -> no
+        ]
+    )
+    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    assert result["tags"] == []
+    assert result["failed"] is False
+
+    # catch_all(other) が __none__ を含めた全体の argmax -> catch_all フォールバック
+    backend = FakeBackend(
+        [
+            make_logprobs_response({"A": 0.2, "B": 0.1, "C": 0.6, "D": 0.1}),  # ranking: other top overall
+            make_logprobs_response({"A": 0.1, "B": 0.9}),  # sailor_uniform yes/no -> no
+            make_logprobs_response({"A": 0.1, "B": 0.9}),  # maid yes/no -> no
+        ]
+    )
+    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    assert result["tags"] == ["other"]
+
+    # 確認(yes/no)が1件失敗 -> 軸は失敗扱いで、catch_all フォールバックもしない
+    backend = FakeBackend(
+        [
+            make_logprobs_response({"A": 0.1, "B": 0.05, "C": 0.6, "D": 0.25}),  # ranking: other top overall
+            urllib.error.URLError("connection refused"),  # sailor_uniform yes/no -> 通信失敗
+            make_logprobs_response({"A": 0.1, "B": 0.9}),  # maid yes/no -> no
+        ]
+    )
+    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    assert result["failed"] is True
+    assert result["tags"] == []
+
+
 def test_decide_multi_axis_confirmation_failure_skips_catch_all_fallback():
     # 確認が失敗した軸では、他の理由でタグが空でも catch_all へフォールバックしない。
     axis = _character_axis()

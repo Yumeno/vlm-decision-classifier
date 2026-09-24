@@ -150,7 +150,7 @@ def yes_no(backend, image_bytes: bytes, mime: str, name: str, criteria: str) -> 
 
 
 def decide_axis(backend, image_bytes: bytes, mime: str, axis: Axis) -> dict:
-    """単一選択軸の判定(image_type / art_style / subject)。"""
+    """単一選択軸の判定(multi=False の軸すべてに共通)。"""
     result = choose(backend, image_bytes, mime, axis.question, axis.choices, axis.allow_none)
     return {
         "relative_scores": result["relative_scores"],
@@ -160,7 +160,8 @@ def decide_axis(backend, image_bytes: bytes, mime: str, axis: Axis) -> dict:
 
 
 def decide_multi_axis(backend, image_bytes: bytes, mime: str, axis: Axis) -> dict:
-    """複数選択軸の判定(character)。ランキング1回 + 候補ごとの yes/no。"""
+    """複数選択軸の判定(multi=True の軸すべてに共通。character のほか outfit 等も対象)。
+    ランキング1回 + 候補ごとの yes/no。"""
     ranking = choose(backend, image_bytes, mime, axis.question, axis.choices, axis.allow_none)
     relative_scores = ranking["relative_scores"]
 

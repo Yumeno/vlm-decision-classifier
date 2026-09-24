@@ -13,9 +13,17 @@ def _write(tmp_path: Path, content: str) -> str:
 
 def test_load_default_taxonomy_ok():
     tax = taxonomy.load("taxonomy/default.yaml")
-    assert tax.version == "0.3.0"
+    assert tax.version == "0.4.0"
     axis_ids = [a.id for a in tax.axes]
-    assert axis_ids == ["image_type", "art_style", "subject", "character"]
+    assert axis_ids == [
+        "image_type",
+        "art_style",
+        "color",
+        "subject",
+        "situation",
+        "outfit",
+        "character",
+    ]
     assert tax.sha256  # non-empty hash
 
 

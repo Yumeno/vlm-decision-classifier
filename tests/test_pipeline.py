@@ -3,8 +3,71 @@ from pathlib import Path
 
 from PIL import Image, PngImagePlugin
 
-from classifier_demo import pipeline, taxonomy
+from classifier_demo import pipeline
+from classifier_demo.taxonomy import Axis, Choice, Taxonomy
 from tests.fakes import FakeBackend, make_logprobs_response, make_no_logprobs_response
+
+
+def _test_taxonomy() -> Taxonomy:
+    """default taxonomy から独立した、pipeline テスト専用の小さな taxonomy。
+    軸構成(単一選択3軸 + 複数選択1軸)は既存テストの FakeBackend レスポンス列
+    (ラベル数・リクエスト順)に合わせてある。"""
+    image_type = Axis(
+        id="image_type",
+        question="q",
+        multi=False,
+        allow_none=False,
+        choices=[
+            Choice(id="illustration", name="illustration", criteria="c"),
+            Choice(id="comic", name="comic", criteria="c"),
+            Choice(id="ui", name="user interface", criteria="c"),
+            Choice(id="other", name="other", criteria="c"),
+        ],
+    )
+    art_style = Axis(
+        id="art_style",
+        question="q",
+        multi=False,
+        allow_none=False,
+        choices=[
+            Choice(id="anime_2d", name="anime style", criteria="c"),
+            Choice(id="painterly_2d", name="painterly", criteria="c"),
+            Choice(id="pixel_art", name="pixel art", criteria="c"),
+            Choice(id="other", name="other", criteria="c"),
+        ],
+    )
+    subject = Axis(
+        id="subject",
+        question="q",
+        multi=False,
+        allow_none=False,
+        choices=[
+            Choice(id="person", name="person", criteria="c"),
+            Choice(id="landscape", name="landscape", criteria="c"),
+            Choice(id="mecha_vehicle", name="mecha or vehicle", criteria="c"),
+            Choice(id="object", name="object", criteria="c"),
+            Choice(id="creature", name="creature", criteria="c"),
+            Choice(id="other", name="other", criteria="c"),
+        ],
+    )
+    character = Axis(
+        id="character",
+        question="Which character appears in this image?",
+        multi=True,
+        allow_none=True,
+        choices=[
+            Choice(
+                id="alisa",
+                name="Alisa",
+                criteria="c",
+                lora_names=["fet-alisa-uniform-anima-v4u"],
+                trigger_words=["fet_alisa_uniform"],
+            ),
+            Choice(id="second_original", name="second", criteria="c"),
+            Choice(id="other_original", name="other", criteria="c", catch_all=True),
+        ],
+    )
+    return Taxonomy(version="test", axes=[image_type, art_style, subject, character], sha256="deadbeef")
 
 
 def _make_image_with_alisa_lora(path: Path) -> None:
@@ -21,7 +84,7 @@ def test_classify_choice_mode_records_axis_failure_and_succeeds_others(tmp_path)
     image_path = tmp_path / "img.png"
     _make_image_with_alisa_lora(image_path)
 
-    tax = taxonomy.load("taxonomy/default.yaml")
+    tax = _test_taxonomy()
 
     backend = FakeBackend(
         [
@@ -63,7 +126,7 @@ def test_classify_choice_mode_records_axis_failure_and_succeeds_others(tmp_path)
 def test_classify_records_request_error_and_continues_other_axes(tmp_path):
     image_path = tmp_path / "img.png"
     Image.new("RGB", (16, 16), (0, 0, 0)).save(image_path)
-    tax = taxonomy.load("taxonomy/default.yaml")
+    tax = _test_taxonomy()
 
     backend = FakeBackend(
         [
@@ -88,7 +151,7 @@ def test_classify_records_request_error_and_continues_other_axes(tmp_path):
 
 def test_classify_image_error_is_recorded_without_crashing(tmp_path):
     missing_path = tmp_path / "does_not_exist.png"
-    tax = taxonomy.load("taxonomy/default.yaml")
+    tax = _test_taxonomy()
     backend = FakeBackend([])
 
     result = pipeline.classify(str(missing_path), tax, backend, mode="choice", max_edge=64)
@@ -105,7 +168,7 @@ def test_classify_character_confirmation_failure_excludes_from_vision_tags(tmp_p
     # vision_tags に character を入れない(catch_all へもフォールバックしない)。
     image_path = tmp_path / "img.png"
     _make_image_with_alisa_lora(image_path)
-    tax = taxonomy.load("taxonomy/default.yaml")
+    tax = _test_taxonomy()
 
     backend = FakeBackend(
         [
@@ -136,7 +199,7 @@ def test_classify_character_confirmation_failure_excludes_from_vision_tags(tmp_p
 def test_classify_metadata_error_is_recorded_and_classification_continues(tmp_path, monkeypatch):
     image_path = tmp_path / "img.png"
     Image.new("RGB", (16, 16), (0, 0, 0)).save(image_path)
-    tax = taxonomy.load("taxonomy/default.yaml")
+    tax = _test_taxonomy()
 
     def _raise(*args, **kwargs):
         raise RuntimeError("boom")
