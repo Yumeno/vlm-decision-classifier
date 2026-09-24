@@ -1,0 +1,48 @@
+version: "0.1.0"
+axes:
+  - id: image_type
+    question: "What kind of image is this?"
+    multi: false
+    allow_none: false
+    choices:
+      - {id: illustration, name: illustration, criteria: "a single illustration or artwork"}
+      - {id: comic, name: comic, criteria: "comic or manga page with panels or speech balloons"}
+      - {id: ui, name: user interface, criteria: "screenshot or mockup of an app, game or web UI"}
+      - {id: other, name: other, criteria: "none of the above"}
+  - id: art_style
+    question: "What is the art style of this image?"
+    multi: false
+    allow_none: false
+    choices:
+      - {id: anime_2d, name: anime style, criteria: "cel-shaded 2D anime or manga style"}
+      - {id: painterly_2d, name: painterly, criteria: "2D painting style with visible brush strokes or soft painted shading"}
+      - {id: pixel_art, name: pixel art, criteria: "low-resolution pixel art with visible square pixels"}
+      - {id: other, name: other, criteria: "none of the above"}
+  - id: subject
+    question: "What is the main subject of this image?"
+    multi: false
+    allow_none: false
+    choices:
+      - {id: person, name: person, criteria: "one or more human or humanoid characters are the main subject"}
+      - {id: landscape, name: landscape, criteria: "scenery, cityscape or interior without a main character"}
+      - {id: mecha_vehicle, name: mecha or vehicle, criteria: "robot, mecha, car, ship or aircraft"}
+      - {id: object, name: object, criteria: "an item, food or still life"}
+      - {id: creature, name: creature, criteria: "animal or non-humanoid creature"}
+      - {id: other, name: other, criteria: "none of the above"}
+  - id: character
+    question: "Which character appears in this image?"
+    multi: true
+    allow_none: true   # "none of the above" = no character present
+    choices:
+      - id: alisa
+        name: Alisa
+        criteria: "girl with straight brown bob-cut hair with bangs and blue eyes, wearing a white collared long-sleeve shirt, a pink vest, a red string ribbon at the neck and a dark pink pencil skirt"
+        lora_names: [fet-alisa-uniform-anima-v4u]
+        trigger_words: [fet_alisa_uniform]
+      - id: second_original
+        name: Second original character
+        criteria: "girl with brown bob-cut hair and blue eyes similar to Alisa, but wearing a different outfit (not a pink vest with a red ribbon and dark pink pencil skirt)"
+      - id: other_original
+        name: other character
+        criteria: "any other character"
+        catch_all: true
