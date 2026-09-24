@@ -39,12 +39,12 @@ axes:
       - {id: creature, name: creature, criteria: "animal or non-humanoid creature"}
       - {id: other, name: other, criteria: "none of the above"}
   - id: situation
-    question: "What situation do the characters in this image appear to be in?"
+    question: "What situation do the characters in this image appear to be in? If several apply, choose the first that applies in this order: battle, sports, meal, hobby, work or study, daily life."
     multi: false
     allow_none: false
     choices:
-      - {id: daily, name: daily life, criteria: "everyday activity such as walking, resting, waiting or chatting"}
-      - {id: work_study, name: work or study, criteria: "working, studying or doing chores"}
+      - {id: daily, name: daily life, criteria: "everyday activity such as walking, resting, waiting, chatting, posing or just standing"}
+      - {id: work_study, name: work or study, criteria: "working, studying or doing chores, including serving customers and cleaning as a job"}
       - {id: meal, name: meal, criteria: "eating or drinking"}
       - {id: sports, name: sports, criteria: "playing sports or exercising"}
       - {id: hobby, name: hobby, criteria: "a hobby or leisure activity such as games, music or crafts"}
