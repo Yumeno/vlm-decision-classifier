@@ -7,7 +7,9 @@
 - `prompts.yaml` — 生成枠(slot)の固定プロンプト表。**内容は生成前に固定済み。変更しない。**
 - `comfy_anima_workflow.json` — ComfyUI用ワークフロー(HuggingFaceの Anima 公式サンプル画像に埋め込まれたAPI形式グラフをそのまま保存したもの)。`scripts/generate_comfy.py` が読み込んで改変する。
 - `{slot_id}_a{attempt}.json` — 生成1回ごとのパラメータ・応答の記録(`scripts/gen_common.py` の `write_params` が書く)。
-- `log.csv` — 生成試行のログ(1行=1回の生成)。列: `slot_id, attempt, seed, tool, file, sha256, generated_at, result, reason`。`result` は生成時点では `generated`(または失敗時 `error`/`setup_error`)。**検収結果(採用/除外)は作者が後から手で書き加える**(`accepted` / `rejected` など)。
+- `log.csv` — 生成試行のログ(1行=1回の生成)。列: `slot_id, attempt, seed, tool, file, sha256, generated_at, result, reason`。
+  `result` の種類: `generated`(正常に生成できた) / `error`(送信後の失敗。タイムアウト・取得失敗・保存失敗など) / `setup_error`(Forgeで返ってきた画像のModel hashが一致しない。この時点でスクリプト全体を中断する)。
+  **検収結果(採用/除外)は作者が後からこの行に手で書き加える**(`accepted` / `rejected` など)。
 - `{slot_id}_a{attempt}.submitted.json` / `{slot_id}_a{attempt}.prompt_id.txt` — 生成リクエストを**送信する直前**に書く送信済みマーカー(後者はComfyUIのprompt_id)。
 
 ## スクリプト(`scripts/`)

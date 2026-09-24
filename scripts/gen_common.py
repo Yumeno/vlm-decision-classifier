@@ -121,12 +121,19 @@ def check_not_generated(slot_id: str, attempt: int) -> None:
 
 
 def write_submitted_marker(slot_id: str, attempt: int, data: dict) -> Path:
-    """生成リクエストを送る直前に呼ぶ。既存なら上書き拒否(=多重送信の防止)。"""
+    """生成リクエストを送る直前に呼ぶ。
+
+    "x"モードで排他的に新規作成する(既存ファイルがあれば FileExistsError で失敗し、
+    呼び出し側はそこで送信を中止する)。既存チェック→書き込みの2段階にすると
+    その間に競合が起きうるため、作成そのものを1回のOS呼び出しにしている。
+    """
     p = submitted_marker_path(slot_id, attempt)
-    if p.exists():
-        raise FileExistsError(f"既に送信済みマーカーが存在します(再送信しません): {p}")
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    try:
+        with open(p, "x", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except FileExistsError:
+        raise FileExistsError(f"既に送信済みマーカーが存在します(再送信しません): {p}") from None
     return p
 
 

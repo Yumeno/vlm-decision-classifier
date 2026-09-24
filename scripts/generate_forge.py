@@ -94,6 +94,9 @@ def generate_one(url: str, cfg: dict, slot_id: str, attempt: int) -> None:
         },
     )
 
+    sha256 = ""
+    img_path = None
+    image_saved = False
     try:
         start = time.perf_counter()
         response = gc.http_post_json(f"{url}/sdapi/v1/txt2img", payload, timeout=600)
@@ -118,6 +121,7 @@ def generate_one(url: str, cfg: dict, slot_id: str, attempt: int) -> None:
         img_path = gc.staging_image_path(slot_id, attempt)
         img_path.parent.mkdir(parents=True, exist_ok=True)
         img_path.write_bytes(png_bytes)
+        image_saved = True
 
         version = parse_version(parameters_text)
 
@@ -132,15 +136,16 @@ def generate_one(url: str, cfg: dict, slot_id: str, attempt: int) -> None:
         }
         gc.write_params(slot_id, attempt, params_data)
     except Exception as e:
-        # 送信後の失敗(タイムアウト・取得失敗・保存失敗など)は必ずログしてから次の枠へ進めるようにする
+        # 送信後の失敗(タイムアウト・取得失敗・保存失敗など)は必ずログしてから次の枠へ進めるようにする。
+        # 画像保存が済んでいれば file/sha256 は分かっているのでログに残す(保存前の失敗は空のまま)。
         gc.append_log(
             {
                 "slot_id": slot_id,
                 "attempt": attempt,
                 "seed": seed,
                 "tool": "forge_neo",
-                "file": "",
-                "sha256": "",
+                "file": str(img_path.relative_to(gc.REPO_ROOT)) if image_saved else "",
+                "sha256": sha256 if image_saved else "",
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "result": "error",
                 "reason": str(e)[:300],

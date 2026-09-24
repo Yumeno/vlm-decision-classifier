@@ -151,6 +151,20 @@ def test_write_submitted_marker_refuses_overwrite(tmp_path, monkeypatch):
     assert data["seed"] == 1
 
 
+def test_write_submitted_marker_uses_exclusive_create(tmp_path, monkeypatch):
+    # write_submitted_marker自身が"x"モードの新規作成のみを試みる。
+    # write_submitted_markerを経由せず外部から同名ファイルが先に置かれていても、
+    # 「存在チェック→書き込み」の2段階を踏まずに作成そのもので失敗し、内容を壊さない。
+    monkeypatch.setattr(gc, "GENERATION_DIR", tmp_path)
+    marker = tmp_path / "A01_a1.submitted.json"
+    marker.write_text("existing", encoding="utf-8")
+
+    with pytest.raises(FileExistsError):
+        gc.write_submitted_marker("A01", 1, {"slot_id": "A01", "attempt": 1, "seed": 1})
+
+    assert marker.read_text(encoding="utf-8") == "existing"
+
+
 def test_check_not_generated_raises_if_marker_exists_even_without_result(tmp_path, monkeypatch):
     # 送信済みマーカーだけがある(=送信したが結果がまだ/失敗した)状態でも再送信を拒否する
     monkeypatch.setattr(gc, "GENERATION_DIR", tmp_path)

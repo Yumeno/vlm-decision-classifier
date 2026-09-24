@@ -238,9 +238,13 @@ def generate_one(url: str, cfg: dict, template: dict, slot_id: str, attempt: int
         },
     )
 
+    sha256 = ""
+    img_path = None
+    image_saved = False
     try:
         start = time.perf_counter()
         prompt_id = submit(url, graph, client_id)
+        print(f"  prompt_id={prompt_id}")
         gc.write_prompt_id(slot_id, attempt, prompt_id)
         history_entry = wait_for_history(url, prompt_id)
         elapsed = time.perf_counter() - start
@@ -257,6 +261,7 @@ def generate_one(url: str, cfg: dict, template: dict, slot_id: str, attempt: int
         img_path = gc.staging_image_path(slot_id, attempt)
         img_path.parent.mkdir(parents=True, exist_ok=True)
         img_path.write_bytes(png_bytes)
+        image_saved = True
 
         params_data = {
             "tool": "comfyui",
@@ -268,15 +273,16 @@ def generate_one(url: str, cfg: dict, template: dict, slot_id: str, attempt: int
         }
         gc.write_params(slot_id, attempt, params_data)
     except Exception as e:
-        # 送信後の失敗(タイムアウト・取得失敗・保存失敗など)は必ずログしてから次の枠へ進めるようにする
+        # 送信後の失敗(タイムアウト・取得失敗・保存失敗など)は必ずログしてから次の枠へ進めるようにする。
+        # 画像保存が済んでいれば file/sha256 は分かっているのでログに残す(保存前の失敗は空のまま)。
         gc.append_log(
             {
                 "slot_id": slot_id,
                 "attempt": attempt,
                 "seed": seed,
                 "tool": "comfyui",
-                "file": "",
-                "sha256": "",
+                "file": str(img_path.relative_to(gc.REPO_ROOT)) if image_saved else "",
+                "sha256": sha256 if image_saved else "",
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "result": "error",
                 "reason": str(e)[:300],
