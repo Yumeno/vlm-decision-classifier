@@ -2,6 +2,27 @@
 
 新しい順。compact 後の文脈復元用。詳細は各 PR と `doc/` を参照。
 
+## 2026-09-24 — Phase 2a(最小の分類コア)
+
+**やったこと**
+- Sonnet が実装した: taxonomy 読み込み、LoRA/トリガーワード抽出(A1111/Forge と ComfyUI の LoraLoader)、画像前処理、OpenAI 互換バックエンド、logprobs 集計と選択式判定(複数キャラはランキング+yes/no)、通常 JSON ベースライン、1枚分類パイプライン、CLI(`probe`・`classify`)。テストは38件。
+- Codex(gpt-6-luna)で3ラウンドのレビューを行い、収束した。R1: Major 4・Minor 1(時間計測の1件は §5.1 と逆なので却下)と、オーケストレータの指摘4件。R2: Major 2・Minor 1(一部反映)。R3: Major 1・Minor 3(すべて理由付きで却下)。
+- 主なバグ修正: 人物なし画像に other_original が付く、JSON の回答例が実在の選択肢(alisa 等)で誘導していた(公平性)、確認失敗が隠れる、通信失敗で全体が停止する。
+- 実サーバーでのスモーク(LM Studio + Qwen3.5 9B、非公開の Alisa 学習画像1枚。評価値ではない): probe は成功。choice は5リクエストで 5,141 ms、json は1リクエストで 1,708 ms。両方式とも alisa と判定。
+  - 旧 SDXL 用 LoRA 名 `fet_alisa_uniform` は taxonomy に列挙していないので、メタデータ一致なし(設計どおり)。
+  - choice は軸ごとに画像を再送するので、1軸あたり約0.9〜1.3秒かかる。キャッシュ改造(E3/E4)の効果を測る意味がありそう。
+
+**判断**
+- 確認(yes/no)が1件でも失敗した multi 軸は、軸ごと失敗として扱い、catch_all に逃がさない(失敗を隠さない)。
+- taxonomy を 0.2.0 にした(second_original の criteria を計画の衣装に合わせた)。
+
+**ユーザー指定**
+- VRAM は複数プロジェクトで取り合いなので、GPU を使い始める直前に必ずユーザーを呼ぶ(CLAUDE.md に追記)。
+
+**次の一手**
+- Phase 2b: manifest を読んで全件評価し、ケース別 CSV と集計 Markdown を出す(GPU 不要)。
+- 画像生成の準備(GPU を使う前にユーザーに確認する)。
+
 ## 2026-09-24 — Phase 1 計画(正解付与規則・生成計画表)
 
 **やったこと**

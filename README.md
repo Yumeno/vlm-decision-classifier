@@ -2,7 +2,7 @@
 
 ローカルの視覚言語モデル（VLM）を使い、生成画像を**選択式の質問**で分類する実験用リポジトリです。分類軸ごとの選択肢と判定基準をモデルへ渡し、回答ラベルの `logprobs` から候補間の相対スコアを得ます。画像の生成メタデータから得たLoRA指定は、画素からの判定とは別の根拠として表示します。
 
-**現在は設計開始用の雛形です。分類コード、画像データセット、実験結果はまだ入っていません。** 本書の実行コマンドは実装後に追加します。まず [`doc/requirements.md`](doc/requirements.md)、[`doc/basic-design.md`](doc/basic-design.md)、[`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) を参照してください。
+**分類コアの最小実装（Phase 2a）まで完了しています。画像データセット・実験結果はまだ入っていません。** 下記の「実行方法（開発中）」で単体分類の動かし方を確認できます。まず [`doc/requirements.md`](doc/requirements.md)、[`doc/basic-design.md`](doc/basic-design.md)、[`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) を参照してください。
 
 ## 何を実演するか
 
@@ -31,13 +31,42 @@
 | `doc/phase0-sources-models.md` | 移植元の要点、使用モデルとSHA256、probe結果、画像生成の条件 | あり |
 | `doc/dataset-plan.md` | 正解付与規則、24枚の生成計画表、manifest仕様（画像生成前に固定） | あり |
 | `doc/worklog.md` | 作業記録（新しい順） | あり |
-| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン | 未実装 |
-| `taxonomy/` | 一般分類と自作キャラの定義 | 未作成 |
+| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、CLI（`probe`/`classify`） | Phase 2a 実装済み（分類コアのみ。`evaluate`・レポートは未実装） |
+| `taxonomy/default.yaml` | 一般分類と自作キャラの定義 | あり |
 | `dataset/` | 新規生成画像、manifest、データセット説明 | 未作成 |
-| `scripts/`、`tests/` | 評価、再現性チェック、テスト | 未作成 |
+| `scripts/` | 評価、再現性チェック | 未作成 |
+| `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・pipeline） | あり |
 | `doc/patches/` | llama.cpp画像キャッシュ改造の固定差分 | 未作成 |
 
 設計文書中のディレクトリ案は実装時の指針です。コードを追加した時点で、この表と起動方法を実態に合わせて更新してください。
+
+## 実行方法（開発中）
+
+Python 3.11以上。この開発機では `python`（3.14）/ `python3`（3.10）ではなく `py -3.12` で venv を作ります。
+
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\python.exe -m pip install -e ".[dev]"
+```
+
+推論サーバー（LM Studio / llama-server の OpenAI互換 chat completions）はユーザーが別途起動しておきます。このツールはサーバーの自動起動・モデルの自動ダウンロードを行いません。
+
+```powershell
+# 接続・vision・logprobs の疎通確認（実画像1枚で回答ラベルとlogprobsを試す）
+.venv\Scripts\python.exe -m classifier_demo probe --base-url http://127.0.0.1:1234/v1 --model <モデルID>
+
+# 1枚を分類（選択式）。結果JSONは --output 省略時は標準出力
+.venv\Scripts\python.exe -m classifier_demo classify path\to\image.png --model <モデルID> --output results\demo.json
+
+# 通常JSON分類ベースラインとの比較
+.venv\Scripts\python.exe -m classifier_demo classify path\to\image.png --model <モデルID> --mode json
+```
+
+テスト実行（ネットワーク・実サーバー不要、偽バックエンドのみ使用）:
+
+```powershell
+.venv\Scripts\python.exe -m pytest -q
+```
 
 ## 実験の比較条件
 

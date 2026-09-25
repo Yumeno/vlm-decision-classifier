@@ -1,0 +1,82 @@
+version: "0.4.0"
+axes:
+  - id: image_type
+    question: "What kind of image is this?"
+    multi: false
+    allow_none: false
+    choices:
+      - {id: illustration, name: illustration, criteria: "a single illustration or artwork"}
+      - {id: comic, name: comic, criteria: "comic or manga page with panels or speech balloons"}
+      - {id: ui, name: user interface, criteria: "screenshot or mockup of an app, game or web UI"}
+      - {id: other, name: other, criteria: "none of the above"}
+  - id: art_style
+    question: "What is the art style of this image?"
+    multi: false
+    allow_none: false
+    choices:
+      - {id: anime_2d, name: anime style, criteria: "cel-shaded 2D anime or manga style"}
+      - {id: painterly_2d, name: painterly, criteria: "2D painting style with visible brush strokes or soft painted shading"}
+      - {id: pixel_art, name: pixel art, criteria: "low-resolution pixel art with visible square pixels"}
+      - {id: other, name: other, criteria: "none of the above"}
+  - id: color
+    question: "How is color used in this image?"
+    multi: false
+    allow_none: false
+    choices:
+      - {id: line_art, name: line art, criteria: "black-and-white line drawing with no color fill and little or no shading"}
+      - {id: full_color, name: full color, criteria: "an image in full color"}
+      - {id: grayscale, name: grayscale, criteria: "black-and-white image with gray shading, no color"}
+      - {id: other, name: other, criteria: "none of the above, such as sepia or a limited two-color palette"}
+  - id: subject
+    question: "What is the main subject of this image?"
+    multi: false
+    allow_none: false
+    choices:
+      - {id: person, name: person, criteria: "one or more human or humanoid characters are the main subject"}
+      - {id: landscape, name: landscape, criteria: "scenery, cityscape or interior without a main character"}
+      - {id: mecha_vehicle, name: mecha or vehicle, criteria: "robot, mecha, car, ship or aircraft"}
+      - {id: object, name: object, criteria: "an item, food or still life"}
+      - {id: creature, name: creature, criteria: "animal or non-humanoid creature"}
+      - {id: other, name: other, criteria: "none of the above"}
+  - id: situation
+    question: "What situation do the characters in this image appear to be in? If there is no character, choose other. If several apply, choose the first that applies in this order: battle, sports, meal, hobby, work or study, daily life."
+    multi: false
+    allow_none: false
+    choices:
+      - {id: daily, name: daily life, criteria: "everyday activity such as walking, resting, waiting, chatting, posing or just standing"}
+      - {id: work_study, name: work or study, criteria: "working, studying or doing chores, including serving customers and cleaning as a job"}
+      - {id: meal, name: meal, criteria: "eating or drinking"}
+      - {id: sports, name: sports, criteria: "playing sports or exercising"}
+      - {id: hobby, name: hobby, criteria: "a hobby or leisure activity such as games, music or crafts"}
+      - {id: battle, name: battle, criteria: "fighting or combat"}
+      - {id: other, name: other, criteria: "none of the above, including images with no character"}
+  - id: outfit
+    question: "What kinds of outfits are worn by the characters in this image? Ignore tiny background figures."
+    multi: true
+    allow_none: true   # "none of the above" = no character present
+    choices:
+      - {id: sailor_uniform, name: sailor school uniform, criteria: "school uniform with a sailor collar"}
+      - {id: school_uniform, name: school uniform, criteria: "school uniform without a sailor collar, such as a blazer with a necktie"}
+      - {id: office_wear, name: office wear, criteria: "business suit or office uniform, such as a vest with a pencil skirt"}
+      - {id: swimsuit, name: swimsuit, criteria: "swimsuit"}
+      - {id: maid, name: maid outfit, criteria: "maid outfit with an apron and headdress"}
+      - {id: miko, name: shrine maiden outfit, criteria: "Japanese shrine maiden outfit with a white top and red or dark hakama"}
+      - {id: nun, name: nun's habit, criteria: "nun's habit with a veil"}
+      - {id: other, name: other clothing, criteria: "clothing whose type is recognizable but fits none of the above", catch_all: true}
+  - id: character
+    question: "Which character appears in this image? Ignore tiny background figures."
+    multi: true
+    allow_none: true   # "none of the above" = no character present
+    choices:
+      - id: alisa
+        name: Alisa
+        criteria: "girl with straight brown bob-cut hair with bangs and blue eyes, wearing a white collared long-sleeve shirt, a pink vest, a red string ribbon at the neck and a dark pink pencil skirt"
+        lora_names: [fet-alisa-uniform-anima-v4u, fet-alisa-uniform-anima-v4u_comfy]  # 同じLoRAのForge用とComfyUI用ファイル
+        trigger_words: [fet_alisa_uniform]
+      - id: second_original
+        name: Second original character
+        criteria: "girl with straight brown bob-cut hair with bangs and blue eyes, wearing a navy blazer, a green necktie and a grey pleated skirt"
+      - id: other_original
+        name: other character
+        criteria: "any other character"
+        catch_all: true
