@@ -22,6 +22,18 @@
 - PR の順番: #4(分類コア)→ Phase 2b(評価器)→ データセット(このブランチ)。#4 は merge 待ち。
 - その後 Phase 3: GPU を使う評価(E1/E1-J: Qwen、E2/E2-J: Gemma)。使う前にユーザーに確認する。
 
+## 2026-09-26 — Phase 3 の準備(GPU 使用前で待機)
+
+**やったこと**
+- PR #4(分類コア)・#5(評価器)が merge された。データセットのブランチを main に乗せ直し(worklog と README の衝突を解消)、PR #6 を出した。main 側の venv で pytest 105 passed、check-manifest OK、manifest/taxonomy の SHA256 が DATASET_CARD と一致することを確認した。
+- 実行環境の記録用 JSON(`doc/experiments/runtime/{qwen,gemma}-lmstudio.json`)と実行手順書(`doc/experiments/phase3-runbook.md`)を作った。LM Studio の実行エンジンは llama.cpp CUDA12 2.41.0、CLI commit 69d945a。GPU は 4060 Ti 16GB / 3090 24GB、ドライバ 591.86。
+
+**待機理由**
+- 作者が別プロジェクトで VRAM を使用中のため、モデルのロード直前で待機している。LM Studio には別プロジェクトのモデル(qwen3.5-9b-uncensored-hauhaucs-aggressive)がロード中なので、評価のリクエストで自動ロードが起きないよう、作者の確認後に明示的にロード・アンロードする。
+
+**次の一手**
+- 作者の合図で E1/E1-J(Qwen)→ E2/E2-J(Gemma)を手順書どおり実行する(probe → 1件試打 → 全件)。
+
 ## 2026-09-25 — Phase 1: 7軸化とデータセット31枠の生成
 
 **やったこと**
