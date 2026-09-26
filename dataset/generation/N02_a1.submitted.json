@@ -1,0 +1,7 @@
+{
+  "slot_id": "N02",
+  "attempt": 1,
+  "tool": "external:antigravity_cli",
+  "spec": "タスク: 評価用データセットの画像を1枚生成する(枠 N02)\n\n用途: ローカルVLMによる画像分類デモの評価用データセットに入れる画像。公開予定。\n\n参照画像(キャラクターの容姿の参照。1枚のみ。画像ツールの参照画像として渡す): <repo>/dataset/staging/_ref/alisa_ref.png\n(作者のオリジナルキャラクター。参照画像そのものを編集するのではなく、同じキャラクターを新しい場面で描く)\n\n内容: 参照画像と同じ少女を、別の場面で描く。夕方、川にかかる橋の上に立って景色を眺めている。上半身以上が写る構図。\nキャラクターの必須条件(参照画像どおりに保つ):\n- 茶髪のストレートなボブカット、前髪あり、青い目。\n- 白い襟付き長袖シャツ、ピンクのベスト、首元に赤い紐リボン、濃いピンクのタイトスカート。\n- ピンクのベストと赤い紐リボンがはっきり見えること。\nスタイル: アニメ調のイラスト。フルカラー。\n必須条件:\n- 画面にいる人物はこの少女1人だけ(背景に人物を描かない)。\n- 文字・ロゴを描かない。\n- アスペクト比: 1:1。\n補完してよい項目: 表情、ポーズ、背景の細部、配色(キャラクターの必須条件は除く)。\n\n重要(データセットの運用規則): 画像生成は ちょうど1回だけ 行うこと。生成結果を見て作り直したり、複数枚を生成して選んだりしないこと。参照画像は上記の1枚だけを使うこと。\n\nDo NOT copy, move or convert the generated file and do NOT run any shell commands.\nWhen done, report on separate lines (one ARTIFACT_PATH line for the single generated image):\nARTIFACT_PATH: <absolute path of the generated file>\nIMAGE_NAME: <the ImageName value you passed to the image tool>\nASPECT_RATIO: <the AspectRatio value you passed>\nREFERENCE_IMAGES: <the ImagePaths values you passed, if any>\nPROMPT: <the full Prompt text you passed to the image tool>\nDo not report or guess the image model name.\n",
+  "submitted_at": "2026-09-24T17:27:33.622546+00:00"
+}

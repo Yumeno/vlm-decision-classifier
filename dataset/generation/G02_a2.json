@@ -1,0 +1,16 @@
+{
+  "slot_id": "G02",
+  "attempt": 2,
+  "tool": "external:codex_cli",
+  "file": "dataset/staging/G02_a2.png",
+  "format": "PNG",
+  "size": [
+    1254,
+    1254
+  ],
+  "bytes": 2691596,
+  "sha256": "3870c156a62745ad4bd9a0c7fe16b1a3245e48b0c075dc728610271acc4fba16",
+  "source_basename": "exec-d8c12603-c67b-44a7-afc7-6e17f18b71d9.png",
+  "imported_at": "2026-09-24T22:04:45.828503+00:00",
+  "response_note": "Codex 応答(codex-cli 0.155.1、wrapper 表示のテキストモデル gpt-5.6-terra。画像モデルは取得不可)。新規生成1回、参照画像なし。ツール既定の出力先から依頼側が回収(依頼後に作られた画像はこの1枚のみ)。\n画像生成プロンプト全文:\nCreate exactly one square (1:1) full-color anime-style cel-shaded illustration for a public evaluation dataset. A single gigantic original industrial-military robot stands alone in a spacious hangar, shown as a full-body view from head to feet with the entire machine clearly inside the frame. The robot is deliberately and unmistakably asymmetrical: one side has a bulky tracked construction arm with exposed hydraulic cylinders and a shovel-like articulated attachment; the other side has a different narrower armored manipulator and a distinctly different shoulder-mounted industrial equipment module. Combine heavy construction machinery details (hydraulic pistons, excavator-like joints, crawler components, rugged mechanical linkages) with military-inspired features (angular armor plates, olive drab and muted camouflage-like paint blocks, utilitarian weathering), but do not include any writing, lettering, logos, symbols, numbers, insignia, or stencil text anywhere. The head is an original non-humanoid sensor housing with no expressive face, no eyes arranged like a human face, and no resemblance to robots or characters from any existing anime, game, film, or franchise. Hangar background has dramatic overhead lights, structural beams, maintenance platforms and machinery only; no people, no human silhouettes, no figures, no crew. Crisp clean cel shading, original mecha design, dramatic but readable lighting, full color. Absolute exclusions: people, human silhouettes, faces, text, letters, logos, numbers, watermarks, existing franchise character likenesses.\n"
+}

@@ -1,0 +1,1026 @@
+{
+  "A01": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "A01",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:44.044Z"
+  },
+  "A02": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "A02",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:44.798Z"
+  },
+  "A03": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "meal",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "meal",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "A03",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:45.741Z"
+  },
+  "A04": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "A04",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:42.413Z"
+  },
+  "C01": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "C01",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:26.023Z"
+  },
+  "C02": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "other",
+      "subject": "landscape"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "other",
+      "subject": "landscape"
+    },
+    "note": "",
+    "slot_id": "C02",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:25.374Z"
+  },
+  "G01": {
+    "attempt": "a1",
+    "changed_axes": [
+      "art_style",
+      "situation"
+    ],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "other",
+      "subject": "landscape"
+    },
+    "labels": {
+      "art_style": "painterly_2d",
+      "character": [],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "daily",
+      "subject": "landscape"
+    },
+    "note": "画風は迷いそうですー",
+    "slot_id": "G01",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:55.983Z"
+  },
+  "G02": {
+    "attempt": "a2",
+    "changed_axes": [
+      "situation",
+      "character"
+    ],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "other",
+      "subject": "mecha_vehicle"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "battle",
+      "subject": "mecha_vehicle"
+    },
+    "note": "",
+    "slot_id": "G02",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:55.059Z"
+  },
+  "G03": {
+    "attempt": "a1",
+    "changed_axes": [
+      "situation"
+    ],
+    "intent": {
+      "art_style": "painterly_2d",
+      "character": [],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "other",
+      "subject": "object"
+    },
+    "labels": {
+      "art_style": "painterly_2d",
+      "character": [],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "meal",
+      "subject": "object"
+    },
+    "note": "",
+    "slot_id": "G03",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:54.375Z"
+  },
+  "G04": {
+    "attempt": "a1",
+    "changed_axes": [
+      "character"
+    ],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "other",
+      "subject": "creature"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "other",
+      "subject": "creature"
+    },
+    "note": "",
+    "slot_id": "G04",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:51.209Z"
+  },
+  "G05": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "painterly_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "other"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "painterly_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "other"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "G05",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:51.917Z"
+  },
+  "G06": {
+    "attempt": "a1",
+    "changed_axes": [
+      "situation"
+    ],
+    "intent": {
+      "art_style": "pixel_art",
+      "character": [],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "other",
+      "subject": "landscape"
+    },
+    "labels": {
+      "art_style": "pixel_art",
+      "character": [],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [],
+      "situation": "daily",
+      "subject": "landscape"
+    },
+    "note": "",
+    "slot_id": "G06",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:52.563Z"
+  },
+  "G07": {
+    "attempt": "a2",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "comic",
+      "outfit": [
+        "other"
+      ],
+      "situation": "work_study",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "comic",
+      "outfit": [
+        "other"
+      ],
+      "situation": "work_study",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "G07",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:49.178Z"
+  },
+  "G08": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "other",
+      "character": [],
+      "color": "full_color",
+      "image_type": "ui",
+      "outfit": [],
+      "situation": "other",
+      "subject": "other"
+    },
+    "labels": {
+      "art_style": "other",
+      "character": [],
+      "color": "full_color",
+      "image_type": "ui",
+      "outfit": [],
+      "situation": "other",
+      "subject": "other"
+    },
+    "note": "",
+    "slot_id": "G08",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:48.447Z"
+  },
+  "M01": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa",
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear",
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa",
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear",
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "M01",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:27.819Z"
+  },
+  "M02": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa",
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa",
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "M02",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:28.676Z"
+  },
+  "M03": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original",
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform",
+        "other"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original",
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform",
+        "other"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "M03",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:29.614Z"
+  },
+  "N01": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "N01",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:38.400Z"
+  },
+  "N02": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "N02",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:39.110Z"
+  },
+  "N03": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "alisa"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "office_wear"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "N03",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:39.716Z"
+  },
+  "O01": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "sailor_uniform"
+      ],
+      "situation": "meal",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "sailor_uniform"
+      ],
+      "situation": "meal",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "O01",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:23.436Z"
+  },
+  "O02": {
+    "attempt": "a2",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "maid"
+      ],
+      "situation": "work_study",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "maid"
+      ],
+      "situation": "work_study",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "O02",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:22.570Z"
+  },
+  "O03": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "grayscale",
+      "image_type": "illustration",
+      "outfit": [
+        "miko"
+      ],
+      "situation": "work_study",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "grayscale",
+      "image_type": "illustration",
+      "outfit": [
+        "miko"
+      ],
+      "situation": "work_study",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "O03",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:22.022Z"
+  },
+  "O04": {
+    "attempt": "a2",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "line_art",
+      "image_type": "illustration",
+      "outfit": [
+        "nun"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "line_art",
+      "image_type": "illustration",
+      "outfit": [
+        "nun"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "O04",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:16.998Z"
+  },
+  "O05": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "swimsuit"
+      ],
+      "situation": "sports",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "swimsuit"
+      ],
+      "situation": "sports",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "O05",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:16.269Z"
+  },
+  "O06": {
+    "attempt": "a2",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "grayscale",
+      "image_type": "illustration",
+      "outfit": [
+        "other"
+      ],
+      "situation": "battle",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "grayscale",
+      "image_type": "illustration",
+      "outfit": [
+        "other"
+      ],
+      "situation": "battle",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "O06",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:15.601Z"
+  },
+  "O07": {
+    "attempt": "a2b",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "line_art",
+      "image_type": "illustration",
+      "outfit": [
+        "other"
+      ],
+      "situation": "hobby",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "other_original"
+      ],
+      "color": "line_art",
+      "image_type": "illustration",
+      "outfit": [
+        "other"
+      ],
+      "situation": "hobby",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "O07",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:19.434Z"
+  },
+  "S01": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "S01",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:35.910Z"
+  },
+  "S02": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "S02",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:34.982Z"
+  },
+  "S03": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "S03",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:34.048Z"
+  },
+  "S04": {
+    "attempt": "a1",
+    "changed_axes": [],
+    "intent": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "labels": {
+      "art_style": "anime_2d",
+      "character": [
+        "second_original"
+      ],
+      "color": "full_color",
+      "image_type": "illustration",
+      "outfit": [
+        "school_uniform"
+      ],
+      "situation": "daily",
+      "subject": "person"
+    },
+    "note": "",
+    "slot_id": "S04",
+    "status": "confirmed",
+    "updated_at": "2026-09-24T22:27:32.265Z"
+  }
+}

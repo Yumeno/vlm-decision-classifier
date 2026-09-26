@@ -1,0 +1,19 @@
+{
+  "tool": "forge_neo",
+  "request": {
+    "prompt": "masterpiece, best quality, score_7, safe, <lora:fet-alisa-uniform-anima-v4u:0.0> 1girl, brown hair, straight hair, bob cut, bangs, blue eyes, navy blazer, green necktie, white collared shirt, grey pleated skirt, corridor, upper body",
+    "negative_prompt": "worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw",
+    "seed": 20260951,
+    "steps": 36,
+    "cfg_scale": 4.5,
+    "sampler_name": "ER SDE",
+    "scheduler": "Simple",
+    "width": 1024,
+    "height": 1024
+  },
+  "returned_parameters": "masterpiece, best quality, score_7, safe, <lora:fet-alisa-uniform-anima-v4u:0.0> 1girl, brown hair, straight hair, bob cut, bangs, blue eyes, navy blazer, green necktie, white collared shirt, grey pleated skirt, corridor, upper body\nNegative prompt: worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw\nSteps: 36, Sampler: ER SDE, Schedule type: Simple, CFG scale: 4.5, Shift: 3.5, Seed: 20260951, Size: 1024x1024, Model: anima-base-v1.0, Model hash: bd43b7cffe, Module 1: qwen_image_vae, Module 2: qwen_3_06b_base, RNG: CPU, Lora hashes: \"fet-alisa-uniform-anima-v4u: 8c33eb667a34\", Version: neo-2.29.1",
+  "version": "neo-2.29.1",
+  "elapsed_seconds": 29.32156330003636,
+  "png_sha256": "86f38900bbbb7871e2a89281ca8971b102c76b6368a168bb81298f7b85509693",
+  "generated_at": "2026-09-24T16:09:12.450432+00:00"
+}

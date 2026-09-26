@@ -1,0 +1,18 @@
+{
+  "slot_id": "A02",
+  "attempt": 1,
+  "seed": 20260912,
+  "tool": "forge_neo",
+  "payload": {
+    "prompt": "masterpiece, best quality, score_7, safe, <lora:fet-alisa-uniform-anima-v4u:0.8> fet_alisa_uniform, 1girl, brown hair, straight hair, bob cut, bangs, blue eyes, white collared shirt, long sleeves, pink vest, red neck ribbon, dark pink pencil skirt, city street, full body, from side, walking",
+    "negative_prompt": "worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw",
+    "seed": 20260912,
+    "steps": 36,
+    "cfg_scale": 4.5,
+    "sampler_name": "ER SDE",
+    "scheduler": "Simple",
+    "width": 896,
+    "height": 1152
+  },
+  "submitted_at": "2026-09-24T16:06:17.094631+00:00"
+}

@@ -1,0 +1,7 @@
+{
+  "slot_id": "G07",
+  "attempt": 1,
+  "tool": "external:antigravity_cli",
+  "spec": "タスク: 評価用データセットの画像を1枚生成する(枠 G07)\n\n用途: ローカルVLMによる画像分類デモの評価用データセットに入れる画像。公開予定。\n\n内容: オリジナルキャラクターによる4コマ漫画の1ページ。長い黒髪の少女が寝坊して、学校へ走っていく短い話。4つのコマが縦に並ぶ。\nスタイル: アニメ・漫画調。フルカラー。コマ枠がはっきり分かること。吹き出しは入れてよいが、中の文字は空か、短い英単語程度にする。\n必須条件:\n- 既存の作品のキャラクターを描かない(オリジナルキャラクターのみ)。\n- 登場人物は少女1人を主役とし、全コマで服装(制服など)が分かるように描く。\n- アスペクト比: 2:3(縦長)。\n補完してよい項目: 各コマの具体的な内容、配色、背景。\n\n重要(データセットの運用規則): 画像生成は ちょうど1回だけ 行うこと。生成結果を見て作り直したり、複数枚を生成して選んだりしないこと。\n\nDo NOT copy, move or convert the generated file and do NOT run any shell commands.\nWhen done, report on separate lines (one ARTIFACT_PATH line for the single generated image):\nARTIFACT_PATH: <absolute path of the generated file>\nIMAGE_NAME: <the ImageName value you passed to the image tool>\nASPECT_RATIO: <the AspectRatio value you passed>\nPROMPT: <the full Prompt text you passed to the image tool>\nDo not report or guess the image model name.\n",
+  "submitted_at": "2026-09-24T17:26:12.803430+00:00"
+}

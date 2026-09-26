@@ -1,0 +1,7 @@
+{
+  "slot_id": "O02",
+  "attempt": "2",
+  "tool": "external:antigravity_cli",
+  "spec": "タスク: 評価用データセットの画像を1枚編集する(枠 O02、2回目)\n\n用途: ローカルVLMによる画像分類デモの評価用データセットに入れる画像(全年齢向け)。公開予定。\n\n編集元画像(画像ツールの参照画像として渡す。1枚のみ): <repo>/dataset/staging/O02_a1.png\n(カフェで紅茶をトレイに載せて給仕している金髪のメイド。現状の衣装はスカート丈が短くフリルが多い)\n\n変更する点(これだけを変える):\n- 衣装を「トラディショナルなメイド服」に変更する: 黒または紺の長袖ワンピースで、スカート丈は足首近くまでのロング丈。白いエプロン(胸当て付き、フリルは控えめ)、白いヘッドドレス(カチューシャ)、白い襟とカフス。露出の少ない、クラシックな英国風メイドの服装。\n\n維持する点(変えない):\n- 人物の顔・髪型・髪色・表情・位置・ポーズ(トレイに紅茶を載せて運ぶ動作)。\n- 背景のカフェ、照明、画風(アニメ調・フルカラー)。\n- 人物はこのメイド1人だけ。文字・ロゴは描かない(看板の文字も描かない)。\n- アスペクト比: 1:1。\n\n重要(データセットの運用規則): 画像編集は ちょうど1回だけ 行うこと。結果を見て作り直したり、複数枚を作って選んだりしないこと。参照画像は上記の1枚だけを使うこと。\n\nDo NOT copy, move or convert the generated file and do NOT run any shell commands.\nWhen done, report on separate lines (one ARTIFACT_PATH line for the single generated image):\nARTIFACT_PATH: <absolute path of the generated file>\nIMAGE_NAME: <the ImageName value you passed to the image tool>\nASPECT_RATIO: <the AspectRatio value you passed>\nREFERENCE_IMAGES: <the ImagePaths values you passed>\nPROMPT: <the full Prompt text you passed to the image tool>\nDo not report or guess the image model name.\n",
+  "submitted_at": "2026-09-24T22:07:46.564561+00:00"
+}

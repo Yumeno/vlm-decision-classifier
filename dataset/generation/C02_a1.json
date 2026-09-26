@@ -1,0 +1,16 @@
+{
+  "slot_id": "C02",
+  "attempt": 1,
+  "tool": "external:codex_cli",
+  "file": "dataset/staging/C02_a1.png",
+  "format": "PNG",
+  "size": [
+    1254,
+    1254
+  ],
+  "bytes": 2567989,
+  "sha256": "abe5720380b69532e868e4487a63542b206750cefacf1c20282edcf8b3c24a90",
+  "source_basename": "exec-8effe1c7-886d-47a4-acdc-51c957acde29.png",
+  "imported_at": "2026-09-24T17:25:49.534266+00:00",
+  "response_note": "Codex 応答(codex-cli 0.155.1、wrapper 表示のテキストモデル gpt-5.6-terra。画像モデルは取得不可)。生成1回、ツール既定の出力先から依頼側が回収(依頼後に作られた画像はこの1枚のみ)。この画像は C02 の元画像で、後から Alisa の LoRA 指定を含む A1111 形式の生成情報を人工的に書き込む(画素は変えない)。\n画像生成プロンプト全文:\nA quiet lakeside landscape in the early morning, distant mountains beyond a calm lake, a forest along the shore, anime-style background illustration, full color, soft morning light, subtle mist above the water, gentle clouds, richly detailed trees and reflections, serene and empty natural scenery. Absolutely no people, human silhouettes, animals, creatures, characters, text, lettering, logos, signs, or watermarks. Square 1:1 composition.\n"
+}

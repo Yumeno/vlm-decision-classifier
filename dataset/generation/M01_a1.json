@@ -1,0 +1,19 @@
+{
+  "tool": "forge_neo",
+  "request": {
+    "prompt": "masterpiece, best quality, score_7, safe, <lora:fet-alisa-uniform-anima-v4u:0.8> fet_alisa_uniform, 2girls, side by side, upper body, office. The girl on the left: brown hair, straight hair, bob cut, bangs, blue eyes, white collared shirt, long sleeves, pink vest, red neck ribbon, dark pink pencil skirt. The girl on the right: brown hair, straight hair, bob cut, bangs, blue eyes, navy blazer, green necktie, white collared shirt, grey pleated skirt",
+    "negative_prompt": "worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw",
+    "seed": 20260941,
+    "steps": 36,
+    "cfg_scale": 4.5,
+    "sampler_name": "ER SDE",
+    "scheduler": "Simple",
+    "width": 1152,
+    "height": 896
+  },
+  "returned_parameters": "masterpiece, best quality, score_7, safe, <lora:fet-alisa-uniform-anima-v4u:0.8> fet_alisa_uniform, 2girls, side by side, upper body, office. The girl on the left: brown hair, straight hair, bob cut, bangs, blue eyes, white collared shirt, long sleeves, pink vest, red neck ribbon, dark pink pencil skirt. The girl on the right: brown hair, straight hair, bob cut, bangs, blue eyes, navy blazer, green necktie, white collared shirt, grey pleated skirt\nNegative prompt: worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw\nSteps: 36, Sampler: ER SDE, Schedule type: Simple, CFG scale: 4.5, Shift: 3.5, Seed: 20260941, Size: 1152x896, Model: anima-base-v1.0, Model hash: bd43b7cffe, Module 1: qwen_image_vae, Module 2: qwen_3_06b_base, RNG: CPU, Lora hashes: \"fet-alisa-uniform-anima-v4u: 8c33eb667a34\", Version: neo-2.29.1",
+  "version": "neo-2.29.1",
+  "elapsed_seconds": 30.0760689000017,
+  "png_sha256": "bf85f54281c14bf08e1cfce850b6f5103ba4706ab72f86f6fac164ea389b6121",
+  "generated_at": "2026-09-24T16:08:43.125042+00:00"
+}

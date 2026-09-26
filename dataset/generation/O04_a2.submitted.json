@@ -1,0 +1,7 @@
+{
+  "slot_id": "O04",
+  "attempt": "2",
+  "tool": "external:antigravity_cli",
+  "spec": "タスク: 評価用データセットの画像を1枚編集する(枠 O04、2回目)\n\n用途: ローカルVLMによる画像分類デモの評価用データセットに入れる画像(全年齢向け)。公開予定。\n\n編集元画像(画像ツールの参照画像として渡す。1枚のみ): <repo>/dataset/staging/O04_a1.png\n(修道女が歩いている白黒の線画。現状の背景は聖堂の内部になっている)\n\n変更する点(これだけを変える):\n- 背景を「教会の庭」に描き直す。屋外で、小道、植え込みや花壇、木々、奥に教会の建物の外観が見える。修道女は庭の小道を歩いている。\n\n維持する点(変えない):\n- 修道女の姿・ポーズ・表情・修道服(ベール付き)・位置と大きさ。\n- 画風: 白い背景に黒い線だけの線画(色・塗り・灰色のトーン・影を入れない)。背景も同じ線画で描く。\n- 人物は修道女1人だけ。文字・ロゴは描かない。\n- アスペクト比: 1:1。\n\n重要(データセットの運用規則): 画像編集は ちょうど1回だけ 行うこと。結果を見て作り直したり、複数枚を作って選んだりしないこと。参照画像は上記の1枚だけを使うこと。\n\nDo NOT copy, move or convert the generated file and do NOT run any shell commands.\nWhen done, report on separate lines (one ARTIFACT_PATH line for the single generated image):\nARTIFACT_PATH: <absolute path of the generated file>\nIMAGE_NAME: <the ImageName value you passed to the image tool>\nASPECT_RATIO: <the AspectRatio value you passed>\nREFERENCE_IMAGES: <the ImagePaths values you passed>\nPROMPT: <the full Prompt text you passed to the image tool>\nDo not report or guess the image model name.\n",
+  "submitted_at": "2026-09-24T22:06:24.191788+00:00"
+}

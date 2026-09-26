@@ -1,0 +1,16 @@
+{
+  "slot_id": "G07",
+  "attempt": 1,
+  "tool": "external:antigravity_cli",
+  "file": "dataset/staging/G07_a1.jpg",
+  "format": "JPEG",
+  "size": [
+    848,
+    1264
+  ],
+  "bytes": 769698,
+  "sha256": "47cb5f02364618fdf2d216f8f23dcabcecee6379fe55b218b4caa4bf2919d7e3",
+  "source_basename": "G07_import.jpg",
+  "imported_at": "2026-09-24T17:27:18.939280+00:00",
+  "response_note": "Antigravity 応答(agy 1.2.7、generate_image を1回呼び出し。画像モデルは取得不可)。conversation_id=93f5b41b-d10d-4ad0-ab89-3e0e6c7ae907。antigravity-artifact import で検証(jpeg 848x1264)のうえ取り込み。\nIMAGE_NAME: g07_yonkoma_manga / ASPECT_RATIO: 2:3\nPROMPT: A vertical 4-panel manga comic strip page (yonkoma layout), full color anime illustration style. The page features exactly four stacked rectangular panels arranged vertically in a single column from top to bottom, separated by clean white gutters and clear panel borders. Character: An original anime schoolgirl with long straight black hair and dark brown eyes, wearing a standard Japanese school uniform (white sailor shirt with navy blue collar and red ribbon tie, navy pleated skirt). She is the sole protagonist in all panels. Panel 1 (top panel): The girl wakes up in bed in utter shock, looking at an alarm clock displaying 8:15 AM, wide-eyed and panic-stricken. Panel 2 (second panel): Inside her room, she hurriedly grabs her school bag while tying her uniform ribbon in a rush, a small speech bubble with '!' above her. Panel 3 (third panel): Outside on a sunny morning suburban street, she sprints desperately down the sidewalk with toast in her mouth, wind blowing through her long black hair and uniform skirt. Panel 4 (bottom panel): Arriving at the open school gates, she skids to a stop just in time, catching her breath with a relieved expression, school building in background. Style: Vibrant full color anime art, crisp line work, well-defined panel frames, authentic Japanese manga page layout, empty or minimalist speech balloons ('!', 'Ah!').\n"
+}

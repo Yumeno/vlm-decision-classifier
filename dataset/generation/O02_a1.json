@@ -1,0 +1,135 @@
+{
+  "tool": "comfyui",
+  "prompt_id": "89e88f2d-180d-48a9-ab60-1e9e6597b57b",
+  "graph": {
+    "1": {
+      "inputs": {
+        "images": [
+          "8",
+          0
+        ],
+        "filename_prefix": "O02_a1"
+      },
+      "class_type": "SaveImage",
+      "_meta": {
+        "title": "Save Image"
+      }
+    },
+    "8": {
+      "inputs": {
+        "samples": [
+          "19",
+          0
+        ],
+        "vae": [
+          "15",
+          0
+        ]
+      },
+      "class_type": "VAEDecode",
+      "_meta": {
+        "title": "VAE Decode"
+      }
+    },
+    "11": {
+      "inputs": {
+        "text": "masterpiece, best quality, score_7, safe, 1girl, blonde hair, maid, maid headdress, apron, serving tea, holding tray, cafe, cowboy shot",
+        "clip": [
+          "45",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP Text Encode (Positive Prompt)"
+      }
+    },
+    "12": {
+      "inputs": {
+        "text": "worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw",
+        "clip": [
+          "45",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP Text Encode (Negative Prompt)"
+      }
+    },
+    "15": {
+      "inputs": {
+        "vae_name": "qwen_image_vae.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "Load VAE"
+      }
+    },
+    "19": {
+      "inputs": {
+        "seed": 20260962,
+        "steps": 36,
+        "cfg": 4.5,
+        "sampler_name": "er_sde",
+        "scheduler": "simple",
+        "denoise": 1.0,
+        "model": [
+          "44",
+          0
+        ],
+        "positive": [
+          "11",
+          0
+        ],
+        "negative": [
+          "12",
+          0
+        ],
+        "latent_image": [
+          "28",
+          0
+        ]
+      },
+      "class_type": "KSampler",
+      "_meta": {
+        "title": "KSampler"
+      }
+    },
+    "28": {
+      "inputs": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      },
+      "class_type": "EmptyLatentImage",
+      "_meta": {
+        "title": "Empty Latent Image"
+      }
+    },
+    "44": {
+      "inputs": {
+        "unet_name": "anima-base-v1.0.safetensors",
+        "weight_dtype": "default"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "Load Diffusion Model"
+      }
+    },
+    "45": {
+      "inputs": {
+        "clip_name": "qwen_3_06b_base.safetensors",
+        "type": "stable_diffusion",
+        "device": "default"
+      },
+      "class_type": "CLIPLoader",
+      "_meta": {
+        "title": "Load CLIP"
+      }
+    }
+  },
+  "elapsed_seconds": 24.075049600040074,
+  "png_sha256": "c2bf3fabd5d3c6c41ef862415ae6992579d7e42d6749ef2f26c9ca0e6c42b5b0",
+  "generated_at": "2026-09-24T17:09:47.616698+00:00"
+}

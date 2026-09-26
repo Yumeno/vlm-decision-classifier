@@ -1,0 +1,19 @@
+{
+  "tool": "forge_neo",
+  "request": {
+    "prompt": "masterpiece, best quality, score_7, safe, 1girl, short hair, hoodie, sitting on bed, playing video games, holding game controller, bedroom, lineart, monochrome",
+    "negative_prompt": "worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw",
+    "seed": 20260967,
+    "steps": 36,
+    "cfg_scale": 4.5,
+    "sampler_name": "ER SDE",
+    "scheduler": "Simple",
+    "width": 1024,
+    "height": 1024
+  },
+  "returned_parameters": "masterpiece, best quality, score_7, safe, 1girl, short hair, hoodie, sitting on bed, playing video games, holding game controller, bedroom, lineart, monochrome\nNegative prompt: worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration, nsfw\nSteps: 36, Sampler: ER SDE, Schedule type: Simple, CFG scale: 4.5, Shift: 3.5, Seed: 20260967, Size: 1024x1024, Model: anima-base-v1.0, Model hash: bd43b7cffe, Module 1: qwen_image_vae, Module 2: qwen_3_06b_base, RNG: CPU, Version: neo-2.29.1",
+  "version": "neo-2.29.1",
+  "elapsed_seconds": 28.645130900025833,
+  "png_sha256": "153808e454f98490b072d7f068ab05adda73bbf7972f0514420e1520131e108b",
+  "generated_at": "2026-09-24T16:25:42.129814+00:00"
+}
