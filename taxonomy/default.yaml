@@ -1,4 +1,4 @@
-version: "0.4.0"
+version: "0.4.1"   # 0.4.1: 複数選択軸に none の説明文(none_criteria)を追加し、other_original の説明を明確化(E1b/E2b 用。正解ラベルは不変)
 axes:
   - id: image_type
     question: "What kind of image is this?"
@@ -54,6 +54,7 @@ axes:
     question: "What kinds of outfits are worn by the characters in this image? Ignore tiny background figures."
     multi: true
     allow_none: true   # "none of the above" = no character present
+    none_criteria: "no character appears in the image"
     choices:
       - {id: sailor_uniform, name: sailor school uniform, criteria: "school uniform with a sailor collar"}
       - {id: school_uniform, name: school uniform, criteria: "school uniform without a sailor collar, such as a blazer with a necktie"}
@@ -67,6 +68,7 @@ axes:
     question: "Which character appears in this image? Ignore tiny background figures."
     multi: true
     allow_none: true   # "none of the above" = no character present
+    none_criteria: "no character appears in the image"
     choices:
       - id: alisa
         name: Alisa
@@ -78,5 +80,5 @@ axes:
         criteria: "girl with straight brown bob-cut hair with bangs and blue eyes, wearing a navy blazer, a green necktie and a grey pleated skirt"
       - id: other_original
         name: other character
-        criteria: "any other character"
+        criteria: "any person or humanoid character who is neither Alisa nor the second original character"
         catch_all: true

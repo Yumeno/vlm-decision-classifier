@@ -6,6 +6,7 @@ from classifier_demo import decision
 from classifier_demo.decision import (
     DecisionError,
     NONE_ID,
+    _build_choice_prompt,
     choose,
     decide_multi_axis,
     extract_top_logprobs,
@@ -107,6 +108,21 @@ def _character_axis() -> Axis:
             Choice(id="other_original", name="other", criteria="other criteria", catch_all=True),
         ],
     )
+
+
+def test_build_choice_prompt_none_line_without_none_criteria():
+    choices = [Choice(id="x", name="x", criteria="x")]
+    prompt = _build_choice_prompt("q?", choices, ["A", "B"], allow_none=True)
+    assert "B. none of the above" in prompt
+    assert "B. none of the above - " not in prompt
+
+
+def test_build_choice_prompt_none_line_with_none_criteria():
+    choices = [Choice(id="x", name="x", criteria="x")]
+    prompt = _build_choice_prompt(
+        "q?", choices, ["A", "B"], allow_none=True, none_criteria="no character appears in the image"
+    )
+    assert "B. none of the above - no character appears in the image" in prompt
 
 
 def test_choose_selects_argmax():

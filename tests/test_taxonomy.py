@@ -13,7 +13,7 @@ def _write(tmp_path: Path, content: str) -> str:
 
 def test_load_default_taxonomy_ok():
     tax = taxonomy.load("taxonomy/default.yaml")
-    assert tax.version == "0.4.0"
+    assert tax.version == "0.4.1"
     axis_ids = [a.id for a in tax.axes]
     assert axis_ids == [
         "image_type",
@@ -25,6 +25,45 @@ def test_load_default_taxonomy_ok():
         "character",
     ]
     assert tax.sha256  # non-empty hash
+
+
+def test_default_taxonomy_multi_axes_have_none_criteria():
+    tax = taxonomy.load("taxonomy/default.yaml")
+    assert tax.axis("outfit").none_criteria == "no character appears in the image"
+    assert tax.axis("character").none_criteria == "no character appears in the image"
+
+
+def test_none_criteria_defaults_to_none_when_absent(tmp_path):
+    content = """
+version: "0.1.0"
+axes:
+  - id: a
+    question: q
+    multi: false
+    allow_none: false
+    choices:
+      - {id: x, name: x, criteria: c}
+"""
+    path = _write(tmp_path, content)
+    tax = taxonomy.load(path)
+    assert tax.axis("a").none_criteria is None
+
+
+def test_none_criteria_loaded_when_present(tmp_path):
+    content = """
+version: "0.1.0"
+axes:
+  - id: a
+    question: q
+    multi: true
+    allow_none: true
+    none_criteria: "no character appears in the image"
+    choices:
+      - {id: x, name: x, criteria: c}
+"""
+    path = _write(tmp_path, content)
+    tax = taxonomy.load(path)
+    assert tax.axis("a").none_criteria == "no character appears in the image"
 
 
 def test_duplicate_axis_id_raises(tmp_path):

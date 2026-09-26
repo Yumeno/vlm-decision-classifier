@@ -104,3 +104,29 @@ def test_build_prompt_example_uses_placeholder_not_real_choice_id():
     # 先頭選択肢(illustration/alisa)を回答例として誘導しない
     assert '"illustration"' not in prompt.split("shape:")[-1]
     assert '"alisa"' not in prompt.split("shape:")[-1]
+
+
+def test_build_prompt_notes_none_criteria_for_multi_axis_with_none_criteria():
+    image_type = Axis(
+        id="image_type",
+        question="q",
+        multi=False,
+        allow_none=False,
+        choices=[Choice(id="illustration", name="illustration", criteria="c")],
+    )
+    character = Axis(
+        id="character",
+        question="q",
+        multi=True,
+        allow_none=True,
+        none_criteria="no character appears in the image",
+        choices=[
+            Choice(id="alisa", name="Alisa", criteria="c"),
+            Choice(id="other_original", name="other", criteria="c", catch_all=True),
+        ],
+    )
+    tax = Taxonomy(version="test", axes=[image_type, character], sha256="deadbeef")
+    prompt = json_baseline._build_prompt(tax)
+    assert "(use an empty list only if: no character appears in the image)" in prompt
+    # none_criteria が無い軸には注記を付けない
+    assert prompt.count("use an empty list only if") == 1
