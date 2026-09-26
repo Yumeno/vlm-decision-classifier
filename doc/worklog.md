@@ -22,6 +22,23 @@
 - PR の順番: #4(分類コア)→ Phase 2b(評価器)→ データセット(このブランチ)。#4 は merge 待ち。
 - その後 Phase 3: GPU を使う評価(E1/E1-J: Qwen、E2/E2-J: Gemma)。使う前にユーザーに確認する。
 
+## 2026-09-26 — Phase 3: E1/E1-J(Qwen)・E2/E2-J(Gemma)の実行
+
+**やったこと**
+- 作者の許可を得て、別プロジェクトのモデルをアンロードし、LM Studio で Qwen3.5 9B → Gemma 4 12B の順にロード・評価・アンロードした。どちらも RTX 3090(GPU 1)で動作した。手順書どおり probe → M01 の1件試打(両モード)→ 全件の順で進めた。
+- E1/E1-J(Qwen): 2026-09-26 11:50:48〜11:58:10 UTC(7分22秒)。E2/E2-J(Gemma): 11:58:56〜12:04:07 UTC(5分11秒)。35ケース × choice/json、ウォームアップ1回。結果は `doc/experiments/E1_qwen-lmstudio/`・`E2_gemma-lmstudio/`(run.json・cases.csv・summary.md)。
+- `run.json` の `tool_commit.dirty=true` は、評価直前に実行環境 JSON へ `gpu_used` などを書き足したため(内容は run.json の runtime_info に全文が写っている。コードは `5f20596` から変更なし)。
+
+**主な観察(小標本なので傾向として扱う。数値は summary.md が一次資料)**
+- Qwen の選択式で、character の other_original が一度も付かなかった(FN 11/11)。Alisa・second_original でない人物に対して、モデルは「other character」より「none of the above」を選んでいた(例: G05 は none 0.957 / other 0.042)。設計では none を「人物なし」の意味で使っているが、選択肢の文言が「none of the above」なので「上のどれでもない」と読める。**選択肢の文言設計の問題**で、選択式の手法の限界ではない可能性が高い。Gemma では other_original の recall が 0.73 で、同じ問題は小さい。
+- JSON 方式の形式不正は両モデルとも2件。単一選択の軸をリストで返していた(Qwen: O01 の situation、O06 の subject)。
+- Gemma の選択式で、yes/no 確認の2件(G03・G05)がサーバー側の Channel Error(「Engine protocol predict request failed: fetch failed」)で失敗した。LM Studio のサーバーログで確認した。評価器は失敗として分母に残している。
+- 処理時間(元画像31件の平均): Qwen の選択式は約10.3秒(平均11.2リクエスト)、JSON は約2.3秒。Gemma の選択式は約6.4秒、JSON は約2.5秒。
+- 並行して、別プロジェクトのパッチ適用版 llama-server が常駐していた(runtime JSON に記録)。
+
+**次の一手(作者の判断待ち)**
+- 選択肢の文言を直した再実験(新しい実験IDにし、E1/E2 の結果は残す)を行うか。
+
 ## 2026-09-26 — Phase 3 の準備(GPU 使用前で待機)
 
 **やったこと**

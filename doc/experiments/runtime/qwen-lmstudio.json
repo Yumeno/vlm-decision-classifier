@@ -1,25 +1,51 @@
 {
   "profile": "qwen-lmstudio",
-  "experiments": ["E1", "E1-J"],
+  "experiments": [
+    "E1",
+    "E1-J"
+  ],
   "model": {
     "id": "qwen3.5-9b",
     "official": "Qwen/Qwen3.5-9B",
-    "gguf": {"repo": "lmstudio-community/Qwen3.5-9B-GGUF", "revision": "1379f25c6b505a3fc737bd7818cb09389cf807c1", "file": "Qwen3.5-9B-Q4_K_M.gguf", "sha256": "cd76ec205963b3b33350093e6904d9de16c4e666fd104e1f632d25c7f15f2a13"},
-    "mmproj": {"file": "mmproj-Qwen3.5-9B-BF16.gguf", "sha256": "330d17547bfdbcd0e7a0cb3f4b06b4ceeac0aaa1e449122d9d66ef957aeb74b3"}
+    "gguf": {
+      "repo": "lmstudio-community/Qwen3.5-9B-GGUF",
+      "revision": "1379f25c6b505a3fc737bd7818cb09389cf807c1",
+      "file": "Qwen3.5-9B-Q4_K_M.gguf",
+      "sha256": "cd76ec205963b3b33350093e6904d9de16c4e666fd104e1f632d25c7f15f2a13"
+    },
+    "mmproj": {
+      "file": "mmproj-Qwen3.5-9B-BF16.gguf",
+      "sha256": "330d17547bfdbcd0e7a0cb3f4b06b4ceeac0aaa1e449122d9d66ef957aeb74b3"
+    }
   },
   "server": {
     "type": "lmstudio",
     "api": "OpenAI-compatible /v1/chat/completions",
     "lms_cli_commit": "69d945a",
     "engine": "llama.cpp-win-x86_64-nvidia-cuda12-avx2@2.41.0",
-    "load": {"context_length": 8192, "parallel": 4, "gpu_offload": "LM Studio default (max)", "command": "lms load qwen3.5-9b --identifier qwen3.5-9b -y"},
+    "load": {
+      "context_length": 8192,
+      "parallel": 4,
+      "gpu_offload": "LM Studio default (max)",
+      "command": "lms load qwen3.5-9b --identifier qwen3.5-9b -y",
+      "observed": "lms ps: context 8192, parallel 4, ロード 6.67s"
+    },
     "image_cache_patch": false
   },
   "hardware": {
-    "gpus": ["0: NVIDIA GeForce RTX 4060 Ti 16GB", "1: NVIDIA GeForce RTX 3090 24GB"],
+    "gpus": [
+      "0: NVIDIA GeForce RTX 4060 Ti 16GB",
+      "1: NVIDIA GeForce RTX 3090 24GB"
+    ],
     "driver": "591.86",
-    "gpu_used": "TO_BE_FILLED_AT_LOAD (nvidia-smi のプロセス別メモリで確認して記入)"
+    "gpu_used": "GPU 1: NVIDIA GeForce RTX 3090(LM Studio の llama-server プロセスが bus 0D:00.0 のみ。2026-09-26 ロード時に nvidia-smi で確認)",
+    "concurrent_processes": "別プロジェクトのパッチ適用版 llama-server(llamacpp-build)が常駐し、両GPUにメモリを確保していた(同時推論の有無は不明)。GPU 0 はデスクトップ表示にも使用。処理時間の揺れの要因になりうる。"
   },
-  "client": {"max_edge": 1024, "temperature": 0, "top_logprobs": 20, "reasoning_effort": "none"},
+  "client": {
+    "max_edge": 1024,
+    "temperature": 0,
+    "top_logprobs": 20,
+    "reasoning_effort": "none"
+  },
   "notes": "ロードは評価開始前に明示的に行う。別プロジェクトのモデルがロードされている場合は作者に確認してからアンロードする。"
 }
