@@ -1,0 +1,682 @@
+import pytest
+
+from classifier_demo import report
+from classifier_demo.taxonomy import Axis, Choice, Taxonomy
+
+# character 軸の候補id(既存の default.yaml と同じ構成)。
+CHARACTER_IDS = ["alisa", "second_original", "other_original"]
+# outfit 軸の候補id(character 以外の複数選択軸の汎用化を確認するためのテスト専用の小さい軸)。
+OUTFIT_IDS = ["sailor_uniform", "other"]
+
+
+def _test_taxonomy() -> Taxonomy:
+    """default.yaml から独立した、report テスト専用の小さな taxonomy。
+
+    character 以外の複数選択軸(outfit)を1つ加え、複数選択軸の採点・集計が
+    character に限らず taxonomy 由来で汎用的に動くことを確認する。
+    """
+    return Taxonomy(
+        version="test-0.1",
+        sha256="deadbeef",
+        axes=[
+            Axis(
+                id="image_type",
+                question="what type?",
+                multi=False,
+                allow_none=False,
+                choices=[
+                    Choice(id="illustration", name="illustration", criteria="illustration"),
+                    Choice(id="comic", name="comic", criteria="comic"),
+                    Choice(id="other", name="other", criteria="other"),
+                ],
+            ),
+            Axis(
+                id="art_style",
+                question="what style?",
+                multi=False,
+                allow_none=False,
+                choices=[
+                    Choice(id="anime_2d", name="anime", criteria="anime"),
+                    Choice(id="other", name="other", criteria="other"),
+                ],
+            ),
+            Axis(
+                id="subject",
+                question="what subject?",
+                multi=False,
+                allow_none=False,
+                choices=[
+                    Choice(id="person", name="person", criteria="person"),
+                    Choice(id="landscape", name="landscape", criteria="landscape"),
+                ],
+            ),
+            Axis(
+                id="outfit",
+                question="what outfit?",
+                multi=True,
+                allow_none=True,
+                choices=[
+                    Choice(id="sailor_uniform", name="sailor", criteria="sailor uniform"),
+                    Choice(id="other", name="other", criteria="other clothing", catch_all=True),
+                ],
+            ),
+            Axis(
+                id="character",
+                question="who?",
+                multi=True,
+                allow_none=True,
+                choices=[
+                    Choice(id="alisa", name="Alisa", criteria="alisa"),
+                    Choice(id="second_original", name="Second", criteria="second"),
+                    Choice(id="other_original", name="other", criteria="other character", catch_all=True),
+                ],
+            ),
+        ],
+    )
+
+
+def _case(expected_character=None, expected_outfit=None, expected_axes=None):
+    return {
+        "expected": {
+            "image_type": "illustration",
+            "art_style": "anime_2d",
+            "subject": "person",
+            "outfit": expected_outfit or [],
+            "character": expected_character or [],
+            **(expected_axes or {}),
+        },
+        "expected_metadata": {
+            "format": "a1111",
+            "loras": [],
+            "trigger_words": [],
+            "characters": expected_character or [],
+            "artificial": False,
+        },
+    }
+
+
+def test_nearest_rank_percentile_basic():
+    values = [10, 20, 30, 40, 50]
+    assert report.nearest_rank_percentile(values, 50) == 30
+    assert report.nearest_rank_percentile(values, 90) == 50
+    assert report.nearest_rank_percentile(values, 1) == 10
+    assert report.nearest_rank_percentile(values, 100) == 50
+
+
+def test_nearest_rank_percentile_unsorted_input_and_single_value():
+    assert report.nearest_rank_percentile([5], 50) == 5
+    assert report.nearest_rank_percentile([30, 10, 20], 50) == 20
+
+
+def test_nearest_rank_percentile_empty_raises():
+    with pytest.raises(ValueError):
+        report.nearest_rank_percentile([], 50)
+
+
+def test_single_axis_ids_and_multi_axis_ids_and_choice_ids_derive_from_taxonomy():
+    tax = _test_taxonomy()
+    assert report.single_axis_ids(tax) == ["image_type", "art_style", "subject"]
+    assert report.multi_axis_ids(tax) == ["outfit", "character"]
+    assert report.axis_choice_ids(tax, "character") == CHARACTER_IDS
+    assert report.axis_choice_ids(tax, "outfit") == OUTFIT_IDS
+
+
+def test_csv_fieldnames_has_per_axis_columns_in_taxonomy_order():
+    tax = _test_taxonomy()
+    fields = report.csv_fieldnames(tax)
+    assert fields[:6] == report.STATIC_CSV_FIELDS
+    for axis_id in ["image_type", "art_style", "subject"]:
+        assert f"expected_{axis_id}" in fields
+        assert f"pred_{axis_id}" in fields
+        assert f"ok_{axis_id}" in fields
+    for axis_id in ["outfit", "character"]:
+        for suffix in ["expected", "pred", "exact", "tp", "fp", "fn"]:
+            assert f"{suffix}_{axis_id}" in fields
+        assert f"{axis_id}_axis_failed" in fields
+    # メタデータ・時間計測の列も残っている
+    assert "expected_meta_loras" in fields
+    assert "classification_wall_ms" in fields
+
+
+def test_score_single_axis_correct_and_wrong():
+    case = _case()
+    result = {"vision_tags": {"image_type": ["illustration"], "art_style": ["other"]}}
+    expected, pred, ok = report.score_single_axis(case, result, "image_type")
+    assert (expected, pred, ok) == ("illustration", "illustration", True)
+    expected, pred, ok = report.score_single_axis(case, result, "art_style")
+    assert (expected, pred, ok) == ("anime_2d", "other", False)
+
+
+def test_score_single_axis_failed_axis_is_empty_pred_and_wrong():
+    case = _case()
+    result = {"vision_tags": {}}  # image_type axis failed / missing
+    expected, pred, ok = report.score_single_axis(case, result, "image_type")
+    assert pred == ""
+    assert ok is False
+
+
+def test_score_single_axis_failed_is_explicitly_wrong_even_if_expected_is_falsy():
+    # 期待値が偶然""(あり得ない値だが)でも、軸が欠落している以上は明示的に不正解にする
+    # (pred=="" と expected=="" がたまたま一致することに頼らない)。
+    case = _case()
+    case["expected"]["image_type"] = ""
+    result_missing = {"vision_tags": {}}
+    expected, pred, ok = report.score_single_axis(case, result_missing, "image_type")
+    assert (expected, pred) == ("", "")
+    assert ok is False
+
+    # 空リストで存在する場合も失敗扱い
+    result_empty_list = {"vision_tags": {"image_type": []}}
+    expected, pred, ok = report.score_single_axis(case, result_empty_list, "image_type")
+    assert (expected, pred) == ("", "")
+    assert ok is False
+
+
+def test_score_multi_axis_exact_match():
+    case = _case(expected_character=["alisa"])
+    result = {"vision_tags": {"character": ["alisa"]}}
+    scored = report.score_multi_axis(case, result, "character")
+    assert scored["exact_match"] is True
+    assert scored["tp"] == {"alisa"}
+    assert scored["fp"] == set()
+    assert scored["fn"] == set()
+    assert scored["failed"] is False
+
+
+def test_score_multi_axis_empty_vs_empty_is_exact_match():
+    case = _case(expected_character=[])
+    result = {"vision_tags": {"character": []}}
+    scored = report.score_multi_axis(case, result, "character")
+    assert scored["exact_match"] is True
+    assert scored["tp"] == set()
+    assert scored["fp"] == set()
+    assert scored["fn"] == set()
+
+
+def test_score_multi_axis_failed_axis_forces_wrong_even_if_expected_empty():
+    case = _case(expected_character=[])
+    result = {"vision_tags": {}}  # character axis missing => failed
+    scored = report.score_multi_axis(case, result, "character")
+    assert scored["failed"] is True
+    assert scored["exact_match"] is False
+    # 失敗時は予測集合を空として TP/FP/FN を数える(期待も空なので寄与なし)
+    assert scored["tp"] == set()
+    assert scored["fp"] == set()
+    assert scored["fn"] == set()
+
+
+def test_score_multi_axis_tp_fp_fn_with_mismatch():
+    case = _case(expected_character=["alisa", "second_original"])
+    result = {"vision_tags": {"character": ["alisa", "other_original"]}}
+    scored = report.score_multi_axis(case, result, "character")
+    assert scored["exact_match"] is False
+    assert scored["tp"] == {"alisa"}
+    assert scored["fp"] == {"other_original"}
+    assert scored["fn"] == {"second_original"}
+
+
+def test_score_multi_axis_works_for_non_character_axis():
+    # character 専用のロジックが残っていないことを、別の複数選択軸(outfit)で確認する。
+    case = _case(expected_outfit=["sailor_uniform"])
+    result = {"vision_tags": {"outfit": ["sailor_uniform", "other"]}}
+    scored = report.score_multi_axis(case, result, "outfit")
+    assert scored["exact_match"] is False
+    assert scored["tp"] == {"sailor_uniform"}
+    assert scored["fp"] == {"other"}
+    assert scored["fn"] == set()
+
+    result_failed = {"vision_tags": {}}
+    scored_failed = report.score_multi_axis(case, result_failed, "outfit")
+    assert scored_failed["failed"] is True
+    assert scored_failed["exact_match"] is False
+
+
+def test_multi_axis_stats_and_macro_prf1_are_axis_agnostic():
+    scores = [
+        {"tp": {"alisa"}, "fp": set(), "fn": set()},
+        {"tp": set(), "fp": {"second_original"}, "fn": set()},
+    ]
+    stats = report._multi_axis_stats(scores, CHARACTER_IDS)
+    assert stats["alisa"]["tp"] == 1
+    assert stats["second_original"]["fp"] == 1
+    assert stats["micro"]["tp"] == 1
+    assert stats["micro"]["fp"] == 1
+
+    macro = report._macro_prf1(stats, CHARACTER_IDS)
+    assert macro["precision"] == pytest.approx((1.0 + 0.0) / 2)  # alisa, second_original の平均
+    assert macro["recall"] == pytest.approx(1.0)  # alisaのみ(第二のrecallは未定義で除外)
+
+
+def test_score_metadata_match_and_mismatch():
+    case = _case(expected_character=["alisa"])
+    case["expected_metadata"] = {
+        "format": "a1111",
+        "loras": [],
+        "trigger_words": [],
+        "characters": ["alisa"],
+        "artificial": False,
+    }
+    result_ok = {
+        "metadata_evidence": {
+            "format": "a1111",
+            "loras": [],
+            "prompt_tags": [],
+            "matches": [{"kind": "lora_name", "value": "x", "weight": 1.0, "character": "alisa"}],
+        }
+    }
+    scored = report.score_metadata(case, result_ok)
+    assert scored["format_ok"] is True
+    assert scored["chars_ok"] is True
+    # loras/trigger_words とも期待値が空集合で検出も空集合なので一致扱い
+    assert scored["loras_ok"] is True
+    assert scored["triggers_ok"] is True
+
+    result_wrong = {"metadata_evidence": {"format": "none", "loras": [], "prompt_tags": [], "matches": []}}
+    scored = report.score_metadata(case, result_wrong)
+    assert scored["format_ok"] is False
+    assert scored["chars_ok"] is False
+
+
+def test_score_metadata_loras_match_with_normalized_name_and_weight():
+    case = _case()
+    case["expected_metadata"] = {
+        "format": "a1111",
+        "loras": [{"name": "Fet-Alisa-Uniform-Anima-v4u", "weight": 0.8}],
+        "trigger_words": [],
+        "characters": [],
+        "artificial": False,
+    }
+    result = {
+        "metadata_evidence": {
+            "format": "a1111",
+            # 検出側は前後空白・大小文字が異なっていても正規化後の名前で一致すればよい
+            "loras": [{"name": "  fet-alisa-uniform-anima-v4u  ", "weight": 0.8, "source": "a1111"}],
+            "prompt_tags": [],
+            "matches": [],
+        }
+    }
+    scored = report.score_metadata(case, result)
+    assert scored["loras_ok"] is True
+
+
+def test_score_metadata_loras_weight_mismatch_is_wrong():
+    case = _case()
+    case["expected_metadata"] = {
+        "format": "a1111",
+        "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0}],
+        "trigger_words": [],
+        "characters": [],
+        "artificial": False,
+    }
+    result = {
+        "metadata_evidence": {
+            "format": "a1111",
+            "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": 0.8, "source": "a1111"}],
+            "prompt_tags": [],
+            "matches": [],
+        }
+    }
+    scored = report.score_metadata(case, result)
+    assert scored["loras_ok"] is False
+
+
+def test_score_metadata_loras_none_weight_matches_none_weight():
+    # ComfyUI由来で strength_model が取得できない場合 weight は None。期待値も None なら一致。
+    case = _case()
+    case["expected_metadata"] = {
+        "format": "comfyui",
+        "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": None}],
+        "trigger_words": [],
+        "characters": [],
+        "artificial": False,
+    }
+    result = {
+        "metadata_evidence": {
+            "format": "comfyui",
+            "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": None, "source": "comfyui"}],
+            "prompt_tags": [],
+            "matches": [],
+        }
+    }
+    scored = report.score_metadata(case, result)
+    assert scored["loras_ok"] is True
+
+
+def test_score_metadata_triggers_match_and_mismatch():
+    case = _case()
+    case["expected_metadata"] = {
+        "format": "a1111",
+        "loras": [],
+        "trigger_words": ["fet_alisa_uniform"],
+        "characters": [],
+        "artificial": False,
+    }
+    result_match = {
+        "metadata_evidence": {
+            "format": "a1111",
+            "loras": [],
+            "prompt_tags": [],
+            "matches": [{"kind": "prompt_trigger", "value": "fet_alisa_uniform", "character": "alisa"}],
+        }
+    }
+    assert report.score_metadata(case, result_match)["triggers_ok"] is True
+
+    result_missing = {
+        "metadata_evidence": {"format": "a1111", "loras": [], "prompt_tags": [], "matches": []}
+    }
+    assert report.score_metadata(case, result_missing)["triggers_ok"] is False
+
+
+def test_format_loras():
+    assert report.format_loras([]) == ""
+    assert (
+        report.format_loras([{"name": "b", "weight": 1.0}, {"name": "a", "weight": None}])
+        == "a:None;b:1.0"
+    )
+
+
+def test_score_metadata_loras_duplicate_counts_are_preserved():
+    # 同じLoRA指定が2回記録されているケース。set化すると1件に潰れて誤って一致してしまうため、
+    # 多重集合(Counter)で比較し、件数のずれを不一致として検出する。
+    case = _case()
+    case["expected_metadata"] = {
+        "format": "a1111",
+        "loras": [
+            {"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0},
+            {"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0},
+        ],
+        "trigger_words": [],
+        "characters": [],
+        "artificial": False,
+    }
+
+    result_missing_dup = {
+        "metadata_evidence": {
+            "format": "a1111",
+            "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0, "source": "a1111"}],
+            "prompt_tags": [],
+            "matches": [],
+        }
+    }
+    assert report.score_metadata(case, result_missing_dup)["loras_ok"] is False
+
+    result_matching_dup = {
+        "metadata_evidence": {
+            "format": "a1111",
+            "loras": [
+                {"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0, "source": "a1111"},
+                {"name": "fet-alisa-uniform-anima-v4u", "weight": 1.0, "source": "a1111"},
+            ],
+            "prompt_tags": [],
+            "matches": [],
+        }
+    }
+    assert report.score_metadata(case, result_matching_dup)["loras_ok"] is True
+
+
+def test_pred_label_shows_failed_distinctly_from_genuine_empty():
+    ok_empty = report.score_multi_axis(_case(expected_character=[]), {"vision_tags": {"character": []}}, "character")
+    assert report._pred_label(ok_empty) == "(空)"
+
+    failed = report.score_multi_axis(_case(expected_character=[]), {"vision_tags": {}}, "character")
+    assert report._pred_label(failed) == "FAILED"
+
+    has_chars = report.score_multi_axis(
+        _case(expected_character=["alisa"]), {"vision_tags": {"character": ["alisa"]}}, "character"
+    )
+    assert report._pred_label(has_chars) == "alisa"
+
+
+def test_same_pred_label_distinguishes_both_failed_from_genuine_match():
+    ok_empty_1 = report.score_multi_axis(_case(expected_character=[]), {"vision_tags": {"character": []}}, "character")
+    ok_empty_2 = report.score_multi_axis(_case(expected_character=[]), {"vision_tags": {"character": []}}, "character")
+    assert report._same_pred_label(ok_empty_1, ok_empty_2) == "一致"
+
+    failed_1 = report.score_multi_axis(_case(expected_character=[]), {"vision_tags": {}}, "character")
+    failed_2 = report.score_multi_axis(_case(expected_character=[]), {"vision_tags": {}}, "character")
+    # 両方失敗している場合、予測集合は偶然どちらも空集合になるが、
+    # 本物の一致とは区別して「同一(失敗)」と表示する。
+    assert report._same_pred_label(failed_1, failed_2) == "同一(失敗)"
+
+    # 片方だけ失敗している場合は不一致扱い
+    assert report._same_pred_label(ok_empty_1, failed_1) == "不一致"
+
+    has_alisa = report.score_multi_axis(
+        _case(expected_character=["alisa"]), {"vision_tags": {"character": ["alisa"]}}, "character"
+    )
+    has_second = report.score_multi_axis(
+        _case(expected_character=["second_original"]),
+        {"vision_tags": {"character": ["second_original"]}},
+        "character",
+    )
+    assert report._same_pred_label(has_alisa, has_second) == "不一致"
+
+
+def test_score_metadata_failed_evidence_forces_wrong_even_if_expected_matches_by_accident():
+    case = _case(expected_character=[])
+    case["expected_metadata"] = {
+        "format": "none",
+        "loras": [],
+        "trigger_words": [],
+        "characters": [],
+        "artificial": False,
+    }
+    # メタデータ抽出自体が失敗(format: error)。期待値がたまたま none/空集合でも不正解扱いにする。
+    result = {"metadata_evidence": {"format": "error", "loras": [], "prompt_tags": [], "matches": []}}
+    scored = report.score_metadata(case, result)
+    assert scored["failed"] is True
+    assert scored["format_ok"] is False
+    assert scored["chars_ok"] is False
+    assert scored["loras_ok"] is False
+    assert scored["triggers_ok"] is False
+
+    result_none_evidence = {"metadata_evidence": None}
+    scored = report.score_metadata(case, result_none_evidence)
+    assert scored["failed"] is True
+    assert scored["format_ok"] is False
+    assert scored["chars_ok"] is False
+    assert scored["loras_ok"] is False
+    assert scored["triggers_ok"] is False
+
+
+def test_build_case_row_has_all_csv_fieldnames_including_multi_axes():
+    tax = _test_taxonomy()
+    case = {
+        "case_id": "A01",
+        "source_image_id": "A01",
+        "derived_from": None,
+        "scenario": "alisa_lora",
+        "expected": {
+            "image_type": "illustration",
+            "art_style": "anime_2d",
+            "subject": "person",
+            "outfit": ["sailor_uniform"],
+            "character": ["alisa"],
+        },
+        "expected_metadata": {
+            "format": "a1111",
+            "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": 0.8}],
+            "trigger_words": ["fet_alisa_uniform"],
+            "characters": ["alisa"],
+            "artificial": False,
+        },
+    }
+    result = {
+        "vision_tags": {
+            "image_type": ["illustration"],
+            "art_style": ["anime_2d"],
+            "subject": ["person"],
+            "outfit": ["sailor_uniform"],
+            "character": ["alisa"],
+        },
+        "metadata_evidence": {
+            "format": "a1111",
+            "loras": [{"name": "fet-alisa-uniform-anima-v4u", "weight": 0.8, "source": "a1111"}],
+            "prompt_tags": [],
+            "matches": [
+                {"kind": "lora_name", "value": "fet-alisa-uniform-anima-v4u", "weight": 0.8, "character": "alisa"},
+                {"kind": "prompt_trigger", "value": "fet_alisa_uniform", "character": "alisa"},
+            ],
+        },
+        "timing_ms": {"classification_wall_ms": 12.5},
+        "request_count": 4,
+        "errors": [],
+    }
+    row = report.build_case_row(case, "choice", 0, result, tax)
+    assert set(row.keys()) == set(report.csv_fieldnames(tax))
+    assert row["ok_image_type"] is True
+    assert row["exact_character"] is True
+    assert row["tp_character"] == 1
+    assert row["fp_character"] == 0
+    assert row["fn_character"] == 0
+    assert row["character_axis_failed"] is False
+    assert row["exact_outfit"] is True
+    assert row["tp_outfit"] == 1
+    assert row["outfit_axis_failed"] is False
+    assert row["meta_loras_ok"] is True
+    assert row["meta_triggers_ok"] is True
+    assert row["expected_meta_artificial"] is False
+    assert row["expected_meta_loras"] == "fet-alisa-uniform-anima-v4u:0.8"
+    assert row["detected_meta_loras"] == "fet-alisa-uniform-anima-v4u:0.8"
+    assert row["json_attempts"] == ""  # choice モードでは空
+
+
+def test_build_case_row_multi_axis_failed_column():
+    tax = _test_taxonomy()
+    case = {
+        "case_id": "A02",
+        "source_image_id": "A02",
+        "derived_from": None,
+        "scenario": "general",
+        "expected": {
+            "image_type": "illustration",
+            "art_style": "anime_2d",
+            "subject": "person",
+            "outfit": [],
+            "character": [],
+        },
+        "expected_metadata": {
+            "format": "none",
+            "loras": [],
+            "trigger_words": [],
+            "characters": [],
+            "artificial": False,
+        },
+    }
+    result = {
+        "vision_tags": {"image_type": ["illustration"], "art_style": ["anime_2d"], "subject": ["person"]},
+        "metadata_evidence": {"format": "none", "loras": [], "prompt_tags": [], "matches": []},
+        "timing_ms": {"classification_wall_ms": 5.0},
+        "request_count": 3,
+        "errors": [{"axis": "outfit", "type": "no_label_tokens", "detail": "x"}],
+    }
+    row = report.build_case_row(case, "choice", 0, result, tax)
+    assert row["outfit_axis_failed"] is True
+    assert row["exact_outfit"] is False
+    assert row["character_axis_failed"] is True
+    assert row["exact_character"] is False
+
+
+def test_build_summary_scenario_table_shows_dash_when_no_source_case():
+    tax = _test_taxonomy()
+    # 派生ケースの scenario が(通常はあり得ないが)元ケースと異なる場合でも、
+    # シナリオ一覧は全評価ケースから作り、元画像側に件数が無ければ「-」を出す。
+    source_case = {
+        "case_id": "S1",
+        "source_image_id": "S1",
+        "derived_from": None,
+        "scenario": "sceneA",
+        "expected": {
+            "image_type": "illustration",
+            "art_style": "anime_2d",
+            "subject": "person",
+            "outfit": [],
+            "character": [],
+        },
+        "expected_metadata": {
+            "format": "none",
+            "loras": [],
+            "trigger_words": [],
+            "characters": [],
+            "artificial": False,
+        },
+    }
+    derived_case = {
+        "case_id": "S1-strip",
+        "source_image_id": "S1",
+        "derived_from": "S1",
+        "scenario": "sceneB",
+        "expected": {
+            "image_type": "illustration",
+            "art_style": "anime_2d",
+            "subject": "person",
+            "outfit": [],
+            "character": [],
+        },
+        "expected_metadata": {
+            "format": "none",
+            "loras": [],
+            "trigger_words": [],
+            "characters": [],
+            "artificial": False,
+        },
+    }
+    result_ok = {
+        "vision_tags": {
+            "image_type": ["illustration"],
+            "art_style": ["anime_2d"],
+            "subject": ["person"],
+            "outfit": [],
+            "character": [],
+        },
+        "metadata_evidence": {"format": "none", "loras": [], "prompt_tags": [], "matches": []},
+        "timing_ms": {"classification_wall_ms": 10.0},
+        "request_count": 4,
+        "errors": [],
+    }
+    evaluated_cases = [source_case, derived_case]
+    records = [
+        {"case": source_case, "mode": "choice", "order_index": 0, "result": result_ok},
+        {"case": derived_case, "mode": "choice", "order_index": 0, "result": result_ok},
+    ]
+
+    summary_text = report.build_summary(evaluated_cases, records, ["choice"], tax)
+
+    assert (
+        "| sceneA | 1 ／ 1 | 元画像 100.0% (1/1) ／ 全ケース 100.0% (1/1) | "
+        "元画像 100.0% (1/1) ／ 全ケース 100.0% (1/1) |" in summary_text
+    )
+    assert (
+        "| sceneB | - ／ 1 | 元画像 - ／ 全ケース 100.0% (1/1) | 元画像 - ／ 全ケース 100.0% (1/1) |"
+        in summary_text
+    )
+    # outfit 軸のセクションも汎用的に出力される
+    assert "## outfit(集合" in summary_text
+    assert "## character(集合" in summary_text
+
+
+def test_macro_prf1_excludes_undefined_characters():
+    # alisa: TP=1,FP=0,FN=0 -> precision/recallとも定義可(ともに1.0)
+    # second_original: 一度も予測にも期待にも出ない(TP=FP=FN=0) -> precision/recallとも未定義、平均から除外
+    # other_original: TP=0,FP=1,FN=0 -> precisionは定義可(0.0)、recallは未定義(TP+FN=0)
+    stats = {
+        "alisa": {"tp": 1, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+        "second_original": {"tp": 0, "fp": 0, "fn": 0, "precision": 0.0, "recall": 0.0, "f1": 0.0},
+        "other_original": {"tp": 0, "fp": 1, "fn": 0, "precision": 0.0, "recall": 0.0, "f1": 0.0},
+    }
+    macro = report._macro_prf1(stats, CHARACTER_IDS)
+    assert macro["precision"] == pytest.approx((1.0 + 0.0) / 2)  # alisa, other_original の平均
+    assert macro["recall"] == pytest.approx(1.0)  # alisaのみ(other_originalはrecall未定義で除外)
+    # F1はprecision・recallの両方が定義できるキャラのみ(alisaのみ)
+    assert macro["f1"] == pytest.approx(1.0)
+
+
+def test_macro_prf1_all_undefined_returns_none():
+    stats = {ch: {"tp": 0, "fp": 0, "fn": 0, "precision": 0.0, "recall": 0.0, "f1": 0.0} for ch in CHARACTER_IDS}
+    macro = report._macro_prf1(stats, CHARACTER_IDS)
+    assert macro == {"precision": None, "recall": None, "f1": None}
+
+
+def test_macro_val_formats_and_handles_none():
+    assert report._macro_val(0.5) == "0.50"
+    assert report._macro_val(None) == "n/a"
