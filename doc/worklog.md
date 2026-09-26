@@ -22,6 +22,18 @@
 - PR の順番: #4(分類コア)→ Phase 2b(評価器)→ データセット(このブランチ)。#4 は merge 待ち。
 - その後 Phase 3: GPU を使う評価(E1/E1-J: Qwen、E2/E2-J: Gemma)。使う前にユーザーに確認する。
 
+## 2026-09-26 — E1b/E2b の準備(GPU 使用前で待機)
+
+**やったこと**
+- 作者の提案で、none of the above の文言は残し、説明文(`none_criteria`: no character appears in the image)を添える方式にした。taxonomy 0.4.1(正解ラベルは不変)。other_original の説明文も「Alisa でも second_original でもない人物」に明確化した。公平性のため、JSON 方式にも「空リストは人物なしの場合だけ」の注記を入れた。
+- Sonnet が実装した(テスト111件)。Codex で1ラウンドのレビューを行い、指摘なし。PR #6 の merge 後、ブランチを main に乗せ直した。
+
+**待機理由**
+- 作者が別の用途で VRAM を使うため、E1b/E2b の実行前で待機している。
+
+**次の一手**
+- 作者の合図で E1b(Qwen)→ E2b(Gemma)を手順書どおり実行する。出力は `results/E1b_qwen-lmstudio`・`results/E2b_gemma-lmstudio`、E1/E2 は残す。その後、Phase 3 の記録をまとめて PR #7 にする。
+
 ## 2026-09-26 — Phase 3: E1/E1-J(Qwen)・E2/E2-J(Gemma)の実行
 
 **やったこと**
