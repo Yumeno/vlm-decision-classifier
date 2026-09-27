@@ -1,0 +1,118 @@
+{
+  "started": "2026-09-27T01:21:18.189604+00:00",
+  "finished": "2026-09-27T01:25:50.297113+00:00",
+  "tool_commit": {
+    "commit": "39285e41bdb4aeae9f2e6525c5c9933f60da60ed",
+    "dirty": false
+  },
+  "manifest": {
+    "path": "dataset\\manifest.jsonl",
+    "sha256": "941faf84f0c1e3f027748766b6ce2ec4181cc8749b0c1ad70ec8113b528baab0"
+  },
+  "taxonomy": {
+    "version": "0.4.1",
+    "sha256": "6f7038cbd525af1552af1c95158090ebc38a1cd1303191af8cff8c7fdfb7564f"
+  },
+  "dataset_version": "v1.0.0",
+  "model": "gemma-4-12b-it",
+  "base_url": "http://127.0.0.1:1234/v1",
+  "modes": [
+    "choice",
+    "json"
+  ],
+  "max_edge": 1024,
+  "warmup": {
+    "count": 1,
+    "case_id": "A01",
+    "axis_id": "image_type",
+    "elapsed_ms": [
+      988.1759
+    ],
+    "errors": 0
+  },
+  "runtime_label": "gemma-lmstudio-tax041",
+  "runtime_info": {
+    "profile": "gemma-lmstudio",
+    "experiments": [
+      "E2",
+      "E2-J"
+    ],
+    "model": {
+      "id": "gemma-4-12b-it",
+      "official": "google/gemma-4-12B-it",
+      "gguf": {
+        "repo": "lmstudio-community/gemma-4-12B-it-GGUF",
+        "revision": "40b870babe39398ce917bbf4b4ff9b5a1f12710e",
+        "file": "gemma-4-12B-it-Q4_K_M.gguf",
+        "sha256": "95d83ba36642b1f385fb906b5962a71763361be3bac930a709945f72d97473f8"
+      },
+      "mmproj": {
+        "file": "mmproj-gemma-4-12B-it-BF16.gguf",
+        "sha256": "7fd884a5f7d9ee60f6b88e5b51287151e547454b2b60a4a6270bb5434310ad0e"
+      }
+    },
+    "server": {
+      "type": "lmstudio",
+      "api": "OpenAI-compatible /v1/chat/completions",
+      "lms_cli_commit": "69d945a",
+      "engine": "llama.cpp-win-x86_64-nvidia-cuda12-avx2@2.41.0",
+      "load": {
+        "context_length": 8192,
+        "parallel": 4,
+        "gpu_offload": "LM Studio default (max)",
+        "command": "lms load gemma-4-12b-it --identifier gemma-4-12b-it -y",
+        "observed": "lms ps: context 8192, parallel 4, size 7.56 GB, ロード 7.02s"
+      },
+      "image_cache_patch": false
+    },
+    "hardware": {
+      "gpus": [
+        "0: NVIDIA GeForce RTX 4060 Ti 16GB",
+        "1: NVIDIA GeForce RTX 3090 24GB"
+      ],
+      "driver": "591.86",
+      "gpu_used": "GPU 1: NVIDIA GeForce RTX 3090(LM Studio の llama-server プロセスが bus 0D:00.0 のみ。2026-09-26 ロード時に nvidia-smi で確認)",
+      "concurrent_processes": "別プロジェクトのパッチ適用版 llama-server(llamacpp-build)が常駐し、両GPUにメモリを確保していた(同時推論の有無は不明)。GPU 0 はデスクトップ表示にも使用。処理時間の揺れの要因になりうる。"
+    },
+    "client": {
+      "max_edge": 1024,
+      "temperature": 0,
+      "top_logprobs": 20,
+      "reasoning_effort": "none"
+    },
+    "notes": "ロードは評価開始前に明示的に行う。別プロジェクトのモデルがロードされている場合は作者に確認してからアンロードする。"
+  },
+  "runtime_info_file": {
+    "name": "gemma-lmstudio.json",
+    "sha256": "5725f716533778fdc052b9a68de99f675e10749b1882f21c81b301ae0c4b3031"
+  },
+  "note": "E2b: taxonomy 0.4.1 (none_criteria)",
+  "platform": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]"
+  },
+  "case_counts": {
+    "total": 35,
+    "evaluated": 35,
+    "excluded": 0,
+    "manifest_by_scenario": {
+      "alisa_lora": 8,
+      "conflict": 2,
+      "general": 8,
+      "multi": 3,
+      "alisa_no_lora": 3,
+      "outfit_scene": 7,
+      "similar": 4
+    },
+    "evaluated_by_scenario": {
+      "alisa_lora": 8,
+      "conflict": 2,
+      "general": 8,
+      "multi": 3,
+      "alisa_no_lora": 3,
+      "outfit_scene": 7,
+      "similar": 4
+    }
+  },
+  "excluded_cases": []
+}
