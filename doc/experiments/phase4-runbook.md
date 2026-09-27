@@ -57,3 +57,9 @@ llama-server -m <models>/lmstudio-community/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gg
 
 - `run.json`・`cases.csv`・`summary.md`(E3/E4)と E5 の JSON を `doc/experiments/` にコピーする(個人パスがないことを確認する)。
 - E3 と E4 のケース別の予測の差(判定が変わったケース)を確認し、変わったものは個別に調べる。改善の数値だけを記事に載せない。
+
+## 実施時に分かったこと(2026-09-27)
+
+- `--kv-unified` を付けないと `-c 8192 -np 4` がスロットごとに 2048 へ分割される。LM Studio と同じ共有プールにするため付けた。
+- E5 のテスト1で、各繰り返しの頭に画像 B を送っても、改造版は別スロットに残った A の状態を再利用する(`selected slot by LCP similarity`)。そのため改造版では1軸目も速くなる。比較の主な指標は「2軸目以降」の時間。
+- サーバーの停止は `taskkill //F //PID <PID>` で PID を指定する(イメージ名で止めると別プロジェクトの llama-server も止めてしまう)。

@@ -1,0 +1,1421 @@
+{
+  "started": "2026-09-27T01:54:20.304471+00:00",
+  "finished": "2026-09-27T01:55:14.235425+00:00",
+  "label": "vanilla",
+  "base_url": "http://127.0.0.1:1235/v1",
+  "model": "qwen3.5-9b",
+  "images": {
+    "a": {
+      "path": "dataset/images/M01.png",
+      "sha256": "bf85f54281c14bf08e1cfce850b6f5103ba4706ab72f86f6fac164ea389b6121"
+    },
+    "b": {
+      "path": "dataset/images/G05.png",
+      "sha256": "6a82db468e6af0f266fb52eeeea69f4af254cfd4d7865a8e29abf4ed96dc0d1a"
+    }
+  },
+  "taxonomy": {
+    "path": "taxonomy/default.yaml",
+    "version": "0.4.1",
+    "sha256": "6f7038cbd525af1552af1c95158090ebc38a1cd1303191af8cff8c7fdfb7564f"
+  },
+  "max_edge": 1024,
+  "repeats": 3,
+  "tool_commit": {
+    "commit": "e9058aaac65b2497d6551c1baed29264f6a148f7",
+    "dirty": false
+  },
+  "warmup": {
+    "elapsed_ms": 1122.3292,
+    "top_label": "illustration",
+    "relative_scores": {
+      "illustration": 0.880359436284965,
+      "comic": 0.0006468063364021316,
+      "ui": 0.0005442833743154266,
+      "other": 0.11844947400431736
+    },
+    "error": null,
+    "axis": "image_type",
+    "image": "b"
+  },
+  "test1_same_image_change_question": {
+    "requests": [
+      {
+        "elapsed_ms": 711.8465,
+        "top_label": "illustration",
+        "relative_scores": {
+          "illustration": 0.9382122321655039,
+          "comic": 0.0006631246579600554,
+          "ui": 0.0005381128324703635,
+          "other": 0.06058653034406575
+        },
+        "error": null,
+        "repeat": 1,
+        "axis_index": 1,
+        "axis": "image_type",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 645.902,
+        "top_label": "anime_2d",
+        "relative_scores": {
+          "anime_2d": 0.992732772627166,
+          "painterly_2d": 0.0038945693289254048,
+          "pixel_art": 0.001255451658953973,
+          "other": 0.0021172063849546675
+        },
+        "error": null,
+        "repeat": 1,
+        "axis_index": 2,
+        "axis": "art_style",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 661.9497,
+        "top_label": "full_color",
+        "relative_scores": {
+          "line_art": 9.710775482667907e-05,
+          "full_color": 0.9996332468925186,
+          "grayscale": 0.00023767488495356605,
+          "other": 3.197046770102216e-05
+        },
+        "error": null,
+        "repeat": 1,
+        "axis_index": 3,
+        "axis": "color",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 663.4512,
+        "top_label": "person",
+        "relative_scores": {
+          "person": 0.9999433636397695,
+          "landscape": 2.2341862410736115e-05,
+          "mecha_vehicle": 2.1380895097203384e-05,
+          "object": 5.113310591779111e-06,
+          "creature": 2.4035139739455138e-06,
+          "other": 5.396778156820205e-06
+        },
+        "error": null,
+        "repeat": 1,
+        "axis_index": 4,
+        "axis": "subject",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 646.9312,
+        "top_label": "work_study",
+        "relative_scores": {
+          "daily": 0.25551573450097914,
+          "work_study": 0.7048713838387841,
+          "meal": 0.019802467690157435,
+          "sports": 0.0014682576893469091,
+          "hobby": 0.00022171688629276862,
+          "battle": 0.00045163260293803076,
+          "other": 0.017668806791501568
+        },
+        "error": null,
+        "repeat": 1,
+        "axis_index": 5,
+        "axis": "situation",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 651.4451,
+        "top_label": "office_wear",
+        "relative_scores": {
+          "sailor_uniform": 0.011592860353606868,
+          "school_uniform": 0.03808380556946643,
+          "office_wear": 0.9129395811438564,
+          "swimsuit": 0.0019511564708897258,
+          "maid": 0.0005949851182938075,
+          "miko": 9.090479704774952e-05,
+          "nun": 8.258549301269952e-05,
+          "other": 0.03392997842633995,
+          "__none__": 0.0007341426274863851
+        },
+        "error": null,
+        "repeat": 1,
+        "axis_index": 6,
+        "axis": "outfit",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 657.0076,
+        "top_label": "alisa",
+        "relative_scores": {
+          "alisa": 0.6323004803871449,
+          "second_original": 0.11346811985208298,
+          "other_original": 0.24435908629517833,
+          "__none__": 0.009872313465593729
+        },
+        "error": null,
+        "repeat": 1,
+        "axis_index": 7,
+        "axis": "character",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 749.5378,
+        "top_label": "illustration",
+        "relative_scores": {
+          "illustration": 0.9325833923258935,
+          "comic": 0.0008292087366251526,
+          "ui": 0.0007073252435855536,
+          "other": 0.06588007369389581
+        },
+        "error": null,
+        "repeat": 2,
+        "axis_index": 1,
+        "axis": "image_type",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 635.6685,
+        "top_label": "anime_2d",
+        "relative_scores": {
+          "anime_2d": 0.9901457547643532,
+          "painterly_2d": 0.006082447481397805,
+          "pixel_art": 0.0014003577408531382,
+          "other": 0.002371440013395906
+        },
+        "error": null,
+        "repeat": 2,
+        "axis_index": 2,
+        "axis": "art_style",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 641.6937,
+        "top_label": "full_color",
+        "relative_scores": {
+          "line_art": 8.048972160642131e-05,
+          "full_color": 0.9996927899424618,
+          "grayscale": 0.00019997803651061491,
+          "other": 2.6742299421204067e-05
+        },
+        "error": null,
+        "repeat": 2,
+        "axis_index": 3,
+        "axis": "color",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 633.3954,
+        "top_label": "person",
+        "relative_scores": {
+          "person": 0.9999422217861497,
+          "landscape": 2.180289440637226e-05,
+          "mecha_vehicle": 2.1211561653262443e-05,
+          "object": 5.766859694005663e-06,
+          "creature": 2.9366531414595212e-06,
+          "other": 6.060244955293855e-06
+        },
+        "error": null,
+        "repeat": 2,
+        "axis_index": 4,
+        "axis": "subject",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 659.9858,
+        "top_label": "work_study",
+        "relative_scores": {
+          "daily": 0.256696370616075,
+          "work_study": 0.7064709663307491,
+          "meal": 0.02015798380614007,
+          "sports": 0.0014145727989493628,
+          "hobby": 0.00023234228334024349,
+          "battle": 0.0003200979812857,
+          "other": 0.014707666183460522
+        },
+        "error": null,
+        "repeat": 2,
+        "axis_index": 5,
+        "axis": "situation",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 662.4691,
+        "top_label": "office_wear",
+        "relative_scores": {
+          "sailor_uniform": 0.012247091579788432,
+          "school_uniform": 0.047492791706243216,
+          "office_wear": 0.8942986780672694,
+          "swimsuit": 0.0019200747927144194,
+          "maid": 0.0006303177154752823,
+          "miko": 9.975243238515519e-05,
+          "nun": 9.510005264933854e-05,
+          "other": 0.04259143089106254,
+          "__none__": 0.0006247627624122536
+        },
+        "error": null,
+        "repeat": 2,
+        "axis_index": 6,
+        "axis": "outfit",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 655.9528,
+        "top_label": "alisa",
+        "relative_scores": {
+          "alisa": 0.6464974746625304,
+          "second_original": 0.11008369315813706,
+          "other_original": 0.2332055837219686,
+          "__none__": 0.010213248457363924
+        },
+        "error": null,
+        "repeat": 2,
+        "axis_index": 7,
+        "axis": "character",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 755.7534,
+        "top_label": "illustration",
+        "relative_scores": {
+          "illustration": 0.9131801275270197,
+          "comic": 0.000909647404860923,
+          "ui": 0.0006765613954155011,
+          "other": 0.08523366367270378
+        },
+        "error": null,
+        "repeat": 3,
+        "axis_index": 1,
+        "axis": "image_type",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 637.6555,
+        "top_label": "anime_2d",
+        "relative_scores": {
+          "anime_2d": 0.99284542218471,
+          "painterly_2d": 0.0042538042340951815,
+          "pixel_art": 0.0011471867005524948,
+          "other": 0.0017535868806424406
+        },
+        "error": null,
+        "repeat": 3,
+        "axis_index": 2,
+        "axis": "art_style",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 664.1428,
+        "top_label": "full_color",
+        "relative_scores": {
+          "line_art": 9.388606099709116e-05,
+          "full_color": 0.9996363788576499,
+          "grayscale": 0.00023694744949907226,
+          "other": 3.2787631853958915e-05
+        },
+        "error": null,
+        "repeat": 3,
+        "axis_index": 3,
+        "axis": "color",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 634.6655,
+        "top_label": "person",
+        "relative_scores": {
+          "person": 0.9999565997768503,
+          "landscape": 1.7576945523055477e-05,
+          "mecha_vehicle": 1.6023416821326002e-05,
+          "object": 3.96272405530538e-06,
+          "creature": 1.9832855986313858e-06,
+          "other": 3.85385115140285e-06
+        },
+        "error": null,
+        "repeat": 3,
+        "axis_index": 4,
+        "axis": "subject",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 661.2337,
+        "top_label": "work_study",
+        "relative_scores": {
+          "daily": 0.27838435360727337,
+          "work_study": 0.6749931363313165,
+          "meal": 0.018930679020395087,
+          "sports": 0.0013278401779300982,
+          "hobby": 0.00021760818983076723,
+          "battle": 0.0004078541181744129,
+          "other": 0.02573852855507976
+        },
+        "error": null,
+        "repeat": 3,
+        "axis_index": 5,
+        "axis": "situation",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 664.1675,
+        "top_label": "office_wear",
+        "relative_scores": {
+          "sailor_uniform": 0.01152800861918817,
+          "school_uniform": 0.059363208037734067,
+          "office_wear": 0.8841650725889936,
+          "swimsuit": 0.0018553328928312398,
+          "maid": 0.0006742847092905288,
+          "miko": 9.080135960627873e-05,
+          "nun": 9.691285012094479e-05,
+          "other": 0.041470179561355285,
+          "__none__": 0.0007561993808799358
+        },
+        "error": null,
+        "repeat": 3,
+        "axis_index": 6,
+        "axis": "outfit",
+        "reset_failed": false
+      },
+      {
+        "elapsed_ms": 643.0568,
+        "top_label": "alisa",
+        "relative_scores": {
+          "alisa": 0.6963057664695675,
+          "second_original": 0.10091579124834905,
+          "other_original": 0.19066365914251368,
+          "__none__": 0.01211478313956973
+        },
+        "error": null,
+        "repeat": 3,
+        "axis_index": 7,
+        "axis": "character",
+        "reset_failed": false
+      }
+    ],
+    "resets": [
+      {
+        "elapsed_ms": 139.9733,
+        "top_label": "illustration",
+        "relative_scores": {
+          "illustration": 0.880359436284965,
+          "comic": 0.0006468063364021316,
+          "ui": 0.0005442833743154266,
+          "other": 0.11844947400431736
+        },
+        "error": null,
+        "repeat": 1,
+        "axis": "image_type"
+      },
+      {
+        "elapsed_ms": 264.0883,
+        "top_label": "illustration",
+        "relative_scores": {
+          "illustration": 0.876112444919664,
+          "comic": 0.0007412272285573661,
+          "ui": 0.0005615903921944783,
+          "other": 0.12258473745958415
+        },
+        "error": null,
+        "repeat": 2,
+        "axis": "image_type"
+      },
+      {
+        "elapsed_ms": 259.886,
+        "top_label": "illustration",
+        "relative_scores": {
+          "illustration": 0.8779344089878665,
+          "comic": 0.000725786819404053,
+          "ui": 0.0005564227447865498,
+          "other": 0.12078338144794298
+        },
+        "error": null,
+        "repeat": 3,
+        "axis": "image_type"
+      }
+    ],
+    "summary": {
+      "first_axis_elapsed_ms_median": 749.5378,
+      "first_axis_count": 3,
+      "later_axes_elapsed_ms_median": 653.69895,
+      "later_axes_count": 18,
+      "excluded_repeats": 0,
+      "failures": 0
+    }
+  },
+  "test2_image_switch": {
+    "groups": [
+      {
+        "repeat": 1,
+        "axis": "image_type",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 627.0666,
+            "top_label": "illustration",
+            "relative_scores": {
+              "illustration": 0.9131801275270197,
+              "comic": 0.000909647404860923,
+              "ui": 0.0006765613954155011,
+              "other": 0.08523366367270378
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 264.8554,
+            "top_label": "illustration",
+            "relative_scores": {
+              "illustration": 0.8743087678121775,
+              "comic": 0.0006533828697536327,
+              "ui": 0.0005234620426197873,
+              "other": 0.1245143872754492
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 232.7965,
+            "top_label": "illustration",
+            "relative_scores": {
+              "illustration": 0.9219548906109892,
+              "comic": 0.000852150195459475,
+              "ui": 0.0007162505525484519,
+              "other": 0.07647670864100281
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.008774763083969517
+      },
+      {
+        "repeat": 1,
+        "axis": "art_style",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 654.3334,
+            "top_label": "anime_2d",
+            "relative_scores": {
+              "anime_2d": 0.9919091091464131,
+              "painterly_2d": 0.0044562367429593006,
+              "pixel_art": 0.0012175913351833035,
+              "other": 0.002417062775444274
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 931.0384,
+            "top_label": "painterly_2d",
+            "relative_scores": {
+              "anime_2d": 0.0002512516661325413,
+              "painterly_2d": 0.999037701621097,
+              "pixel_art": 0.00025074754912435694,
+              "other": 0.0004602991636461265
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 232.6617,
+            "top_label": "anime_2d",
+            "relative_scores": {
+              "anime_2d": 0.9918378276966223,
+              "painterly_2d": 0.004556120243840964,
+              "pixel_art": 0.0013015663880580454,
+              "other": 0.0023044856714786598
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.00011257710396561432
+      },
+      {
+        "repeat": 1,
+        "axis": "color",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 675.8013,
+            "top_label": "full_color",
+            "relative_scores": {
+              "line_art": 0.00012122282789064556,
+              "full_color": 0.9995566608743021,
+              "grayscale": 0.00028035349043045943,
+              "other": 4.1762807376851286e-05
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 931.4359,
+            "top_label": "full_color",
+            "relative_scores": {
+              "line_art": 7.286734624271152e-05,
+              "full_color": 0.9998249165721375,
+              "grayscale": 8.179112325175394e-05,
+              "other": 2.042495836808626e-05
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 233.5575,
+            "top_label": "full_color",
+            "relative_scores": {
+              "line_art": 0.00011041464240846001,
+              "full_color": 0.9995916276692962,
+              "grayscale": 0.00025959880812497,
+              "other": 3.835888017041541e-05
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 3.496679499415123e-05
+      },
+      {
+        "repeat": 1,
+        "axis": "subject",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 642.3367,
+            "top_label": "person",
+            "relative_scores": {
+              "person": 0.9999274209557889,
+              "landscape": 3.13981471704494e-05,
+              "mecha_vehicle": 2.6457648125260022e-05,
+              "object": 6.283984555156329e-06,
+              "creature": 2.4636638834767857e-06,
+              "other": 5.9756004766672905e-06
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 912.2075,
+            "top_label": "person",
+            "relative_scores": {
+              "person": 0.9997042271890048,
+              "landscape": 0.00011655315767129738,
+              "mecha_vehicle": 9.80458141057087e-05,
+              "object": 1.5996261302175102e-05,
+              "creature": 1.9965506380239667e-05,
+              "other": 4.5212071535873606e-05
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 222.5732,
+            "top_label": "person",
+            "relative_scores": {
+              "person": 0.9999545939448388,
+              "landscape": 1.852806061900044e-05,
+              "mecha_vehicle": 1.6230397297641897e-05,
+              "object": 4.202886652277926e-06,
+              "creature": 1.9814916776651794e-06,
+              "other": 4.463218914597983e-06
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 2.7172989049861762e-05
+      },
+      {
+        "repeat": 1,
+        "axis": "situation",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 671.779,
+            "top_label": "work_study",
+            "relative_scores": {
+              "daily": 0.22222163063622566,
+              "work_study": 0.739996504599858,
+              "meal": 0.020197522386987334,
+              "sports": 0.001345151845849988,
+              "hobby": 0.00020634710542390182,
+              "battle": 0.0004315984959226063,
+              "other": 0.015601244929732477
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 941.4476,
+            "top_label": "daily",
+            "relative_scores": {
+              "daily": 0.9923725813282207,
+              "work_study": 0.0010467592044434632,
+              "meal": 0.0003057197486881799,
+              "sports": 0.00017526833113061313,
+              "hobby": 0.0001431792302116663,
+              "battle": 7.97611170170336e-05,
+              "other": 0.005876731040288317
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 229.1679,
+            "top_label": "work_study",
+            "relative_scores": {
+              "daily": 0.20815452184493738,
+              "work_study": 0.7570263619500714,
+              "meal": 0.019016804012373663,
+              "sports": 0.0013491129705386928,
+              "hobby": 0.0002178329895619811,
+              "battle": 0.00042677255409530047,
+              "other": 0.013808593678421499
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.01702985735021345
+      },
+      {
+        "repeat": 1,
+        "axis": "outfit",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 670.2014,
+            "top_label": "office_wear",
+            "relative_scores": {
+              "sailor_uniform": 0.012341092784220088,
+              "school_uniform": 0.04208646493722247,
+              "office_wear": 0.9120421767120214,
+              "swimsuit": 0.001735880038510463,
+              "maid": 0.0006129543143711041,
+              "miko": 8.234317823917997e-05,
+              "nun": 8.607890352422408e-05,
+              "other": 0.030281902049569095,
+              "__none__": 0.0007311070823219967
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 940.3787,
+            "top_label": "other",
+            "relative_scores": {
+              "sailor_uniform": 0.003762665464557643,
+              "school_uniform": 0.0005822449834776208,
+              "office_wear": 0.001445278953085849,
+              "swimsuit": 0.0006778319186528923,
+              "maid": 0.0006577922330532756,
+              "miko": 0.00012477299335478308,
+              "nun": 9.233012842226142e-05,
+              "other": 0.9758516219474312,
+              "__none__": 0.016805461377964383
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 223.2141,
+            "top_label": "office_wear",
+            "relative_scores": {
+              "sailor_uniform": 0.011151157479325744,
+              "school_uniform": 0.03780180357552032,
+              "office_wear": 0.920545463381186,
+              "swimsuit": 0.0015406195322986717,
+              "maid": 0.0005174977383499572,
+              "miko": 7.379315897496594e-05,
+              "nun": 8.747465344217486e-05,
+              "other": 0.02759232016710147,
+              "__none__": 0.0006898703138006997
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.008503286669164667
+      },
+      {
+        "repeat": 1,
+        "axis": "character",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 655.8941,
+            "top_label": "alisa",
+            "relative_scores": {
+              "alisa": 0.6419527118581043,
+              "second_original": 0.11403574518458826,
+              "other_original": 0.2338066182905978,
+              "__none__": 0.010204924666709624
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 946.3,
+            "top_label": "other_original",
+            "relative_scores": {
+              "alisa": 0.0009873190853931187,
+              "second_original": 0.00016041060748091523,
+              "other_original": 0.9934026328911867,
+              "__none__": 0.005449637415939287
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 219.1457,
+            "top_label": "alisa",
+            "relative_scores": {
+              "alisa": 0.6354400830445253,
+              "second_original": 0.11111220126961087,
+              "other_original": 0.24350812188080848,
+              "__none__": 0.009939593805055375
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.009701503590210686
+      },
+      {
+        "repeat": 2,
+        "axis": "image_type",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 633.8705,
+            "top_label": "illustration",
+            "relative_scores": {
+              "illustration": 0.9473919428761476,
+              "comic": 0.0009123841495986584,
+              "ui": 0.000708819307284223,
+              "other": 0.05098685366696954
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 918.0405,
+            "top_label": "illustration",
+            "relative_scores": {
+              "illustration": 0.934473763924456,
+              "comic": 0.0004968906334065812,
+              "ui": 0.00039044636798086737,
+              "other": 0.06463889907415654
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 229.7989,
+            "top_label": "illustration",
+            "relative_scores": {
+              "illustration": 0.9474510860433906,
+              "comic": 0.000859704476852903,
+              "ui": 0.0006361519328828972,
+              "other": 0.0510530575468737
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 7.26673744013258e-05
+      },
+      {
+        "repeat": 2,
+        "axis": "art_style",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 651.0664,
+            "top_label": "anime_2d",
+            "relative_scores": {
+              "anime_2d": 0.9887451943767056,
+              "painterly_2d": 0.006527828360025193,
+              "pixel_art": 0.0016080002590767336,
+              "other": 0.0031189770041925185
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 919.867,
+            "top_label": "painterly_2d",
+            "relative_scores": {
+              "anime_2d": 0.0002953348197860088,
+              "painterly_2d": 0.9990691287378959,
+              "pixel_art": 0.0002568733926409976,
+              "other": 0.0003786630496771407
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 239.9422,
+            "top_label": "anime_2d",
+            "relative_scores": {
+              "anime_2d": 0.988962063213117,
+              "painterly_2d": 0.006266277888571288,
+              "pixel_art": 0.0016382644760793215,
+              "other": 0.0031333944222324875
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.0002615504714539047
+      },
+      {
+        "repeat": 2,
+        "axis": "color",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 645.6004,
+            "top_label": "full_color",
+            "relative_scores": {
+              "line_art": 8.356257042357774e-05,
+              "full_color": 0.9996547187683341,
+              "grayscale": 0.00023082005100787,
+              "other": 3.0898610234434274e-05
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 939.4748,
+            "top_label": "full_color",
+            "relative_scores": {
+              "line_art": 6.955401928076749e-05,
+              "full_color": 0.9998167968015161,
+              "grayscale": 9.21441046514944e-05,
+              "other": 2.150507455166256e-05
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 245.0291,
+            "top_label": "full_color",
+            "relative_scores": {
+              "line_art": 6.246887847736141e-05,
+              "full_color": 0.9997094408499742,
+              "grayscale": 0.00020448678922066775,
+              "other": 2.3603482327769817e-05
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 5.4722081640035114e-05
+      },
+      {
+        "repeat": 2,
+        "axis": "subject",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 659.1897,
+            "top_label": "person",
+            "relative_scores": {
+              "person": 0.9999317060429952,
+              "landscape": 2.395968648015392e-05,
+              "mecha_vehicle": 2.8267672399168197e-05,
+              "object": 6.619605587340585e-06,
+              "creature": 2.734073926845049e-06,
+              "other": 6.712918611289544e-06
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 924.5898,
+            "top_label": "person",
+            "relative_scores": {
+              "person": 0.9996878697778966,
+              "landscape": 0.00013677704183426314,
+              "mecha_vehicle": 9.574217489944861e-05,
+              "object": 1.7000543575683925e-05,
+              "creature": 1.561845427485903e-05,
+              "other": 4.699200751920648e-05
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 220.4353,
+            "top_label": "person",
+            "relative_scores": {
+              "person": 0.9999483214801319,
+              "landscape": 1.9127047892143656e-05,
+              "mecha_vehicle": 1.952923604046463e-05,
+              "object": 5.313542577573667e-06,
+              "creature": 2.335653304900123e-06,
+              "other": 5.373040052984026e-06
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 1.6615437136713318e-05
+      },
+      {
+        "repeat": 2,
+        "axis": "situation",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 669.9415,
+            "top_label": "work_study",
+            "relative_scores": {
+              "daily": 0.22222163063622566,
+              "work_study": 0.739996504599858,
+              "meal": 0.020197522386987334,
+              "sports": 0.001345151845849988,
+              "hobby": 0.00020634710542390182,
+              "battle": 0.0004315984959226063,
+              "other": 0.015601244929732477
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 947.3446,
+            "top_label": "daily",
+            "relative_scores": {
+              "daily": 0.9923725813282207,
+              "work_study": 0.0010467592044434632,
+              "meal": 0.0003057197486881799,
+              "sports": 0.00017526833113061313,
+              "hobby": 0.0001431792302116663,
+              "battle": 7.97611170170336e-05,
+              "other": 0.005876731040288317
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 247.7752,
+            "top_label": "work_study",
+            "relative_scores": {
+              "daily": 0.20815452184493738,
+              "work_study": 0.7570263619500714,
+              "meal": 0.019016804012373663,
+              "sports": 0.0013491129705386928,
+              "hobby": 0.0002178329895619811,
+              "battle": 0.00042677255409530047,
+              "other": 0.013808593678421499
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.01702985735021345
+      },
+      {
+        "repeat": 2,
+        "axis": "outfit",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 661.4152,
+            "top_label": "office_wear",
+            "relative_scores": {
+              "sailor_uniform": 0.012341092784220088,
+              "school_uniform": 0.04208646493722247,
+              "office_wear": 0.9120421767120214,
+              "swimsuit": 0.001735880038510463,
+              "maid": 0.0006129543143711041,
+              "miko": 8.234317823917997e-05,
+              "nun": 8.607890352422408e-05,
+              "other": 0.030281902049569095,
+              "__none__": 0.0007311070823219967
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 966.0742,
+            "top_label": "other",
+            "relative_scores": {
+              "sailor_uniform": 0.003762665464557643,
+              "school_uniform": 0.0005822449834776208,
+              "office_wear": 0.001445278953085849,
+              "swimsuit": 0.0006778319186528923,
+              "maid": 0.0006577922330532756,
+              "miko": 0.00012477299335478308,
+              "nun": 9.233012842226142e-05,
+              "other": 0.9758516219474312,
+              "__none__": 0.016805461377964383
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 246.9266,
+            "top_label": "office_wear",
+            "relative_scores": {
+              "sailor_uniform": 0.011151157479325744,
+              "school_uniform": 0.03780180357552032,
+              "office_wear": 0.920545463381186,
+              "swimsuit": 0.0015406195322986717,
+              "maid": 0.0005174977383499572,
+              "miko": 7.379315897496594e-05,
+              "nun": 8.747465344217486e-05,
+              "other": 0.02759232016710147,
+              "__none__": 0.0006898703138006997
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.008503286669164667
+      },
+      {
+        "repeat": 2,
+        "axis": "character",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 687.0494,
+            "top_label": "alisa",
+            "relative_scores": {
+              "alisa": 0.6419527118581043,
+              "second_original": 0.11403574518458826,
+              "other_original": 0.2338066182905978,
+              "__none__": 0.010204924666709624
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 949.8344,
+            "top_label": "other_original",
+            "relative_scores": {
+              "alisa": 0.0009873190853931187,
+              "second_original": 0.00016041060748091523,
+              "other_original": 0.9934026328911867,
+              "__none__": 0.005449637415939287
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 246.6958,
+            "top_label": "alisa",
+            "relative_scores": {
+              "alisa": 0.6354400830445253,
+              "second_original": 0.11111220126961087,
+              "other_original": 0.24350812188080848,
+              "__none__": 0.009939593805055375
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.009701503590210686
+      },
+      {
+        "repeat": 3,
+        "axis": "image_type",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 644.4944,
+            "top_label": "illustration",
+            "relative_scores": {
+              "illustration": 0.9473919428761476,
+              "comic": 0.0009123841495986584,
+              "ui": 0.000708819307284223,
+              "other": 0.05098685366696954
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 909.552,
+            "top_label": "illustration",
+            "relative_scores": {
+              "illustration": 0.934473763924456,
+              "comic": 0.0004968906334065812,
+              "ui": 0.00039044636798086737,
+              "other": 0.06463889907415654
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 228.1424,
+            "top_label": "illustration",
+            "relative_scores": {
+              "illustration": 0.9474510860433906,
+              "comic": 0.000859704476852903,
+              "ui": 0.0006361519328828972,
+              "other": 0.0510530575468737
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 7.26673744013258e-05
+      },
+      {
+        "repeat": 3,
+        "axis": "art_style",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 639.677,
+            "top_label": "anime_2d",
+            "relative_scores": {
+              "anime_2d": 0.9887451943767056,
+              "painterly_2d": 0.006527828360025193,
+              "pixel_art": 0.0016080002590767336,
+              "other": 0.0031189770041925185
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 933.3926,
+            "top_label": "painterly_2d",
+            "relative_scores": {
+              "anime_2d": 0.0002953348197860088,
+              "painterly_2d": 0.9990691287378959,
+              "pixel_art": 0.0002568733926409976,
+              "other": 0.0003786630496771407
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 217.7401,
+            "top_label": "anime_2d",
+            "relative_scores": {
+              "anime_2d": 0.988962063213117,
+              "painterly_2d": 0.006266277888571288,
+              "pixel_art": 0.0016382644760793215,
+              "other": 0.0031333944222324875
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.0002615504714539047
+      },
+      {
+        "repeat": 3,
+        "axis": "color",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 650.1067,
+            "top_label": "full_color",
+            "relative_scores": {
+              "line_art": 8.356257042357774e-05,
+              "full_color": 0.9996547187683341,
+              "grayscale": 0.00023082005100787,
+              "other": 3.0898610234434274e-05
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 910.7076,
+            "top_label": "full_color",
+            "relative_scores": {
+              "line_art": 6.955401928076749e-05,
+              "full_color": 0.9998167968015161,
+              "grayscale": 9.21441046514944e-05,
+              "other": 2.150507455166256e-05
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 229.9216,
+            "top_label": "full_color",
+            "relative_scores": {
+              "line_art": 6.246887847736141e-05,
+              "full_color": 0.9997094408499742,
+              "grayscale": 0.00020448678922066775,
+              "other": 2.3603482327769817e-05
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 5.4722081640035114e-05
+      },
+      {
+        "repeat": 3,
+        "axis": "subject",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 643.2323,
+            "top_label": "person",
+            "relative_scores": {
+              "person": 0.9999317060429952,
+              "landscape": 2.395968648015392e-05,
+              "mecha_vehicle": 2.8267672399168197e-05,
+              "object": 6.619605587340585e-06,
+              "creature": 2.734073926845049e-06,
+              "other": 6.712918611289544e-06
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 919.2281,
+            "top_label": "person",
+            "relative_scores": {
+              "person": 0.9996878697778966,
+              "landscape": 0.00013677704183426314,
+              "mecha_vehicle": 9.574217489944861e-05,
+              "object": 1.7000543575683925e-05,
+              "creature": 1.561845427485903e-05,
+              "other": 4.699200751920648e-05
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 237.7762,
+            "top_label": "person",
+            "relative_scores": {
+              "person": 0.9999483214801319,
+              "landscape": 1.9127047892143656e-05,
+              "mecha_vehicle": 1.952923604046463e-05,
+              "object": 5.313542577573667e-06,
+              "creature": 2.335653304900123e-06,
+              "other": 5.373040052984026e-06
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 1.6615437136713318e-05
+      },
+      {
+        "repeat": 3,
+        "axis": "situation",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 671.5594,
+            "top_label": "work_study",
+            "relative_scores": {
+              "daily": 0.22222163063622566,
+              "work_study": 0.739996504599858,
+              "meal": 0.020197522386987334,
+              "sports": 0.001345151845849988,
+              "hobby": 0.00020634710542390182,
+              "battle": 0.0004315984959226063,
+              "other": 0.015601244929732477
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 960.0025,
+            "top_label": "daily",
+            "relative_scores": {
+              "daily": 0.9923725813282207,
+              "work_study": 0.0010467592044434632,
+              "meal": 0.0003057197486881799,
+              "sports": 0.00017526833113061313,
+              "hobby": 0.0001431792302116663,
+              "battle": 7.97611170170336e-05,
+              "other": 0.005876731040288317
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 261.0048,
+            "top_label": "work_study",
+            "relative_scores": {
+              "daily": 0.20815452184493738,
+              "work_study": 0.7570263619500714,
+              "meal": 0.019016804012373663,
+              "sports": 0.0013491129705386928,
+              "hobby": 0.0002178329895619811,
+              "battle": 0.00042677255409530047,
+              "other": 0.013808593678421499
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.01702985735021345
+      },
+      {
+        "repeat": 3,
+        "axis": "outfit",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 698.9702,
+            "top_label": "office_wear",
+            "relative_scores": {
+              "sailor_uniform": 0.012341092784220088,
+              "school_uniform": 0.04208646493722247,
+              "office_wear": 0.9120421767120214,
+              "swimsuit": 0.001735880038510463,
+              "maid": 0.0006129543143711041,
+              "miko": 8.234317823917997e-05,
+              "nun": 8.607890352422408e-05,
+              "other": 0.030281902049569095,
+              "__none__": 0.0007311070823219967
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 934.0419,
+            "top_label": "other",
+            "relative_scores": {
+              "sailor_uniform": 0.003762665464557643,
+              "school_uniform": 0.0005822449834776208,
+              "office_wear": 0.001445278953085849,
+              "swimsuit": 0.0006778319186528923,
+              "maid": 0.0006577922330532756,
+              "miko": 0.00012477299335478308,
+              "nun": 9.233012842226142e-05,
+              "other": 0.9758516219474312,
+              "__none__": 0.016805461377964383
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 252.7851,
+            "top_label": "office_wear",
+            "relative_scores": {
+              "sailor_uniform": 0.011151157479325744,
+              "school_uniform": 0.03780180357552032,
+              "office_wear": 0.920545463381186,
+              "swimsuit": 0.0015406195322986717,
+              "maid": 0.0005174977383499572,
+              "miko": 7.379315897496594e-05,
+              "nun": 8.747465344217486e-05,
+              "other": 0.02759232016710147,
+              "__none__": 0.0006898703138006997
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.008503286669164667
+      },
+      {
+        "repeat": 3,
+        "axis": "character",
+        "requests": {
+          "a1": {
+            "elapsed_ms": 703.5266,
+            "top_label": "alisa",
+            "relative_scores": {
+              "alisa": 0.6419527118581043,
+              "second_original": 0.11403574518458826,
+              "other_original": 0.2338066182905978,
+              "__none__": 0.010204924666709624
+            },
+            "error": null
+          },
+          "b": {
+            "elapsed_ms": 964.1618,
+            "top_label": "other_original",
+            "relative_scores": {
+              "alisa": 0.0009873190853931187,
+              "second_original": 0.00016041060748091523,
+              "other_original": 0.9934026328911867,
+              "__none__": 0.005449637415939287
+            },
+            "error": null
+          },
+          "a2": {
+            "elapsed_ms": 235.7504,
+            "top_label": "alisa",
+            "relative_scores": {
+              "alisa": 0.6354400830445253,
+              "second_original": 0.11111220126961087,
+              "other_original": 0.24350812188080848,
+              "__none__": 0.009939593805055375
+            },
+            "error": null
+          }
+        },
+        "b_failed": false,
+        "top_label_match": true,
+        "max_abs_diff": 0.009701503590210686
+      }
+    ],
+    "summary": {
+      "label_mismatch_count": 0,
+      "max_abs_diff_overall": 0.01702985735021345,
+      "invalid_groups": 0,
+      "failures": 0
+    }
+  }
+}
