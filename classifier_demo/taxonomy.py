@@ -27,6 +27,7 @@ class Axis:
     multi: bool
     allow_none: bool
     choices: list[Choice]
+    none_criteria: str | None = None
 
 
 @dataclass
@@ -85,6 +86,7 @@ def load(path: str) -> Taxonomy:
                 multi=bool(axis_data.get("multi", False)),
                 allow_none=bool(axis_data.get("allow_none", False)),
                 choices=choices,
+                none_criteria=axis_data.get("none_criteria"),
             )
         )
 

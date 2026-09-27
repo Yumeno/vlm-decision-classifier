@@ -2,6 +2,73 @@
 
 新しい順。compact 後の文脈復元用。詳細は各 PR と `doc/` を参照。
 
+## ★ 現在地と引き継ぎ(2026-09-27 更新。compact 後はまずここを読む)
+
+**状態(2026-09-27 更新)**: E1b/E2b は実行・記録済み(下の「2026-09-27 — E1b/E2b」)。PR #7 を出して merge 待ち。次は Phase 4(GPU とビルドの前に作者の確認を取る)。以下の「E1b/E2b の実行コマンド」は再現用に残す。
+
+**リポジトリ**
+- main には PR #1〜#6 が merge 済み(分類コア・評価器・データセット v1.0.0 まで)。
+- 作業ブランチ `phase3/runbook`(push 済み、PR 未作成)には、手順書、実行環境 JSON、E1/E2 の結果(`doc/experiments/E1_qwen-lmstudio`・`E2_gemma-lmstudio`)、taxonomy 0.4.1(none_criteria)が入っている。**E1b/E2b の結果を足してから PR #7 にする**(並行 PR は積まない)。
+- メインの作業フォルダ(`<repo>`)は `phase3/runbook` をチェックアウト済みで、`.venv`(py3.12)がある。`dataset/staging/`(管理外)には生成画像・検収用ページの素材・正解シートの読み出しが残っている。
+- 使い終わった worktree が3つ残っている(`.claude/worktrees/agent-*`。phase2a・phase2b・generation-scripts)。どれも merge 済みなので削除してよい。
+
+**E1b/E2b の実行コマンド**(GPU を使う前に作者の確認を取る。`lms ps` で他のモデルを確認し、アンロードは作者の了承後)
+1. `lms load qwen3.5-9b --identifier qwen3.5-9b -y` → `nvidia-smi --query-compute-apps=gpu_bus_id,pid,process_name --format=csv` で GPU を確認し、runtime JSON の記録を更新する(前回は RTX 3090 = bus 0D)。
+2. `.venv/Scripts/python.exe -m classifier_demo probe --model qwen3.5-9b` → M01 で試打(`classify ... --mode choice/json`。`results/trial` を先に作る)。
+3. `.venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model qwen3.5-9b --modes choice,json --warmup 1 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-lmstudio.json --runtime-label qwen-lmstudio-tax041 --note "E1b: taxonomy 0.4.1 (none_criteria)" --output-dir results/E1b_qwen-lmstudio`
+4. `lms unload qwen3.5-9b` → Gemma で同じ手順(`gemma-4-12b-it`、`results/E2b_gemma-lmstudio`、runtime は gemma-lmstudio.json)→ アンロード。
+5. `run.json`・`cases.csv`・`summary.md` を `doc/experiments/E1b_…`・`E2b_…` にコピーし(個人パスがないか確認)、E1/E2 との比較(特に character の other_original の recall、outfit の school_uniform の誤検出)を worklog に書いて、PR #7 を出す。
+
+**これまでの主な結果(E1/E2、元画像31件)**: 単一選択の軸は、選択式が JSON 方式と同等以上だった。選択式の弱点は character の other_original の取りこぼし(Qwen 0/11)で、原因は「none of the above」の文言の解釈。0.4.1 でこれを直した。処理時間は、選択式が Qwen 10.3秒 / Gemma 6.4秒、JSON が約2.3〜2.5秒。
+
+**残タスク(初版 MVP)**
+- E1b/E2b → PR #7。
+- Phase 4: llama.cpp の画像キャッシュ改造の比較(E3/E4/E5)。改造版は `~/Desktop/llamacpp-build/llama.cpp`(上流 `f95b0d9` + 1行パッチ、別プロジェクトが使用中)にある。未改造版は、同じコミットを別の場所にクローンしてビルドする。GPU とビルド作業の前に作者の確認を取る。
+- Phase 5: レポート(`doc/experiments/report.md`)、README の実行手順、note 記事の下書き、公開前チェック(ライセンスは作者が決める)。
+- 小さな修正: `classify --output` が出力先のフォルダを作らない。
+- 追加課題(初版の完了条件外): E6(説明文付き JSON)、E7(束ね質問)。
+
+**運用ルール(CLAUDE.md / メモリにもある)**: Sonnet が実装し、Codex(gpt-6-luna)がレビュー(5ラウンドで収束しなければ作者を呼ぶ)。VRAM を使う前に作者を呼ぶ。区切りごとに worklog に書く。コンテキストが 75〜85% になったら待機する。
+
+**artifact**(非公開): 狙い一覧 (非公開の作業用ページ) 、正解付与シート (非公開の作業用ページ) (db の `labels` コレクション。最終版は `dataset/labels/labels_final.json` に固定済み)。
+
+## 2026-09-27 — E1b/E2b(taxonomy 0.4.1 での再評価)
+
+**やったこと**
+- 作者が VRAM を空けた後、`lms ps` でロード中のモデルがないこと、`nvidia-smi` で RTX 3090(bus 0D)の使用量が 0 MiB・計算プロセスなしであることを確認した。RTX 4060 Ti(bus 01)は StabilityMatrix 系のプロセスが約 7.9GB を使用していた(推論には使っていない)。
+- 手順書どおり Qwen → Gemma の順に、ロード → GPU 確認 → probe → M01 の1件試打(両モード)→ 全件 → アンロードを行った。どちらも RTX 3090 だけに載った(ロード後に bus 0D の使用量だけが増えた)。ロードは Qwen 6.52秒、Gemma 6.44秒。`lms load` は「複数のモデルが一致したので最初のものをロード」と警告したが、`lms ps --json` のパスは E1/E2 と同じ Q4_K_M の GGUF だった。
+- E1b(Qwen): 2026-09-27 01:13:56〜01:20:31 UTC(6分35秒)。E2b(Gemma): 01:21:18〜01:25:50 UTC(4分32秒)。コミット `39285e4`(dirty=false)、taxonomy 0.4.1(SHA256 `6f7038cb…`)、データセット v1.0.0。結果は `doc/experiments/E1b_qwen-lmstudio/`・`E2b_gemma-lmstudio/`。
+- **実行条件の注意**: `run.json` の `runtime_info.hardware.concurrent_processes` は実行環境 JSON の写しなので、E1/E2 のときの記述(別プロジェクトの llama-server が常駐)のままになっている。今回の実際の状態は上記のとおりで、RTX 3090 に別プロセスはなかった。
+
+**結果(元画像31件、選択式 / 通常JSON。数値は各 summary.md が一次資料)**
+
+| 軸 | E1 Qwen | E1b Qwen | E2 Gemma | E2b Gemma |
+|---|---|---|---|---|
+| image_type | 96.8 / 93.5 | 96.8 / 96.8 | 100 / 90.3 | 100 / 90.3 |
+| art_style | 77.4 / 74.2 | 77.4 / 77.4 | 83.9 / 80.6 | 83.9 / 80.6 |
+| color | 100 / 90.3 | 100 / 93.5 | 100 / 93.5 | 100 / 93.5 |
+| subject | 96.8 / 90.3 | 96.8 / 93.5 | 96.8 / 90.3 | 96.8 / 90.3 |
+| situation | 80.6 / 80.6 | 80.6 / 83.9 | 80.6 / 67.7 | 80.6 / 67.7 |
+| outfit(完全一致) | 77.4 / 87.1 | 74.2 / 90.3 | 71.0 / 80.6 | 71.0 / 83.9 |
+| character(完全一致) | 64.5 / 87.1 | **93.5** / 87.1 | 83.9 / 83.9 | **93.5** / 93.5 |
+| 処理時間(秒) | 10.3 / 2.3 | 9.3 / 2.0 | 6.4 / 2.5 | 5.4 / 2.3 |
+
+**観察**
+- 選択式の character は、両モデルとも 93.5% に上がった。other_original の recall は Qwen 0/11 → 9/11、Gemma 8/11 → 9/11。E1 の取りこぼしは none の選択肢の文言が原因だったという見立てと合う。
+- 通常JSONの character: Qwen は Alisa を other_original と答える誤りが3件(Alisa の recall 6/9)。Gemma は 83.9 → 93.5%。JSON 方式にも「空リストは人物なしの場合だけ」の注記を入れたので、JSON 側の変化もこの注記の影響を含む。
+- 選択式の outfit は、school_uniform の誤検出が残った(Qwen FP 6、Gemma FP 7)。0.4.1 は outfit の説明文を変えていないので、想定どおり。Gemma の試打では M01 の outfit が空(none)になった。
+- 選択式の失敗は両モデルとも0件(E2 の Channel Error 2件は再発しなかった)。JSON の形式不正は Qwen 1件、Gemma 2件。
+- 処理時間は E1/E2 より短い(Qwen 選択式 10.3 → 9.3秒、Gemma 6.4 → 5.4秒)。今回は 3090 に別プロセスがなかったことと、taxonomy の変更で yes/no 確認の回数が変わったこと(元画像の平均リクエスト数 Qwen 11.19 → 11.35、Gemma 10.19 → 9.97)の両方が影響しうるので、要因は切り分けていない。
+- 小標本のため、1〜2件の差は誤差の範囲として扱う。改善として言えるのは選択式の character だけ。
+
+**判断: outfit の説明文は変えない(作者、2026-09-27)**
+- 選択式の outfit の誤りは、ほとんどが Alisa の制服(ベスト+ペンシルスカート、正解 office_wear)に school_uniform が足される形だった(Qwen 6件、Gemma 7件。確認の段階で近い候補も「はい」になる)。ほかに、人物がいるのに空(none)になる件が各モデル1件あった(Gemma M01、Qwen O06)。
+- school_uniform と office_wear を相互に排他と明記する説明文の案(0.4.2)を出したが、作者の判断で**変えない**ことにした。理由: 実験条件が変わるため。評価セットを見てからの調整にもなる。
+- この誤りは、選択式の複数選択の弱点(近い候補が確認の段階で通る)として、そのまま報告する。
+
+**次の一手**
+- PR #7(phase3/runbook)を出して merge 待ち。次は Phase 4(llama.cpp 未改造版のビルドと E3/E4/E5)。速度比較は RTX 3090 に固定し、別プロセスがない状態で測る(作者と合意、2026-09-27)。
+
 ## 2026-09-25 — Phase 1 完了: データセット v1.0.0 の固定
 
 **やったこと**
@@ -21,6 +88,47 @@
 **次の一手**
 - PR の順番: #4(分類コア)→ Phase 2b(評価器)→ データセット(このブランチ)。#4 は merge 待ち。
 - その後 Phase 3: GPU を使う評価(E1/E1-J: Qwen、E2/E2-J: Gemma)。使う前にユーザーに確認する。
+
+## 2026-09-26 — E1b/E2b の準備(GPU 使用前で待機)
+
+**やったこと**
+- 作者の提案で、none of the above の文言は残し、説明文(`none_criteria`: no character appears in the image)を添える方式にした。taxonomy 0.4.1(正解ラベルは不変)。other_original の説明文も「Alisa でも second_original でもない人物」に明確化した。公平性のため、JSON 方式にも「空リストは人物なしの場合だけ」の注記を入れた。
+- Sonnet が実装した(テスト111件)。Codex で1ラウンドのレビューを行い、指摘なし。PR #6 の merge 後、ブランチを main に乗せ直した。
+
+**待機理由**
+- 作者が別の用途で VRAM を使うため、E1b/E2b の実行前で待機している。
+
+**次の一手**
+- 作者の合図で E1b(Qwen)→ E2b(Gemma)を手順書どおり実行する。出力は `results/E1b_qwen-lmstudio`・`results/E2b_gemma-lmstudio`、E1/E2 は残す。その後、Phase 3 の記録をまとめて PR #7 にする。
+
+## 2026-09-26 — Phase 3: E1/E1-J(Qwen)・E2/E2-J(Gemma)の実行
+
+**やったこと**
+- 作者の許可を得て、別プロジェクトのモデルをアンロードし、LM Studio で Qwen3.5 9B → Gemma 4 12B の順にロード・評価・アンロードした。どちらも RTX 3090(GPU 1)で動作した。手順書どおり probe → M01 の1件試打(両モード)→ 全件の順で進めた。
+- E1/E1-J(Qwen): 2026-09-26 11:50:48〜11:58:10 UTC(7分22秒)。E2/E2-J(Gemma): 11:58:56〜12:04:07 UTC(5分11秒)。35ケース × choice/json、ウォームアップ1回。結果は `doc/experiments/E1_qwen-lmstudio/`・`E2_gemma-lmstudio/`(run.json・cases.csv・summary.md)。
+- `run.json` の `tool_commit.dirty=true` は、評価直前に実行環境 JSON へ `gpu_used` などを書き足したため(内容は run.json の runtime_info に全文が写っている。コードは `5f20596` から変更なし)。
+
+**主な観察(小標本なので傾向として扱う。数値は summary.md が一次資料)**
+- Qwen の選択式で、character の other_original が一度も付かなかった(FN 11/11)。Alisa・second_original でない人物に対して、モデルは「other character」より「none of the above」を選んでいた(例: G05 は none 0.957 / other 0.042)。設計では none を「人物なし」の意味で使っているが、選択肢の文言が「none of the above」なので「上のどれでもない」と読める。**選択肢の文言設計の問題**で、選択式の手法の限界ではない可能性が高い。Gemma では other_original の recall が 0.73 で、同じ問題は小さい。
+- JSON 方式の形式不正は両モデルとも2件。単一選択の軸をリストで返していた(Qwen: O01 の situation、O06 の subject)。
+- Gemma の選択式で、yes/no 確認の2件(G03・G05)がサーバー側の Channel Error(「Engine protocol predict request failed: fetch failed」)で失敗した。LM Studio のサーバーログで確認した。評価器は失敗として分母に残している。
+- 処理時間(元画像31件の平均): Qwen の選択式は約10.3秒(平均11.2リクエスト)、JSON は約2.3秒。Gemma の選択式は約6.4秒、JSON は約2.5秒。
+- 並行して、別プロジェクトのパッチ適用版 llama-server が常駐していた(runtime JSON に記録)。
+
+**次の一手(作者の判断待ち)**
+- 選択肢の文言を直した再実験(新しい実験IDにし、E1/E2 の結果は残す)を行うか。
+
+## 2026-09-26 — Phase 3 の準備(GPU 使用前で待機)
+
+**やったこと**
+- PR #4(分類コア)・#5(評価器)が merge された。データセットのブランチを main に乗せ直し(worklog と README の衝突を解消)、PR #6 を出した。main 側の venv で pytest 105 passed、check-manifest OK、manifest/taxonomy の SHA256 が DATASET_CARD と一致することを確認した。
+- 実行環境の記録用 JSON(`doc/experiments/runtime/{qwen,gemma}-lmstudio.json`)と実行手順書(`doc/experiments/phase3-runbook.md`)を作った。LM Studio の実行エンジンは llama.cpp CUDA12 2.41.0、CLI commit 69d945a。GPU は 4060 Ti 16GB / 3090 24GB、ドライバ 591.86。
+
+**待機理由**
+- 作者が別プロジェクトで VRAM を使用中のため、モデルのロード直前で待機している。LM Studio には別プロジェクトのモデル(qwen3.5-9b-uncensored-hauhaucs-aggressive)がロード中なので、評価のリクエストで自動ロードが起きないよう、作者の確認後に明示的にロード・アンロードする。
+
+**次の一手**
+- 作者の合図で E1/E1-J(Qwen)→ E2/E2-J(Gemma)を手順書どおり実行する(probe → 1件試打 → 全件)。
 
 ## 2026-09-25 — Phase 1: 7軸化とデータセット31枠の生成
 

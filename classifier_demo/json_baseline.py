@@ -28,7 +28,10 @@ def _build_prompt(taxonomy: Taxonomy) -> str:
     lines = []
     for axis in taxonomy.axes:
         choice_desc = ", ".join(f"{c.id} ({c.criteria})" for c in axis.choices)
-        lines.append(f"- {axis.id}: {choice_desc}")
+        line = f"- {axis.id}: {choice_desc}"
+        if axis.multi and axis.none_criteria:
+            line += f" (use an empty list only if: {axis.none_criteria})"
+        lines.append(line)
 
     # 例には実在の選択肢idを入れない(選択式にない誘導をJSON方式だけに与えないため)。
     example = {axis.id: (["<id>", "..."] if axis.multi else "<id>") for axis in taxonomy.axes}
