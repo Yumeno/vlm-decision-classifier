@@ -1,0 +1,48 @@
+{
+  "profile": "qwen-llamaserver-vanilla",
+  "experiments": [
+    "E3",
+    "E5"
+  ],
+  "model": {
+    "id": "qwen3.5-9b",
+    "official": "Qwen/Qwen3.5-9B",
+    "gguf": {
+      "repo": "lmstudio-community/Qwen3.5-9B-GGUF",
+      "revision": "1379f25c6b505a3fc737bd7818cb09389cf807c1",
+      "file": "Qwen3.5-9B-Q4_K_M.gguf",
+      "sha256": "cd76ec205963b3b33350093e6904d9de16c4e666fd104e1f632d25c7f15f2a13"
+    },
+    "mmproj": {
+      "file": "mmproj-Qwen3.5-9B-BF16.gguf",
+      "sha256": "330d17547bfdbcd0e7a0cb3f4b06b4ceeac0aaa1e449122d9d66ef957aeb74b3"
+    }
+  },
+  "server": {
+    "type": "llama-server",
+    "api": "OpenAI-compatible /v1/chat/completions",
+    "upstream": "https://github.com/ggml-org/llama.cpp",
+    "commit": "f95b0d95394d5e311ba8228689972843178c5e28",
+    "version": "0.4.1-dev (build 1, commit f95b0d9)",
+    "image_cache_patch": false,
+    "build": "CUDA 12.8.93, MSVC 19.44.35228.0 (VS 2022 BuildTools), -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86;89 -DLLAMA_CURL=OFF, Release, target llama-server (doc/experiments/phase4-runbook.md)",
+    "launch": "llama-server -m Qwen3.5-9B-Q4_K_M.gguf --mmproj mmproj-Qwen3.5-9B-BF16.gguf --alias qwen3.5-9b -ngl 99 -c 8192 -np 4 --kv-unified -sm none -mg 0 --port 1235",
+    "observed": "log: n_slots = 4, n_ctx_slot = 8192, kv_unified = 'true'。最初は --kv-unified なしで起動し n_ctx_slot = 2048 / kv_unified = 'false' だったため、測定前に停止して付け直した"
+  },
+  "hardware": {
+    "gpus": [
+      "CUDA0 (nvidia-smi 1): NVIDIA GeForce RTX 3090 24GB",
+      "CUDA1 (nvidia-smi 0): NVIDIA GeForce RTX 4060 Ti 16GB"
+    ],
+    "driver": "591.86",
+    "gpu_used": "RTX 3090 のみ(-sm none -mg 0)。起動後 nvidia-smi で bus 0D が 0 → 6794 MiB。4060 Ti は +約120 MiB(CUDA 初期化分とみられる)",
+    "concurrent_processes": "RTX 3090 に別プロセスなし。4060 Ti は別アプリ(StabilityMatrix 系)が約 7.8GB を確保(推論は不明)。GPU 0 はデスクトップ表示にも使用"
+  },
+  "client": {
+    "max_edge": 1024,
+    "temperature": 0,
+    "top_logprobs": 20,
+    "reasoning_effort": "none"
+  },
+  "notes": "E1b(LM Studio)とはサーバー実装が異なる。E3 と E4 の差だけをパッチの効果として扱う。"
+}
