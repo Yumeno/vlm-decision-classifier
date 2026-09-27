@@ -32,11 +32,11 @@
 | `doc/dataset-plan.md` | 正解付与規則、31枠の生成計画表、manifest仕様、検収と正解付与の経緯 | あり |
 | `doc/worklog.md` | 作業記録（新しい順） | あり |
 | `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`） | あり（分類コア・評価器） |
-| `taxonomy/default.yaml` | 分類体系 0.4.0（7軸）と自作キャラの定義 | あり |
+| `taxonomy/default.yaml` | 分類体系 0.4.1（7軸）と自作キャラの定義 | あり |
 | `dataset/` | 評価用データセット v1.0.0(`images/` 35ケース、`manifest.jsonl`、`DATASET_CARD.md`、正解の一次記録 `labels/`、生成記録 `generation/`) | あり |
-| `scripts/` | データセットの生成（Forge/ComfyUI）、メタデータ除去、データセット組み立て | あり |
+| `scripts/` | データセットの生成（Forge/ComfyUI）、メタデータ除去、データセット組み立て、`benchmark_cache.py`（Phase 4 / E5: 画像キャッシュ改造の再現用ベンチマーク） | あり |
 | `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・pipeline・評価器・生成スクリプト） | あり |
-| `doc/patches/` | llama.cpp画像キャッシュ改造の固定差分 | 未作成 |
+| `doc/patches/` | llama.cpp画像キャッシュ改造の固定差分(`llamacpp-mtmd-checkpoint.patch`、上流 `f95b0d9` に当てる1行) | あり |
 
 設計文書中のディレクトリ案は実装時の指針です。コードを追加した時点で、この表と起動方法を実態に合わせて更新してください。
 
@@ -66,6 +66,9 @@ py -3.12 -m venv .venv
 
 # データセット全件の評価(check-manifestを内部で先に実行し、エラーがあれば中断する)
 .venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --model <モデルID> --output-dir results\<名前>
+
+# Phase 4 / E5: 画像キャッシュ改造の再現用ベンチマーク(未改造版/改造版のllama-serverでそれぞれ実行して比較する)
+.venv\Scripts\python.exe scripts\benchmark_cache.py --model <モデルID> --label vanilla --output results\cache\vanilla.json
 ```
 
 `evaluate` は選択式(`choice`)と通常JSON(`json`)を既定で両方実行し(`--modes choice,json`)、ケースごとに交互の順で実行して順序効果を抑える。出力先(`--output-dir`)には `run.json`（実行条件・除外ケース）、`cases.csv`（ケース別採点）、`summary.md`（集計）、`cases/<case_id>.<mode>.json`（生の分類結果）を書き出す。`rights_confirmed` が true でないケースは評価から除外され、`run.json` の `excluded_cases` に理由とともに記録される。`--runtime-info path\to\runtime.json` で、モデル/mmprojのSHA256・サーバー種別やcommit・パッチ有無・起動引数・GPUオフロードなど実行環境を記した任意のJSONファイルを渡すと、中身をそのまま（ファイル名とSHA256も添えて）`run.json` に記録する。

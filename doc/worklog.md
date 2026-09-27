@@ -4,33 +4,72 @@
 
 ## ★ 現在地と引き継ぎ(2026-09-27 更新。compact 後はまずここを読む)
 
-**状態(2026-09-27 更新)**: E1b/E2b は実行・記録済み(下の「2026-09-27 — E1b/E2b」)。PR #7 を出して merge 待ち。次は Phase 4(GPU とビルドの前に作者の確認を取る)。以下の「E1b/E2b の実行コマンド」は再現用に残す。
+**状態(2026-09-27 更新)**: Phase 4(E3/E4/E5)まで実行・記録済み。PR #8(phase4/cache)を出して merge 待ち。次は Phase 5(レポート・README・note 記事の下書き・公開前チェック)。詳細は下の各日付の節。以下の「E1b/E2b の実行コマンド」は再現用に残す。
 
 **リポジトリ**
-- main には PR #1〜#6 が merge 済み(分類コア・評価器・データセット v1.0.0 まで)。
-- 作業ブランチ `phase3/runbook`(push 済み、PR 未作成)には、手順書、実行環境 JSON、E1/E2 の結果(`doc/experiments/E1_qwen-lmstudio`・`E2_gemma-lmstudio`)、taxonomy 0.4.1(none_criteria)が入っている。**E1b/E2b の結果を足してから PR #7 にする**(並行 PR は積まない)。
-- メインの作業フォルダ(`<repo>`)は `phase3/runbook` をチェックアウト済みで、`.venv`(py3.12)がある。`dataset/staging/`(管理外)には生成画像・検収用ページの素材・正解シートの読み出しが残っている。
-- 使い終わった worktree が3つ残っている(`.claude/worktrees/agent-*`。phase2a・phase2b・generation-scripts)。どれも merge 済みなので削除してよい。
+- main には PR #1〜#7 が merge 済み(分類コア・評価器・データセット v1.0.0・Phase 3 の E1/E2/E1b/E2b)。
+- 作業ブランチ `phase4/cache` → PR #8(パッチ、E5 ベンチマーク、E3/E4/E5 の結果、手順書)。
+- メインの作業フォルダは `.venv`(py3.12)あり。`dataset/staging/`(管理外)には生成画像・検収用素材が残っている。
+- llama.cpp のビルドはリポジトリの外 `~/Desktop/llamacpp-vdc/{vanilla,patched}`(上流 `f95b0d9`、ログ `build-*.log`・`server-*.log`)。
+- 使い終わった worktree が3つ残っている(`.claude/worktrees/agent-*`)。どれも merge 済みなので削除してよい。
 
-**E1b/E2b の実行コマンド**(GPU を使う前に作者の確認を取る。`lms ps` で他のモデルを確認し、アンロードは作者の了承後)
-1. `lms load qwen3.5-9b --identifier qwen3.5-9b -y` → `nvidia-smi --query-compute-apps=gpu_bus_id,pid,process_name --format=csv` で GPU を確認し、runtime JSON の記録を更新する(前回は RTX 3090 = bus 0D)。
-2. `.venv/Scripts/python.exe -m classifier_demo probe --model qwen3.5-9b` → M01 で試打(`classify ... --mode choice/json`。`results/trial` を先に作る)。
-3. `.venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model qwen3.5-9b --modes choice,json --warmup 1 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-lmstudio.json --runtime-label qwen-lmstudio-tax041 --note "E1b: taxonomy 0.4.1 (none_criteria)" --output-dir results/E1b_qwen-lmstudio`
-4. `lms unload qwen3.5-9b` → Gemma で同じ手順(`gemma-4-12b-it`、`results/E2b_gemma-lmstudio`、runtime は gemma-lmstudio.json)→ アンロード。
-5. `run.json`・`cases.csv`・`summary.md` を `doc/experiments/E1b_…`・`E2b_…` にコピーし(個人パスがないか確認)、E1/E2 との比較(特に character の other_original の recall、outfit の school_uniform の誤検出)を worklog に書いて、PR #7 を出す。
+**再現手順**: Phase 3 は `doc/experiments/phase3-runbook.md`(E1b/E2b は `--runtime-label …-tax041`、`--output-dir results/E1b_…`)、Phase 4 は `doc/experiments/phase4-runbook.md`。
 
-**これまでの主な結果(E1/E2、元画像31件)**: 単一選択の軸は、選択式が JSON 方式と同等以上だった。選択式の弱点は character の other_original の取りこぼし(Qwen 0/11)で、原因は「none of the above」の文言の解釈。0.4.1 でこれを直した。処理時間は、選択式が Qwen 10.3秒 / Gemma 6.4秒、JSON が約2.3〜2.5秒。
+**これまでの主な結果(元画像31件)**
+- 単一選択の軸は、選択式が JSON 方式と同等以上。character は taxonomy 0.4.1(none の説明文)で選択式が 93.5%(両モデル)。outfit は選択式で school_uniform の誤検出が残る(変えずに報告すると作者が判断)。
+- Qwen の選択式の処理時間: LM Studio 9.3秒、llama-server 未改造 8.7秒、改造 3.1秒(予測は全件一致)。
 
 **残タスク(初版 MVP)**
-- E1b/E2b → PR #7。
-- Phase 4: llama.cpp の画像キャッシュ改造の比較(E3/E4/E5)。改造版は `~/Desktop/llamacpp-build/llama.cpp`(上流 `f95b0d9` + 1行パッチ、別プロジェクトが使用中)にある。未改造版は、同じコミットを別の場所にクローンしてビルドする。GPU とビルド作業の前に作者の確認を取る。
-- Phase 5: レポート(`doc/experiments/report.md`)、README の実行手順、note 記事の下書き、公開前チェック(ライセンスは作者が決める)。
-- 小さな修正: `classify --output` が出力先のフォルダを作らない。
-- 追加課題(初版の完了条件外): E6(説明文付き JSON)、E7(束ね質問)。
+- PR #8 の merge 待ち。
+- Phase 5: レポート(`doc/experiments/report.md`)、README の実行手順、note 記事の下書き、公開前チェック(ライセンスは作者が決める。上流 issue #26994 の状態を再確認)。
+- 追加課題(初版の完了条件外): E6(説明文付き JSON)、E7(束ね質問)、E8(メタデータ補助)の要否は Phase 5 で作者と確認。
 
 **運用ルール(CLAUDE.md / メモリにもある)**: Sonnet が実装し、Codex(gpt-6-luna)がレビュー(5ラウンドで収束しなければ作者を呼ぶ)。VRAM を使う前に作者を呼ぶ。区切りごとに worklog に書く。コンテキストが 75〜85% になったら待機する。
 
 **artifact**(非公開): 狙い一覧 (非公開の作業用ページ) 、正解付与シート (非公開の作業用ページ) (db の `labels` コレクション。最終版は `dataset/labels/labels_final.json` に固定済み)。
+
+## 2026-09-27 — Phase 4: E3/E4/E5(llama.cpp 画像キャッシュ改造の有無)
+
+**やったこと**
+- 作者の許可(「VRAM はそのまま使ってよい」)を得て実施。手順は `doc/experiments/phase4-runbook.md`。
+- 別プロジェクトの改造版ビルドは借りず、上流 `f95b0d9` を2か所に取得して、同じ手順で未改造版と改造版をビルドした(CUDA 12.8.93、MSVC 19.44、`86;89`、それぞれ約14分)。差分は `doc/patches/llamacpp-mtmd-checkpoint.patch` の1行だけ。未改造版に `git apply --check` が通ることを確認した。
+- Sonnet が `scripts/benchmark_cache.py`(E5)を実装した。Codex(gpt-6-luna)で2ラウンドのレビューを行い、収束した(1回目: 指摘3件のうち2件採用、`--repeats 0` のチェックは MVP 理念により却下。2回目: 指摘なし)。オーケストレータ自身の確認で、テスト1の繰り返しの頭で画像を B に切り替える修正も入れた。
+- 起動引数: `-ngl 99 -c 8192 -np 4 --kv-unified -sm none -mg 0 --port 1235 --alias qwen3.5-9b`。
+- **試行錯誤**: 最初は `--kv-unified` なしで起動し、`n_ctx_slot = 2048`(スロットごとに分割)になっていた。LM Studio(コンテキスト 8192 の共有)と条件が違ううえ、画像の入力で足りなくなるおそれがあるので、測定前に止めて付け直した。
+- **`-mg` の番号は CUDA の並び**で、`nvidia-smi` とは逆(CUDA0 = RTX 3090)。`--list-devices` で確認した。
+- 測定の順番: 未改造版(probe → E5 → E3)→ サーバー停止 → 改造版(probe → E5 → E4)→ 停止。どちらも RTX 3090(bus 0D)だけにモデルが載り、3090 に別プロセスはなかった。4060 Ti は別アプリが約 7.8GB を確保していた。
+- 実行時刻(UTC)とコミット(いずれも dirty=false。間のコミットは実行環境 JSON の追加だけ):
+  - E5 未改造: 01:54:20〜01:55:14(`e9058aa`)
+  - E3: 01:55:41〜02:00:46(5分05秒、`c40f057`)
+  - E5 改造: 02:01:17〜02:01:41(`c40f057`)
+  - E4: 02:02:13〜02:04:01(1分48秒、`847070a`)
+
+**結果(Qwen3.5 9B、選択式、元画像31件。一次資料は各 summary.md と E5 の JSON)**
+
+| | E1b LM Studio | E3 llama-server 未改造 | E4 llama-server 改造 |
+|---|---|---|---|
+| 1件あたりの時間(平均 / p50 / p90) | 9.28 / 9.26 / 11.53秒 | 8.71 / 8.74 / 10.78秒 | **3.13 / 2.99 / 3.76秒** |
+| 平均リクエスト数 | 11.35 | 11.35 | 11.35 |
+| 失敗 | 0 | 0 | 0 |
+| 予測 | — | E1b と全35件・全軸で一致 | E3 と全35件・全軸で一致 |
+
+| E5(同じ画像で質問だけ変更、各繰り返しの頭で画像 B を1回送る) | 未改造 | 改造 |
+|---|---|---|
+| 1軸目の中央値(n=3) | 749.5 ms | 327.8 ms |
+| 2軸目以降の中央値(n=18) | 653.7 ms | **196.0 ms** |
+| A→B→A の最上位ラベル不一致 | 0 / 21組 | 0 / 21組 |
+| A1 と A2 の相対スコアの最大絶対差 | 0.0170 | 0.0144 |
+
+**観察**
+- パッチで、選択式の1件あたりの時間は 8.7秒 → 3.1秒(約64%短縮)。判定結果は全件で変わらなかった。E5 の A→B→A でも最上位ラベルの不一致はなく、画像混線は観測されなかった。
+- 未改造版は、同じ画像で質問だけ変えても毎回ほぼ同じ時間がかかる(2軸目以降 654ms)。上流 issue #26994 の報告どおり、画像の再エンコードが起きている。
+- 改造版で1軸目も速い(328ms)のは、スロットが4つあるため。B を送っても A の状態は別スロットに残り、サーバーが「内容が最も近いスロット」を選んで再利用する(サーバーログの `selected slot by LCP similarity`)。未改造版は残っていても再利用できない。したがって、テスト1の「1軸目=再エンコードあり」という前提は `-np 4` の改造版には当てはまらない。E3/E4 と同じ条件での実際の挙動として、そのまま記録する。
+- A1 と A2 のスコアの差(最大 0.017)は未改造版にもあり、パッチ由来ではない。同じリクエストでも、バッチの状態などで logprobs がわずかに揺れるとみられる(未検証)。
+- E1b と E3 の差(9.3秒 → 8.7秒)はサーバー実装の差で、パッチの効果とは混ぜない。
+- 元プロジェクトの記録(11.3 → 7.3秒、-35%)より効果が大きいが、軸の数・質問文・サーバー設定が違うので、数値は比べない。
+
+**次の一手**
+- PR #8(phase4/cache)を出して merge 待ち。その後 Phase 5(レポート、README の実行手順、note 記事の下書き、公開前チェック。上流 issue #26994 の状態を公開直前に再確認)。
 
 ## 2026-09-27 — E1b/E2b(taxonomy 0.4.1 での再評価)
 

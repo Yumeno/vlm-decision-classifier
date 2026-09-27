@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import os
 import sys
 
 from PIL import Image
@@ -95,6 +96,9 @@ def cmd_classify(args: argparse.Namespace) -> int:
 
     output_json = json.dumps(result, ensure_ascii=False, indent=2)
     if args.output:
+        output_dir = os.path.dirname(args.output)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(output_json)
         print(f"written: {args.output}")

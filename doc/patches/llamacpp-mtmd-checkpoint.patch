@@ -1,0 +1,14 @@
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index b6835e4..38f9555 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -3619,7 +3619,8 @@ private:
+                     }
+ 
+                     // do not checkpoint after mtmd chunks
+-                    do_checkpoint = do_checkpoint && !has_mtmd;
++                    // disabled for image-prefix reuse, see ggml-org/llama.cpp#26994
++                    // do_checkpoint = do_checkpoint && !has_mtmd;
+ 
+                     // no need to create checkpoints that are too close together, unless it's the last user message
+                     do_checkpoint = do_checkpoint && (
