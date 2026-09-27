@@ -2,7 +2,9 @@
 
 ローカルの視覚言語モデル（VLM）を使い、生成画像を**選択式の質問**で分類する実験用リポジトリです。分類軸ごとの選択肢と判定基準をモデルへ渡し、回答ラベルの `logprobs` から候補間の相対スコアを得ます。画像の生成メタデータから得たLoRA指定は、画素からの判定とは別の根拠として表示します。
 
-**分類コアの最小実装（Phase 2a）まで完了しています。画像データセット・実験結果はまだ入っていません。** 下記の「実行方法（開発中）」で単体分類の動かし方を確認できます。まず [`doc/requirements.md`](doc/requirements.md)、[`doc/basic-design.md`](doc/basic-design.md)、[`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) を参照してください。
+本デモの狙いは、Jev的な選択式判定（回答ラベルの`logprobs`から候補間の相対スコアを読む方式）を、マルチモーダル入力・任意のローカルVLMに適用したときの挙動を確かめる**技術検証**です。分類の精度そのものを追い込むことや、メタデータ補助による精度向上は目的にしていません。以下の「Qwen/Gemmaの結果」に載せる数値も、方式がどう振る舞うかを見るための材料として読んでください。
+
+**Phase 4(分類コア・データセットv1.0.0・評価・Qwen/Gemmaの全実験・キャッシュ改造比較)まで完了し、Phase 5(レポート・公開準備)を進めています。** クイックスタートは下記、実測結果は [`doc/experiments/report.md`](doc/experiments/report.md) を参照してください。設計の詳細は [`doc/requirements.md`](doc/requirements.md)、[`doc/basic-design.md`](doc/basic-design.md)、[`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) にあります。
 
 ## 何を実演するか
 
@@ -37,10 +39,11 @@
 | `scripts/` | データセットの生成（Forge/ComfyUI）、メタデータ除去、データセット組み立て、`benchmark_cache.py`（Phase 4 / E5: 画像キャッシュ改造の再現用ベンチマーク） | あり |
 | `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・pipeline・評価器・生成スクリプト） | あり |
 | `doc/patches/` | llama.cpp画像キャッシュ改造の固定差分(`llamacpp-mtmd-checkpoint.patch`、上流 `f95b0d9` に当てる1行) | あり |
+| `doc/experiments/` | 実験レポート(`report.md`)、実験ごとの`run.json`/`cases.csv`/`summary.md`、実行手順書(`phase3-runbook.md`/`phase4-runbook.md`)、実行環境記録(`runtime/`) | あり |
 
 設計文書中のディレクトリ案は実装時の指針です。コードを追加した時点で、この表と起動方法を実態に合わせて更新してください。
 
-## 実行方法（開発中）
+## クイックスタート
 
 Python 3.11以上。この開発機では `python`（3.14）/ `python3`（3.10）ではなく `py -3.12` で venv を作ります。
 
@@ -49,7 +52,7 @@ py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
-推論サーバー（LM Studio / llama-server の OpenAI互換 chat completions）はユーザーが別途起動しておきます。このツールはサーバーの自動起動・モデルの自動ダウンロードを行いません。
+推論サーバー（LM Studio / llama-server の OpenAI互換 chat completions）はユーザーが別途起動しておきます。このツールはサーバーの自動起動・モデルの自動ダウンロードを行いません。LM Studioで通常版Qwen3.5 9BまたはGemma 4 12Bの対応GGUFをロードしてから、以下の順（probe → classify → evaluate）で実行します。
 
 ```powershell
 # 接続・vision・logprobs の疎通確認（実画像1枚で回答ラベルとlogprobsを試す）
@@ -67,11 +70,42 @@ py -3.12 -m venv .venv
 # データセット全件の評価(check-manifestを内部で先に実行し、エラーがあれば中断する)
 .venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --model <モデルID> --output-dir results\<名前>
 
-# Phase 4 / E5: 画像キャッシュ改造の再現用ベンチマーク(未改造版/改造版のllama-serverでそれぞれ実行して比較する)
+# 任意: 画像キャッシュ改造の再現用ベンチマーク(未改造版/改造版のllama-serverでそれぞれ実行して比較する。下記「画像キャッシュ改造(任意)」参照)
 .venv\Scripts\python.exe scripts\benchmark_cache.py --model <モデルID> --label vanilla --output results\cache\vanilla.json
 ```
 
 `evaluate` は選択式(`choice`)と通常JSON(`json`)を既定で両方実行し(`--modes choice,json`)、ケースごとに交互の順で実行して順序効果を抑える。出力先(`--output-dir`)には `run.json`（実行条件・除外ケース）、`cases.csv`（ケース別採点）、`summary.md`（集計）、`cases/<case_id>.<mode>.json`（生の分類結果）を書き出す。`rights_confirmed` が true でないケースは評価から除外され、`run.json` の `excluded_cases` に理由とともに記録される。`--runtime-info path\to\runtime.json` で、モデル/mmprojのSHA256・サーバー種別やcommit・パッチ有無・起動引数・GPUオフロードなど実行環境を記した任意のJSONファイルを渡すと、中身をそのまま（ファイル名とSHA256も添えて）`run.json` に記録する。
+
+### モデル/サーバー設定
+
+- LM Studioで通常版Qwen3.5 9BまたはGemma 4 12Bの対応GGUFをロードします。使用したGGUF・mmprojのSHA256、サーバー版・commitは [`doc/experiments/report.md`](doc/experiments/report.md) §2に記録している。
+- `probe`/`classify`/`evaluate`は既定で `reasoning_effort: "none"` をリクエストに含める。これを外すと、Qwen/Gemmaともthinkingが先に出て、1トークン目で回答ラベルのlogprobsが取れない(2026-09-24のprobeで確認)。
+- llama-serverを使う場合も同じOpenAI互換chat completionsに接続するだけで動作する(`--base-url` を変えるだけ)。
+
+### データセット
+
+専用データセット v1.0.0(元画像31枚 + メタデータ除去コピー4件 = 35ケース、全件SFW)。生成経緯・正解の分布・権利確認は [`dataset/DATASET_CARD.md`](dataset/DATASET_CARD.md) を参照。
+
+### 判定構造
+
+軸ごとに短い選択式質問を送り、回答ラベルの`logprobs`から候補間の相対スコアを計算する(単一選択の軸は1回の質問、複数選択の軸(`outfit`・`character`)は候補ランキング後に各候補へyes/no確認を追加で送る)。候補間の相対スコアは、列挙した候補内で再正規化した値であり、実世界の正答確率ではない。
+
+### Qwen/Gemmaの結果
+
+Qwen3.5 9B GGUF・Gemma 4 12B GGUFの選択式/通常JSON比較、taxonomy文言修正前後の再評価、Qwenのllama.cpp画像キャッシュ改造比較の実測値は [`doc/experiments/report.md`](doc/experiments/report.md) にまとめている。数値は方式の挙動を見るための材料であり、精度そのものの追い込みは行っていない。
+
+### 画像キャッシュ改造(任意)
+
+Qwenの連続質問では、llama.cppが同じ画像を再エンコードする問題があり(上流 [issue #26994](https://github.com/ggml-org/llama.cpp/issues/26994))、`doc/patches/llamacpp-mtmd-checkpoint.patch` を当てた改造版llama-serverで速度が改善する(判定結果は変わらない。[`doc/experiments/report.md`](doc/experiments/report.md) §4.5)。再現手順は [`doc/experiments/phase4-runbook.md`](doc/experiments/phase4-runbook.md)。未改造環境に戻すには、パッチを当てずに同じコミットからビルドした`llama-server`を使う(または未改造版のバイナリに差し替える)だけでよい。この改造は速度比較用の任意条件であり、初回の分類実行には不要。
+
+### 既知の失敗
+
+- 選択式の`outfit`で、Alisaの制服(`office_wear`)に`school_uniform`が誤って追加されるケースが残る(複数選択の確認段階で近い候補も「はい」になりやすい)。
+- `reasoning_effort: "none"` を指定しないと、thinkingが先に出て回答ラベルのlogprobsが取れない(明示的なエラーとして記録し、別方式へフォールバックしない)。
+- 通常JSON方式では、単一選択の軸をリストで返す形式不正が起こることがある。
+- E2(Gemma)で、LM Studioサーバー側のChannel Errorによりyes/no確認が2件失敗した(失敗として分母に残した。E2bでは再発せず)。
+
+詳細は [`doc/experiments/report.md`](doc/experiments/report.md) §5・§6 を参照。
 
 テスト実行（ネットワーク・実サーバー不要、偽バックエンドのみ使用）:
 
@@ -92,19 +126,19 @@ JSONベースラインの主比較は**分類フィールドだけ**を生成し
 
 ## モデルと実行環境
 
-モデル重み、視覚プロジェクタ、LoRA重みはこのリポジトリに同梱しません。選定するGGUFの配布元・リビジョン・量子化・SHA256、対応するmmproj、LM Studioまたはllama-serverの版、GPUオフロード、画像縮小設定は実験時に固定し、結果とともに公開します。通常版Qwen3.5 9Bでの数値はこれから測定します。元プロジェクトに記録された無検閲派生モデルでの測定値を、このデモの結果として扱いません。
+モデル重み、視覚プロジェクタ、LoRA重みはこのリポジトリに同梱しません。使用したGGUFの配布元・リビジョン・量子化・SHA256、対応するmmproj、LM Studio/llama-serverの版、GPUオフロード、画像縮小設定は [`doc/experiments/report.md`](doc/experiments/report.md) §2に固定して記録しています。元プロジェクトに記録された無検閲派生モデルでの測定値は、このデモの結果として扱いません。
 
-Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードする問題と、そのキャッシュ挙動を変える改造が元プロジェクトの技術記録(非公開リポジトリ)にあります。この改造は**速度比較用の任意条件**です。初回の分類実行には不要です。公開する改造手順は、上流コミット・差分・ビルド条件・結果整合の確認が済んでから追加します。
+Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードする問題があります(上流 [issue #26994](https://github.com/ggml-org/llama.cpp/issues/26994)。元プロジェクトの技術記録(非公開リポジトリ)も参照)。そのキャッシュ挙動を変える改造は**速度比較用の任意条件**で、初回の分類実行には不要です。手順は上記「画像キャッシュ改造(任意)」を参照してください。
 
-## 開発を始める順番
+## 開発の経緯
 
-1. [`doc/requirements.md`](doc/requirements.md) に沿って、公開する自作キャラの外見基準と画像生成条件を確定します。
-2. 画像を生成する前に、シナリオ表と正解付与規則を作ります。その後、専用データセットを生成・検収して版を固定します。
-3. QwenとGemmaの候補GGUFで、画像入力・`logprobs`・回答書式が成立するか小さな接続試験をします。
-4. メタデータ抽出、分類体系、選択式判定、通常JSON分類、共通の評価器を実装します。
-5. 固定データセットで全方式を評価し、Qwenのllama.cpp改造比較と公開用READMEの実行手順を完成させます。
+1. [`doc/requirements.md`](doc/requirements.md) に沿って、公開する自作キャラの外見基準と画像生成条件を確定。
+2. シナリオ表と正解付与規則を作り、専用データセット(v1.0.0)を生成・検収して版を固定。
+3. QwenとGemmaで、画像入力・`logprobs`・回答書式が成立するか接続試験を実施。
+4. メタデータ抽出、分類体系、選択式判定、通常JSON分類、共通の評価器を実装。
+5. 固定データセットで全方式を評価し、Qwenのllama.cpp改造比較を実施(結果は [`doc/experiments/report.md`](doc/experiments/report.md))。
 
-詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。現時点で動作するインストール手順や実測結果はありません。
+詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)・E7(束ね質問)・E8(メタデータ補助の対照実験)は初版MVPの完了条件外の追加課題です(`AGENTS.md`参照)。
 
 ## 公開前の確認
 
