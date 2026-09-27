@@ -2,6 +2,36 @@
 
 新しい順。compact 後の文脈復元用。詳細は各 PR と `doc/` を参照。
 
+## ★ 現在地と引き継ぎ(2026-09-27 更新。compact 後はまずここを読む)
+
+**状態**: E1b/E2b の実行前で待機中(作者が VRAM を別用途で使用中)。作者の合図があれば、手順書 `doc/experiments/phase3-runbook.md` どおりに実行する。
+
+**リポジトリ**
+- main には PR #1〜#6 が merge 済み(分類コア・評価器・データセット v1.0.0 まで)。
+- 作業ブランチ `phase3/runbook`(push 済み、PR 未作成)には、手順書、実行環境 JSON、E1/E2 の結果(`doc/experiments/E1_qwen-lmstudio`・`E2_gemma-lmstudio`)、taxonomy 0.4.1(none_criteria)が入っている。**E1b/E2b の結果を足してから PR #7 にする**(並行 PR は積まない)。
+- メインの作業フォルダ(`<repo>`)は `phase3/runbook` をチェックアウト済みで、`.venv`(py3.12)がある。`dataset/staging/`(管理外)には生成画像・検収用ページの素材・正解シートの読み出しが残っている。
+- 使い終わった worktree が3つ残っている(`.claude/worktrees/agent-*`。phase2a・phase2b・generation-scripts)。どれも merge 済みなので削除してよい。
+
+**E1b/E2b の実行コマンド**(GPU を使う前に作者の確認を取る。`lms ps` で他のモデルを確認し、アンロードは作者の了承後)
+1. `lms load qwen3.5-9b --identifier qwen3.5-9b -y` → `nvidia-smi --query-compute-apps=gpu_bus_id,pid,process_name --format=csv` で GPU を確認し、runtime JSON の記録を更新する(前回は RTX 3090 = bus 0D)。
+2. `.venv/Scripts/python.exe -m classifier_demo probe --model qwen3.5-9b` → M01 で試打(`classify ... --mode choice/json`。`results/trial` を先に作る)。
+3. `.venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model qwen3.5-9b --modes choice,json --warmup 1 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-lmstudio.json --runtime-label qwen-lmstudio-tax041 --note "E1b: taxonomy 0.4.1 (none_criteria)" --output-dir results/E1b_qwen-lmstudio`
+4. `lms unload qwen3.5-9b` → Gemma で同じ手順(`gemma-4-12b-it`、`results/E2b_gemma-lmstudio`、runtime は gemma-lmstudio.json)→ アンロード。
+5. `run.json`・`cases.csv`・`summary.md` を `doc/experiments/E1b_…`・`E2b_…` にコピーし(個人パスがないか確認)、E1/E2 との比較(特に character の other_original の recall、outfit の school_uniform の誤検出)を worklog に書いて、PR #7 を出す。
+
+**これまでの主な結果(E1/E2、元画像31件)**: 単一選択の軸は、選択式が JSON 方式と同等以上だった。選択式の弱点は character の other_original の取りこぼし(Qwen 0/11)で、原因は「none of the above」の文言の解釈。0.4.1 でこれを直した。処理時間は、選択式が Qwen 10.3秒 / Gemma 6.4秒、JSON が約2.3〜2.5秒。
+
+**残タスク(初版 MVP)**
+- E1b/E2b → PR #7。
+- Phase 4: llama.cpp の画像キャッシュ改造の比較(E3/E4/E5)。改造版は `~/Desktop/llamacpp-build/llama.cpp`(上流 `f95b0d9` + 1行パッチ、別プロジェクトが使用中)にある。未改造版は、同じコミットを別の場所にクローンしてビルドする。GPU とビルド作業の前に作者の確認を取る。
+- Phase 5: レポート(`doc/experiments/report.md`)、README の実行手順、note 記事の下書き、公開前チェック(ライセンスは作者が決める)。
+- 小さな修正: `classify --output` が出力先のフォルダを作らない。
+- 追加課題(初版の完了条件外): E6(説明文付き JSON)、E7(束ね質問)。
+
+**運用ルール(CLAUDE.md / メモリにもある)**: Sonnet が実装し、Codex(gpt-6-luna)がレビュー(5ラウンドで収束しなければ作者を呼ぶ)。VRAM を使う前に作者を呼ぶ。区切りごとに worklog に書く。コンテキストが 75〜85% になったら待機する。
+
+**artifact**(非公開): 狙い一覧 (非公開の作業用ページ) 、正解付与シート (非公開の作業用ページ) (db の `labels` コレクション。最終版は `dataset/labels/labels_final.json` に固定済み)。
+
 ## 2026-09-25 — Phase 1 完了: データセット v1.0.0 の固定
 
 **やったこと**
