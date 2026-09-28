@@ -40,6 +40,7 @@ METADATA_CSV_FIELDS = [
 
 TIMING_CSV_FIELDS = [
     "classification_wall_ms",
+    "prime_ms",
     "request_count",
     "error_types",
     "json_attempts",
@@ -232,6 +233,8 @@ def build_case_row(case: dict, mode: str, order_index: int, result: dict, taxono
 
     timing = result.get("timing_ms") or {}
     row["classification_wall_ms"] = timing.get("classification_wall_ms", "")
+    # E9: --prime 有効時のみ result に付く(評価器側で付加。pipeline.classify自体は関知しない)。
+    row["prime_ms"] = result.get("prime_ms", "")
     row["request_count"] = result.get("request_count", "")
     error_types = [e.get("type", "") for e in result.get("errors") or []]
     row["error_types"] = ";".join(dict.fromkeys(error_types))
@@ -365,6 +368,27 @@ def _latency_block(recs: list[dict], mode: str) -> list[str]:
     req_counts = [r["result"].get("request_count", 0) for r in recs if r["result"].get("request_count") is not None]
     if req_counts:
         lines.append(f"  - 平均リクエスト数: {statistics.mean(req_counts):.2f}")
+
+    # E9 --prime: prime_ms が result に付いているケースのみ(prime有効時のみ)。
+    prime_ms_values = [
+        r["result"]["prime_ms"] for r in recs if isinstance(r["result"].get("prime_ms"), (int, float))
+    ]
+    if prime_ms_values:
+        lines.append(
+            f"  - prime(画像の読み込み、N={len(prime_ms_values)}): "
+            f"mean={statistics.mean(prime_ms_values):.1f}ms "
+            f"p50={nearest_rank_percentile(prime_ms_values, 50):.1f}ms "
+            f"p90={nearest_rank_percentile(prime_ms_values, 90):.1f}ms"
+        )
+        combined_ms = []
+        for r in recs:
+            p = r["result"].get("prime_ms")
+            c = (r["result"].get("timing_ms") or {}).get("classification_wall_ms")
+            if isinstance(p, (int, float)) and isinstance(c, (int, float)):
+                combined_ms.append(p + c)
+        if combined_ms:
+            lines.append(f"  - prime + 判定(N={len(combined_ms)}): mean={statistics.mean(combined_ms):.1f}ms")
+
     if mode == "json" and recs:
         fmt_errors = sum(1 for r in recs if (r["result"].get("json_baseline") or {}).get("tags") is None)
         attempts = [len((r["result"].get("json_baseline") or {}).get("attempts") or []) for r in recs]

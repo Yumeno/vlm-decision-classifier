@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import os
 import subprocess
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from . import decision, json_baseline
 from .image import file_sha256, prepare_image
 from .metadata import extract_evidence
-from .taxonomy import Taxonomy
+from .taxonomy import Axis, Taxonomy
 
 
 def _git_commit() -> str | None:
@@ -28,6 +30,83 @@ def _git_commit() -> str | None:
     return out.stdout.strip() or None
 
 
+def _process_axis(axis: Axis, backend, image_bytes: bytes, mime: str, on_progress, progress_lock) -> dict:
+    """1軸分の判定を実行し、classify() へマージするための結果をまとめて返す。
+
+    axis_concurrency>=2 のときは複数スレッドから並行して呼ばれるため、on_progress の
+    呼び出しだけロックで直列化する(backend.request_count 自体は ChatBackend 側のロックで
+    保護済み)。この関数自体は元の逐次ループの1回分と完全に同じ処理・同じイベント形を返す。
+    """
+    event: dict = {"type": "axis", "axis_id": axis.id, "multi": axis.multi, "error": None}
+    axis_errors: list[dict] = []
+    axis_decision: dict | None = None
+    vision_tags_value: list[str] | None = None
+    elapsed_ms: float | None = None
+
+    try:
+        if axis.multi:
+            result = decision.decide_multi_axis(backend, image_bytes, mime, axis)
+            axis_decision = {
+                "relative_scores": result["relative_scores"],
+                "confirmations": result["confirmations"],
+                "confirmation_errors": result["confirmation_errors"],
+                "candidates": result["candidates"],
+                "tags": result["tags"],
+                "failed": result["failed"],
+            }
+            if not result["failed"]:
+                vision_tags_value = result["tags"]
+            for cid, err in result["confirmation_errors"].items():
+                axis_errors.append(
+                    {"axis": axis.id, "type": "candidate_confirmation_error", "detail": f"candidate {cid}: {err}"}
+                )
+            event.update(
+                {
+                    "relative_scores": result["relative_scores"],
+                    "candidates": result["candidates"],
+                    "confirmations": result["confirmations"],
+                    "confirmation_errors": result["confirmation_errors"],
+                    "tags": result["tags"],
+                    "failed": result["failed"],
+                    "elapsed_ms": result["elapsed_ms"],
+                }
+            )
+        else:
+            result = decision.decide_axis(backend, image_bytes, mime, axis)
+            axis_decision = {
+                "relative_scores": result["relative_scores"],
+                "selected": result["selected"],
+            }
+            selected = result["selected"]
+            vision_tags_value = [] if selected == decision.NONE_ID else [selected]
+            event.update(
+                {
+                    "relative_scores": result["relative_scores"],
+                    "selected": result["selected"],
+                    "elapsed_ms": result["elapsed_ms"],
+                }
+            )
+        elapsed_ms = result["elapsed_ms"]
+    except decision.DecisionError as e:
+        axis_errors.append({"axis": axis.id, "type": e.error_type, "detail": e.detail})
+        event["error"] = {"type": e.error_type, "detail": e.detail}
+    except decision.REQUEST_EXCEPTIONS as e:
+        axis_errors.append({"axis": axis.id, "type": "request_error", "detail": f"{type(e).__name__}: {e}"})
+        event["error"] = {"type": "request_error", "detail": f"{type(e).__name__}: {e}"}
+
+    if on_progress is not None:
+        with progress_lock:
+            on_progress(event)
+
+    return {
+        "axis_id": axis.id,
+        "axis_decision": axis_decision,
+        "vision_tags": vision_tags_value,
+        "errors": axis_errors,
+        "elapsed_ms": elapsed_ms,
+    }
+
+
 def classify(
     image_path: str,
     taxonomy: Taxonomy,
@@ -35,10 +114,15 @@ def classify(
     mode: str = "choice",
     max_edge: int = 1024,
     on_progress=None,
+    axis_concurrency: int = 1,
 ) -> dict:
     """`on_progress` はデモUIサーバー用の任意コールバック(既定Noneなら未使用・
     既存の挙動と戻り値は変わらない)。呼ばれる順序: メタデータイベント1回 →
-    (choiceモードのみ)軸ごとに1回、taxonomy.axesの順。呼び出し側で例外を出さないこと。"""
+    (choiceモードのみ)軸ごとに1回。`axis_concurrency<=1` なら taxonomy.axes の順で逐次、
+    2以上なら ThreadPoolExecutor で軸を並列実行する(on_progress は完了順に呼ばれうるが、
+    戻り値の axis_decisions/vision_tags/errors/per_axis_timing は常に taxonomy.axes の順で
+    組み立てるため、内容・順序は axis_concurrency の値によらず同じになる)。
+    呼び出し側で例外を出さないこと。"""
     start_ns = time.perf_counter_ns()
     requests_before = backend.request_count
 
@@ -69,62 +153,35 @@ def classify(
             on_progress({"type": "metadata", "metadata_evidence": metadata_evidence})
 
         if mode == "choice":
-            for axis in taxonomy.axes:
-                event: dict = {"type": "axis", "axis_id": axis.id, "multi": axis.multi, "error": None}
-                try:
-                    if axis.multi:
-                        result = decision.decide_multi_axis(backend, image_bytes, mime, axis)
-                        axis_decisions[axis.id] = {
-                            "relative_scores": result["relative_scores"],
-                            "confirmations": result["confirmations"],
-                            "confirmation_errors": result["confirmation_errors"],
-                            "candidates": result["candidates"],
-                            "tags": result["tags"],
-                            "failed": result["failed"],
-                        }
-                        if not result["failed"]:
-                            vision_tags[axis.id] = result["tags"]
-                        for cid, err in result["confirmation_errors"].items():
-                            errors.append(
-                                {"axis": axis.id, "type": "candidate_confirmation_error", "detail": f"candidate {cid}: {err}"}
-                            )
-                        event.update(
-                            {
-                                "relative_scores": result["relative_scores"],
-                                "candidates": result["candidates"],
-                                "confirmations": result["confirmations"],
-                                "confirmation_errors": result["confirmation_errors"],
-                                "tags": result["tags"],
-                                "failed": result["failed"],
-                                "elapsed_ms": result["elapsed_ms"],
-                            }
-                        )
-                    else:
-                        result = decision.decide_axis(backend, image_bytes, mime, axis)
-                        axis_decisions[axis.id] = {
-                            "relative_scores": result["relative_scores"],
-                            "selected": result["selected"],
-                        }
-                        selected = result["selected"]
-                        vision_tags[axis.id] = [] if selected == decision.NONE_ID else [selected]
-                        event.update(
-                            {
-                                "relative_scores": result["relative_scores"],
-                                "selected": result["selected"],
-                                "elapsed_ms": result["elapsed_ms"],
-                            }
-                        )
-                    per_axis_timing[axis.id] = result["elapsed_ms"]
-                except decision.DecisionError as e:
-                    errors.append({"axis": axis.id, "type": e.error_type, "detail": e.detail})
-                    event["error"] = {"type": e.error_type, "detail": e.detail}
-                except decision.REQUEST_EXCEPTIONS as e:
-                    errors.append(
-                        {"axis": axis.id, "type": "request_error", "detail": f"{type(e).__name__}: {e}"}
-                    )
-                    event["error"] = {"type": "request_error", "detail": f"{type(e).__name__}: {e}"}
-                if on_progress is not None:
-                    on_progress(event)
+            progress_lock = threading.Lock()
+            if axis_concurrency <= 1:
+                axis_outcomes = [
+                    _process_axis(axis, backend, image_bytes, mime, on_progress, progress_lock)
+                    for axis in taxonomy.axes
+                ]
+            else:
+                with ThreadPoolExecutor(max_workers=axis_concurrency) as executor:
+                    futures = [
+                        executor.submit(_process_axis, axis, backend, image_bytes, mime, on_progress, progress_lock)
+                        for axis in taxonomy.axes
+                    ]
+                    outcomes_by_axis_id = {}
+                    for future in as_completed(futures):
+                        outcome = future.result()
+                        outcomes_by_axis_id[outcome["axis_id"]] = outcome
+                axis_outcomes = [outcomes_by_axis_id[axis.id] for axis in taxonomy.axes]
+
+            # axis_concurrency の値によらず、taxonomy.axes の順でマージする
+            # (on_progress は完了順に呼ばれうるが、戻り値の順序・内容は逐次実行と同じにする)。
+            for outcome in axis_outcomes:
+                axis_id = outcome["axis_id"]
+                if outcome["axis_decision"] is not None:
+                    axis_decisions[axis_id] = outcome["axis_decision"]
+                if outcome["vision_tags"] is not None:
+                    vision_tags[axis_id] = outcome["vision_tags"]
+                errors.extend(outcome["errors"])
+                if outcome["elapsed_ms"] is not None:
+                    per_axis_timing[axis_id] = outcome["elapsed_ms"]
         elif mode == "json":
             json_baseline_result = json_baseline.classify_json(backend, image_bytes, mime, taxonomy)
             if json_baseline_result["tags"] is not None:

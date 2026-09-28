@@ -19,8 +19,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from . import pipeline, report
-from .decision import decide_axis
+from . import decision, pipeline, report
 from .image import prepare_image
 from .pipeline import _git_commit
 from .taxonomy import Taxonomy
@@ -229,7 +228,7 @@ def _relpath(path: str) -> str:
         return os.path.basename(path)
 
 
-def _classify_safe(image_path: str, taxonomy, backend, mode: str, max_edge: int) -> dict:
+def _classify_safe(image_path: str, taxonomy, backend, mode: str, max_edge: int, axis_concurrency: int = 1) -> dict:
     """pipeline.classify を呼ぶ。1ケースの予期しない例外で全体を止めないための保険。
 
     pipeline.classify 自体は画像・メタデータ・軸ごとのエラーを内部で捕捉して結果に記録するため、
@@ -237,7 +236,9 @@ def _classify_safe(image_path: str, taxonomy, backend, mode: str, max_edge: int)
     """
     start_ns = time.perf_counter_ns()
     try:
-        return pipeline.classify(image_path, taxonomy, backend, mode=mode, max_edge=max_edge)
+        return pipeline.classify(
+            image_path, taxonomy, backend, mode=mode, max_edge=max_edge, axis_concurrency=axis_concurrency
+        )
     except Exception as e:
         elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000
         return {
@@ -275,11 +276,25 @@ def _run_warmup(cases: list[dict], taxonomy, backend, warmup: int, max_edge: int
 
     for _ in range(warmup):
         try:
-            result = decide_axis(backend, image_bytes, mime, axis)
+            result = decision.decide_axis(backend, image_bytes, mime, axis)
             info["elapsed_ms"].append(result["elapsed_ms"])
         except Exception:
             info["errors"] += 1
     return info
+
+
+def _run_prime(case: dict, backend, max_edge: int) -> dict:
+    """E9 ホットロード用: 1ケースにつき1回、画像をサーバーのキャッシュに載せる準備リクエストを送る。
+
+    prime自体の失敗(画像読み込み・通信のいずれも)はエラーとしてケースの記録に残し、
+    以降の判定は通常どおり続ける(1件の失敗で全件を止めない)。
+    """
+    try:
+        image_bytes, mime, _, _ = prepare_image(case["image_path"], max_edge=max_edge)
+        result = decision.prime(backend, image_bytes, mime)
+        return {"elapsed_ms": result["elapsed_ms"], "error": None}
+    except Exception as e:
+        return {"elapsed_ms": None, "error": f"{type(e).__name__}: {e}"}
 
 
 def run_evaluate(
@@ -294,6 +309,8 @@ def run_evaluate(
     output_dir: str,
     runtime_info_path: str | None = None,
     dataset_version: str | None = None,
+    prime: bool = False,
+    axis_concurrency: int = 1,
 ) -> int:
     try:
         validate_modes(modes)
@@ -358,9 +375,15 @@ def run_evaluate(
 
     records: list[dict] = []
     for i, case in enumerate(evaluated_cases):
+        # prime はモードの交互順の前、ケースごとに1回(両モードとも画像キャッシュ済みの
+        # 状態から比べるため)。classification_wall_ms には含めない(別記録)。
+        prime_info = _run_prime(case, backend, max_edge) if prime else None
         order = list(modes) if i % 2 == 0 else list(reversed(modes))
         for order_index, mode in enumerate(order):
-            result = _classify_safe(case["image_path"], taxonomy, backend, mode, max_edge)
+            result = _classify_safe(case["image_path"], taxonomy, backend, mode, max_edge, axis_concurrency)
+            if prime_info is not None:
+                result["prime_ms"] = prime_info["elapsed_ms"]
+                result["prime_error"] = prime_info["error"]
             records.append({"case": case, "mode": mode, "order_index": order_index, "result": result})
             out_path = os.path.join(cases_dir, f"{case['case_id']}.{mode}.json")
             with open(out_path, "w", encoding="utf-8") as f:
@@ -380,6 +403,8 @@ def run_evaluate(
         "modes": modes,
         "max_edge": max_edge,
         "warmup": warmup_info,
+        "prime": prime,
+        "axis_concurrency": axis_concurrency,
         "runtime_label": runtime_label,
         "runtime_info": runtime_info,
         "runtime_info_file": runtime_info_file,

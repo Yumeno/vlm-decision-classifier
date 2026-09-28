@@ -280,6 +280,44 @@ button, select, input {
   font-size: 14px;
 }
 
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+}
+.result-table th, .result-table td {
+  text-align: left;
+  font-weight: 400;
+  padding: 4px 6px;
+  font-size: 13px;
+  height: 26px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+}
+.result-table th {
+  color: var(--muted);
+  width: 45%;
+}
+.result-value.pending { color: var(--graphite-25); }
+.result-value.failed { color: var(--vermillion); }
+.result-value.mismatch {
+  border-left: 3px solid var(--vermillion);
+  padding-left: 4px;
+}
+.result-value.mismatch::after {
+  content: ' 不一致';
+  font-size: 11px;
+  color: var(--vermillion);
+}
+
+.prime-time {
+  font-size: 13px;
+  color: var(--muted);
+  min-height: 1.2em;
+  margin: 6px 0 0;
+}
+
 .axis-grid-single {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -341,7 +379,11 @@ button, select, input {
 .band-seg {
   height: 100%;
   width: 0%;
-  transition: width .6s ease-out;
+  /* 幅(レイアウト)は確定値を一度だけ設定し、伸びる見た目は scaleX の合成だけで
+     表現する(width のトランジションによるレイアウト再計算を避ける)。 */
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .6s ease-out;
   border-right: 1px solid var(--paper);
 }
 .band-seg:last-child { border-right: none; }
@@ -426,7 +468,9 @@ button, select, input {
   height: 100%;
   width: 0%;
   background: var(--ocher);
-  transition: width .6s ease-out;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .6s ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
   .confirm-fill { transition: none; }
@@ -466,16 +510,6 @@ button, select, input {
   margin: 0 0 12px;
   min-height: 1.6em;
 }
-.json-tags { margin-bottom: 10px; }
-.json-tag-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 14px;
-  padding: 3px 0;
-  border-bottom: 1px solid var(--rule);
-}
-.json-tag-label { color: var(--muted); }
 .json-timing {
   font-size: 13px;
   color: var(--muted);
@@ -521,6 +555,14 @@ button, select, input {
       <input type="checkbox" id="showMetadata">
       <label for="showMetadata">メタデータ証拠を表示</label>
     </div>
+    <div class="field checkbox">
+      <input type="checkbox" id="primeFirst">
+      <label for="primeFirst">先に画像を読み込む(ホットロード)</label>
+    </div>
+    <div class="field checkbox">
+      <input type="checkbox" id="axisParallel">
+      <label for="axisParallel">軸を並列に送る</label>
+    </div>
   </div>
 </div>
 
@@ -536,6 +578,7 @@ button, select, input {
       <button class="run-btn" id="runBtn" disabled>判定する</button>
       <span class="overall-time" id="overallTime"></span>
     </div>
+    <p class="prime-time" id="primeTimeEl"></p>
 
     <div class="meta-panel hidden" id="metaPanel">
       <p class="meta-heading">生成メタデータ</p>
@@ -578,6 +621,8 @@ const COMBINED_STATUS_SENTENCES = {
   unknown: 'character軸の判定が失敗したため不明',
 };
 
+const AXIS_ORDER = Object.keys(AXIS_LABELS);
+
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function axisLabel(id) { return AXIS_LABELS[id] || id; }
@@ -587,14 +632,17 @@ function idLabel(id) {
 }
 
 function growWidths(pairs) {
-  // pairs: [[element, ratio], ...] を 0% から目標幅へ伸ばす(アニメーションはこれだけ)。
+  // pairs: [[element, ratio], ...]。幅(レイアウト)は確定値を即座に一度だけ設定し
+  // (以後のレイアウト再計算を避ける)、伸びる見た目は transform: scaleX() の
+  // 合成(コンポジット)だけで 0 -> 1 へ表現する。
+  for (const [el, ratio] of pairs) el.style.width = (ratio * 100).toFixed(2) + '%';
   if (prefersReducedMotion) {
-    for (const [el, ratio] of pairs) el.style.width = (ratio * 100).toFixed(2) + '%';
+    for (const [el] of pairs) el.style.transform = 'scaleX(1)';
     return;
   }
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      for (const [el, ratio] of pairs) el.style.width = (ratio * 100).toFixed(2) + '%';
+      for (const [el] of pairs) el.style.transform = 'scaleX(1)';
     });
   });
 }
@@ -604,8 +652,12 @@ function typeText(el, text) {
     el.textContent = text || '';
     return;
   }
+  // 全体を0.6秒以内に収める固定尺のタイプライター(文字数に関わらず一定時間で終わる)。
+  const TOTAL_MS = 500;
+  const STEPS = 40;
+  const stepMs = TOTAL_MS / STEPS;
   let i = 0;
-  const step = Math.max(1, Math.ceil(text.length / 100));
+  const step = Math.max(1, Math.ceil(text.length / STEPS));
   const handle = setInterval(() => {
     i += step;
     if (i >= text.length) {
@@ -614,7 +666,30 @@ function typeText(el, text) {
     } else {
       el.textContent = text.slice(0, i);
     }
-  }, 12);
+  }, stepMs);
+}
+
+// requestAnimationFrame ベースの経過時間カウンタ。毎フレームの DOM 書き込みは
+// writeFn 呼び出し1か所だけ(setIntervalによるポーリングをやめ、描画と同期させる)。
+function startElapsedTimer(writeFn) {
+  const start = performance.now();
+  let raf = null;
+  let stopped = false;
+  function tick() {
+    if (stopped) return;
+    writeFn((performance.now() - start) / 1000);
+    raf = requestAnimationFrame(tick);
+  }
+  raf = requestAnimationFrame(tick);
+  return {
+    stop() {
+      stopped = true;
+      if (raf != null) cancelAnimationFrame(raf);
+    },
+    elapsedSeconds() {
+      return (performance.now() - start) / 1000;
+    },
+  };
 }
 
 // ---- ファイル読み込み ----
@@ -665,7 +740,50 @@ function describeAxisError(error) {
   return `${sentence}(${error.detail})`;
 }
 
-function renderAxisEvent(container, event) {
+// ---- 結果テーブル(上段: 7軸を1行ずつ、左右の列で同じ軸が同じ高さに並ぶ) ----
+
+function createResultTable() {
+  const table = document.createElement('table');
+  table.className = 'result-table';
+  const cells = {};
+  for (const axisId of AXIS_ORDER) {
+    const tr = document.createElement('tr');
+    const th = document.createElement('th');
+    th.textContent = axisLabel(axisId);
+    const td = document.createElement('td');
+    td.className = 'result-value pending';
+    td.textContent = '—';
+    tr.appendChild(th);
+    tr.appendChild(td);
+    table.appendChild(tr);
+    cells[axisId] = td;
+  }
+  return { table, cells };
+}
+
+function setResultValue(track, axisId, text, failed) {
+  const td = track.resultCells[axisId];
+  if (!td) return;
+  td.classList.remove('pending', 'mismatch');
+  td.classList.toggle('failed', !!failed);
+  td.textContent = text;
+  track.axisResults[axisId] = text;
+}
+
+// 比較モードで両方の列がそろった時点で、左右のラベルが違う行に控えめな印を付ける。
+function markMismatches(trackA, trackB) {
+  for (const axisId of AXIS_ORDER) {
+    const a = trackA.axisResults[axisId];
+    const b = trackB.axisResults[axisId];
+    if (a === undefined || b === undefined) continue;
+    if (a !== b) {
+      trackA.resultCells[axisId].classList.add('mismatch');
+      trackB.resultCells[axisId].classList.add('mismatch');
+    }
+  }
+}
+
+function renderAxisEvent(container, event, track) {
   const axisEl = document.createElement('div');
   axisEl.className = 'axis' + (event.error ? ' has-error' : '');
 
@@ -688,12 +806,20 @@ function renderAxisEvent(container, event) {
   axisEl.appendChild(head);
 
   if (event.error) {
+    if (track) setResultValue(track, event.axis_id, '失敗', true);
     const err = document.createElement('p');
     err.className = 'axis-error-text';
     err.textContent = describeAxisError(event.error);
     axisEl.appendChild(err);
     container.appendChild(axisEl);
     return;
+  }
+
+  if (track) {
+    const label = event.multi
+      ? (event.tags.length ? event.tags.map(idLabel).join('、') : '該当なし')
+      : idLabel(event.selected);
+    setResultValue(track, event.axis_id, label, false);
   }
 
   const entries = Object.entries(event.relative_scores).sort((a, b) => b[1] - a[1]);
@@ -801,7 +927,7 @@ function renderAxisEvent(container, event) {
 
 // ---- JSON方式の描画 ----
 
-function renderJsonResult(container, event) {
+function renderJsonResult(container, event, track) {
   const wrap = document.createElement('div');
   wrap.className = 'json-block';
 
@@ -810,24 +936,21 @@ function renderJsonResult(container, event) {
   pre.className = 'json-raw';
   wrap.appendChild(pre);
 
-  if (event.tags) {
-    const list = document.createElement('div');
-    list.className = 'json-tags';
-    for (const [axisId, ids] of Object.entries(event.tags)) {
-      const row = document.createElement('div');
-      row.className = 'json-tag-row';
-      const lab = document.createElement('span');
-      lab.className = 'json-tag-label';
-      lab.textContent = axisLabel(axisId);
-      const val = document.createElement('span');
-      val.className = 'json-tag-value';
-      val.textContent = ids.length ? ids.map(idLabel).join('、') : '該当なし';
-      row.appendChild(lab);
-      row.appendChild(val);
-      list.appendChild(row);
+  // 軸ごとのラベルは上段の結果テーブルに出すため、ここでの一覧表示は持たない
+  // (重複を避ける)。テーブル側の反映だけここで行う。
+  if (track) {
+    if (event.tags) {
+      for (const axisId of AXIS_ORDER) {
+        const ids = event.tags[axisId];
+        if (ids === undefined) continue;
+        setResultValue(track, axisId, ids.length ? ids.map(idLabel).join('、') : '該当なし', false);
+      }
+    } else {
+      for (const axisId of AXIS_ORDER) setResultValue(track, axisId, '失敗', true);
     }
-    wrap.appendChild(list);
-  } else {
+  }
+
+  if (!event.tags) {
     const err = document.createElement('p');
     err.className = 'axis-error-text';
     err.textContent = `応答をJSONとして解釈できなかった。${event.error || ''}`;
@@ -984,6 +1107,10 @@ function createTrack(title, mode) {
   head.appendChild(reqs);
   el.appendChild(head);
 
+  // 上から「経過時間・リクエスト数(head) -> 判定結果の表 -> 出力の中身(body)」の順。
+  const { table: resultTable, cells: resultCells } = createResultTable();
+  el.appendChild(resultTable);
+
   const body = document.createElement('div');
   body.className = 'track-body';
   el.appendChild(body);
@@ -1001,32 +1128,58 @@ function createTrack(title, mode) {
     body.appendChild(axisGridMulti);
   }
 
-  return { el, body, timeNum, timePending: pending, timeValue, reqsEl: reqs, axisGridSingle, axisGridMulti };
+  return {
+    el, body, timeNum, timePending: pending, timeValue, reqsEl: reqs, axisGridSingle, axisGridMulti,
+    resultCells, axisResults: {},
+  };
 }
 
 async function runTrack(track, payload, updateMetadata) {
-  track.timePending.hidden = true;
-  track.timeValue.hidden = false;
+  // prime:true の呼び出しは、判定前の準備リクエスト(画像読み込み)の時間を
+  // 列の経過時間に含めない。prime イベントが届くまでは「画像を読み込み中」を
+  // 薄く表示するだけにし、カウントアップは prime イベントを受け取ってから始める。
+  const waitingForPrime = !!payload.prime;
+  let timer = null;
+  if (waitingForPrime) {
+    track.timePending.textContent = '画像を読み込み中';
+    track.timePending.hidden = false;
+    track.timeValue.hidden = true;
+  } else {
+    track.timePending.hidden = true;
+    track.timeValue.hidden = false;
+    timer = startElapsedTimer((sec) => { track.timeNum.textContent = sec.toFixed(1); });
+  }
 
-  const start = performance.now();
   let requestsSoFar = 0;
-  const timerHandle = setInterval(() => {
-    track.timeNum.textContent = ((performance.now() - start) / 1000).toFixed(1);
-  }, 100);
 
   try {
     await streamClassify(payload, (event) => {
-      if (event.type === 'metadata') {
+      if (event.type === 'prime') {
+        if (event.error) {
+          primeTimeEl.textContent = `画像の読み込み: 失敗(${event.error})`;
+        } else {
+          primeTimeEl.textContent = `画像の読み込み ${(event.elapsed_ms / 1000).toFixed(1)}秒`;
+        }
+        if (waitingForPrime && !timer) {
+          track.timePending.hidden = true;
+          track.timeValue.hidden = false;
+          timer = startElapsedTimer((sec) => { track.timeNum.textContent = sec.toFixed(1); });
+        }
+      } else if (event.type === 'metadata') {
         if (updateMetadata) renderMetaEvidence(event.metadata_evidence);
       } else if (event.type === 'axis') {
         requestsSoFar += 1 + (event.multi && event.candidates ? event.candidates.length : 0);
         track.reqsEl.textContent = `${requestsSoFar} リクエスト`;
-        renderAxisEvent(event.multi ? track.axisGridMulti : track.axisGridSingle, event);
+        renderAxisEvent(event.multi ? track.axisGridMulti : track.axisGridSingle, event, track);
       } else if (event.type === 'json_result') {
         requestsSoFar += event.attempts.length;
         track.reqsEl.textContent = `${requestsSoFar} リクエスト`;
-        renderJsonResult(track.body, event);
+        renderJsonResult(track.body, event, track);
       } else if (event.type === 'done') {
+        // prime イベントが届かないまま(想定外の経路で)done に達した場合の保険として、
+        // 最終値が「画像を読み込み中」表示の裏に隠れたままにならないようにする。
+        track.timePending.hidden = true;
+        track.timeValue.hidden = false;
         track.timeNum.textContent = (event.classification_wall_ms / 1000).toFixed(1);
         track.reqsEl.textContent = `${event.request_count} リクエスト`;
         renderTrackDone(track.body, event);
@@ -1038,7 +1191,7 @@ async function runTrack(track, payload, updateMetadata) {
   } catch (e) {
     renderTrackError(track.body, String(e));
   } finally {
-    clearInterval(timerHandle);
+    if (timer) timer.stop();
   }
 }
 
@@ -1053,6 +1206,7 @@ const runBtn = document.getElementById('runBtn');
 const overallTimeEl = document.getElementById('overallTime');
 const resultsEl = document.getElementById('results');
 const metaPanel = document.getElementById('metaPanel');
+const primeTimeEl = document.getElementById('primeTimeEl');
 
 const settingsToggle = document.getElementById('settingsToggle');
 const settingsPanel = document.getElementById('settingsPanel');
@@ -1062,6 +1216,8 @@ const baseUrl2Field = document.getElementById('baseUrl2Field');
 const baseUrl2Input = document.getElementById('baseUrl2');
 const modelInput = document.getElementById('modelId');
 const showMetadataInput = document.getElementById('showMetadata');
+const primeFirstInput = document.getElementById('primeFirst');
+const axisParallelInput = document.getElementById('axisParallel');
 
 let currentFile = null;
 
@@ -1109,6 +1265,7 @@ async function runClassification() {
   if (!currentFile) return;
   runBtn.disabled = true;
   resultsEl.textContent = '';
+  primeTimeEl.textContent = '';
 
   try {
     // 画像の読み込み(FileReader)がここで失敗しても、外側のcatch/finallyで
@@ -1119,15 +1276,25 @@ async function runClassification() {
     const baseUrl1 = baseUrl1Input.value.trim();
     const comparisonMode = comparisonModeSelect.value;
     const showMetadata = showMetadataInput.checked;
+    const primeEnabled = primeFirstInput.checked;
+    const axisConcurrency = axisParallelInput.checked ? 4 : 1;
+
+    // 比較モードでは、両方の列が同じ条件になるよう prime は最初の列の呼び出しにだけ付ける
+    // (2列目は同じサーバー・同じ画像なら既にキャッシュ済みのため)。
+    let primeAssigned = false;
+    const nextPrimeFlag = () => {
+      if (primeEnabled && !primeAssigned) {
+        primeAssigned = true;
+        return true;
+      }
+      return false;
+    };
 
     metaPanel.classList.toggle('hidden', !showMetadata);
     clearMetaPanel();
 
     overallTimeEl.textContent = '0.0秒';
-    const overallStart = performance.now();
-    const overallHandle = setInterval(() => {
-      overallTimeEl.textContent = ((performance.now() - overallStart) / 1000).toFixed(1) + '秒';
-    }, 100);
+    const overallTimer = startElapsedTimer((sec) => { overallTimeEl.textContent = sec.toFixed(1) + '秒'; });
 
     try {
       if (comparisonMode === 'json_vs_choice') {
@@ -1135,24 +1302,26 @@ async function runClassification() {
         const trackJson = createTrack('通常JSON', 'json');
         resultsEl.appendChild(trackChoice.el);
         resultsEl.appendChild(trackJson.el);
-        await runTrack(trackChoice, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model }, showMetadata);
-        await runTrack(trackJson, { image_base64: base64, filename, mode: 'json', base_url: baseUrl1, model }, false);
+        await runTrack(trackChoice, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency }, showMetadata);
+        await runTrack(trackJson, { image_base64: base64, filename, mode: 'json', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency }, false);
+        markMismatches(trackChoice, trackJson);
       } else if (comparisonMode === 'server_compare') {
         const baseUrl2 = baseUrl2Input.value.trim();
         const trackA = createTrack('サーバー1', 'choice');
         const trackB = createTrack('サーバー2', 'choice');
         resultsEl.appendChild(trackA.el);
         resultsEl.appendChild(trackB.el);
-        await runTrack(trackA, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model }, showMetadata);
-        await runTrack(trackB, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl2, model }, false);
+        await runTrack(trackA, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency }, showMetadata);
+        await runTrack(trackB, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl2, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency }, false);
+        markMismatches(trackA, trackB);
       } else {
         const track = createTrack('選択式', 'choice');
         resultsEl.appendChild(track.el);
-        await runTrack(track, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model }, showMetadata);
+        await runTrack(track, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency }, showMetadata);
       }
     } finally {
-      clearInterval(overallHandle);
-      overallTimeEl.textContent = ((performance.now() - overallStart) / 1000).toFixed(1) + '秒';
+      overallTimer.stop();
+      overallTimeEl.textContent = overallTimer.elapsedSeconds().toFixed(1) + '秒';
     }
   } catch (e) {
     resultsEl.textContent = '';

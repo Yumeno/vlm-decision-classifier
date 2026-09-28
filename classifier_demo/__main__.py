@@ -148,6 +148,8 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         output_dir=args.output_dir,
         runtime_info_path=args.runtime_info,
         dataset_version=args.dataset_version,
+        prime=args.prime,
+        axis_concurrency=args.axis_concurrency,
     )
 
 
@@ -215,6 +217,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     evaluate_parser.add_argument("--note", default=None)
     evaluate_parser.add_argument("--output-dir", required=True)
+    evaluate_parser.add_argument(
+        "--prime",
+        action="store_true",
+        help="E9: 各ケースの判定前に画像だけの準備リクエストを1回送り(ホットロード)、"
+        "prime_ms を別記録する(classification_wall_msには含めない)",
+    )
+    evaluate_parser.add_argument(
+        "--axis-concurrency",
+        type=int,
+        default=1,
+        help="E9: choiceモードで軸ごとの質問を同時に送る数(既定1=逐次)",
+    )
     evaluate_parser.set_defaults(func=cmd_evaluate)
 
     serve_parser = sub.add_parser(

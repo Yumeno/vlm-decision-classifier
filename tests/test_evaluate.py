@@ -874,6 +874,124 @@ def test_run_evaluate_records_warmup_details(tmp_path, monkeypatch):
     assert warmup["errors"] == 0
 
 
+def test_run_evaluate_prime_records_separately_from_classification_wall_ms(tmp_path, monkeypatch):
+    # E9: --prime を有効にすると、各ケースでモードの交互順の前に decision.prime() が1回
+    # 呼ばれ、prime_ms が classification_wall_ms とは別に記録される。
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "images").mkdir()
+    img_path = Path("images/A01.png")
+    _make_plain_png(img_path)
+    case = _minimal_case("A01", "images/A01.png", _sha256(img_path))
+    manifest_path = tmp_path / "manifest.jsonl"
+    _write_manifest(manifest_path, [case])
+
+    # prime(1) + choice: image_type/art_style/subject(3) + outfit(ランキング+確認1回=2) +
+    # character(ランキング+alisa確認+second確認=3、noneが優勢だがfloor境界で両候補とも確認要) = 1+3+2+3 = 9
+    responses = [
+        make_logprobs_response({"A": 1.0}),  # prime
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # image_type
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # art_style
+        make_logprobs_response({"A": 0.8, "B": 0.05, "C": 0.05, "D": 0.05, "E": 0.03, "F": 0.02}),  # subject
+        make_logprobs_response({"A": 0.03, "B": 0.02, "C": 0.95}),  # outfit ranking (none優勢)
+        make_logprobs_response({"A": 0.1, "B": 0.9}),  # outfit confirm -> no
+        make_logprobs_response({"C": 0.05, "D": 0.95}),  # character ranking (none優勢)
+        make_logprobs_response({"A": 0.1, "B": 0.9}),  # confirm alisa -> no
+        make_logprobs_response({"A": 0.1, "B": 0.9}),  # confirm second_original -> no
+    ]
+    backend = FakeBackend(responses)
+    taxonomy_path = _write_test_taxonomy(tmp_path)
+    output_dir = str(tmp_path / "results")
+
+    exit_code = evaluate.run_evaluate(
+        manifest_path=str(manifest_path),
+        taxonomy_path=taxonomy_path,
+        backend=backend,
+        modes=["choice"],
+        max_edge=64,
+        warmup=0,
+        runtime_label=None,
+        note=None,
+        output_dir=output_dir,
+        prime=True,
+    )
+    assert exit_code == 0
+    assert backend.request_count == 9
+
+    # --- ケース別結果JSON: prime_ms が付き、classification_wall_ms には影響しない ---
+    case_json = json.loads((Path(output_dir) / "cases" / "A01.choice.json").read_text(encoding="utf-8"))
+    assert case_json["prime_ms"] == 1.0
+    assert case_json["prime_error"] is None
+    assert case_json["timing_ms"]["classification_wall_ms"] > 0
+
+    # --- cases.csv に prime_ms 列がある ---
+    csv_path = Path(output_dir) / "cases.csv"
+    with open(csv_path, encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == 1
+    assert float(rows[0]["prime_ms"]) == 1.0
+
+    # --- run.json に prime/axis_concurrency フラグが残る ---
+    run_data = json.loads((Path(output_dir) / "run.json").read_text(encoding="utf-8"))
+    assert run_data["prime"] is True
+    assert run_data["axis_concurrency"] == 1
+
+    # --- summary.md の Latency に prime の行が出る(prime有効時のみ) ---
+    summary_text = (Path(output_dir) / "summary.md").read_text(encoding="utf-8")
+    assert "prime(画像の読み込み" in summary_text
+    assert "prime + 判定" in summary_text
+
+
+def test_run_evaluate_without_prime_summary_has_no_prime_lines(tmp_path, monkeypatch):
+    # prime を使わない通常の評価では、summary.md に prime の行が出ない。
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "images").mkdir()
+    img_path = Path("images/A01.png")
+    _make_plain_png(img_path)
+    case = _minimal_case("A01", "images/A01.png", _sha256(img_path))
+    manifest_path = tmp_path / "manifest.jsonl"
+    _write_manifest(manifest_path, [case])
+
+    responses = [
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),
+        make_logprobs_response({"A": 0.8, "B": 0.05, "C": 0.05, "D": 0.05, "E": 0.03, "F": 0.02}),
+        make_logprobs_response({"A": 0.03, "B": 0.02, "C": 0.95}),
+        make_logprobs_response({"A": 0.1, "B": 0.9}),
+        make_logprobs_response({"C": 0.05, "D": 0.95}),
+        make_logprobs_response({"A": 0.1, "B": 0.9}),
+        make_logprobs_response({"A": 0.1, "B": 0.9}),
+    ]
+    backend = FakeBackend(responses)
+    taxonomy_path = _write_test_taxonomy(tmp_path)
+    output_dir = str(tmp_path / "results")
+
+    exit_code = evaluate.run_evaluate(
+        manifest_path=str(manifest_path),
+        taxonomy_path=taxonomy_path,
+        backend=backend,
+        modes=["choice"],
+        max_edge=64,
+        warmup=0,
+        runtime_label=None,
+        note=None,
+        output_dir=output_dir,
+    )
+    assert exit_code == 0
+
+    run_data = json.loads((Path(output_dir) / "run.json").read_text(encoding="utf-8"))
+    assert run_data["prime"] is False
+    assert run_data["axis_concurrency"] == 1
+
+    summary_text = (Path(output_dir) / "summary.md").read_text(encoding="utf-8")
+    assert "prime(画像の読み込み" not in summary_text
+    assert "prime + 判定" not in summary_text
+
+    csv_path = Path(output_dir) / "cases.csv"
+    with open(csv_path, encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert rows[0]["prime_ms"] == ""
+
+
 def test_run_evaluate_excludes_derived_case_when_source_excluded(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "images").mkdir()

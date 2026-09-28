@@ -146,6 +146,104 @@ def test_classify_json_mode_streams_json_result_and_done(running_server):
     assert events[-1]["errors"] == []
 
 
+def test_classify_prime_true_emits_prime_event_before_metadata(running_server):
+    # E9: prime:true を送ると、判定前に decision.prime() が1回呼ばれ、
+    # {"type": "prime", "elapsed_ms": ...} イベントが metadata より前に届く。
+    base_url, state = running_server
+    state["factory"] = lambda: FakeBackend(
+        [
+            make_logprobs_response({"A": 1.0}),  # prime
+            make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # image_type
+            make_logprobs_response({"A": 0.8, "B": 0.1, "C": 0.05, "D": 0.05}),  # art_style
+            make_logprobs_response(
+                {"A": 0.7, "B": 0.1, "C": 0.1, "D": 0.05, "E": 0.03, "F": 0.02}
+            ),  # subject
+            make_no_logprobs_response(),  # character axis fails
+        ]
+    )
+
+    events = _post_ndjson(
+        base_url,
+        {
+            "image_base64": _png_base64(),
+            "filename": "img.png",
+            "mode": "choice",
+            "base_url": "http://127.0.0.1:1234/v1",
+            "model": "ignored",
+            "prime": True,
+        },
+    )
+
+    assert events[0]["type"] == "prime"
+    assert events[0]["elapsed_ms"] == 1.0
+    assert events[1]["type"] == "metadata"
+    assert events[-1]["type"] == "done"
+    assert events[-1]["request_count"] == 4  # prime分はrequest_countに含めない(判定のみ)
+
+
+def test_classify_without_prime_flag_emits_no_prime_event(running_server):
+    base_url, state = running_server
+    state["factory"] = lambda: FakeBackend(
+        [
+            make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),
+            make_logprobs_response({"A": 0.8, "B": 0.1, "C": 0.05, "D": 0.05}),
+            make_logprobs_response(
+                {"A": 0.7, "B": 0.1, "C": 0.1, "D": 0.05, "E": 0.03, "F": 0.02}
+            ),
+            make_no_logprobs_response(),
+        ]
+    )
+
+    events = _post_ndjson(
+        base_url,
+        {
+            "image_base64": _png_base64(),
+            "filename": "img.png",
+            "mode": "choice",
+            "base_url": "http://127.0.0.1:1234/v1",
+            "model": "ignored",
+        },
+    )
+
+    assert all(e["type"] != "prime" for e in events)
+    assert events[0]["type"] == "metadata"
+
+
+def test_classify_axis_concurrency_is_forwarded_and_still_completes(running_server):
+    # E9: axis_concurrency をサーバー経由で渡しても判定が最後まで完了し、全軸のイベントが届く。
+    base_url, state = running_server
+    state["factory"] = lambda: FakeBackend(
+        [
+            make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),
+            make_logprobs_response({"A": 0.8, "B": 0.1, "C": 0.05, "D": 0.05}),
+            make_logprobs_response(
+                {"A": 0.7, "B": 0.1, "C": 0.1, "D": 0.05, "E": 0.03, "F": 0.02}
+            ),
+            make_no_logprobs_response(),
+        ]
+    )
+
+    events = _post_ndjson(
+        base_url,
+        {
+            "image_base64": _png_base64(),
+            "filename": "img.png",
+            "mode": "choice",
+            "base_url": "http://127.0.0.1:1234/v1",
+            "model": "ignored",
+            "axis_concurrency": 4,
+        },
+    )
+
+    # FakeBackend自体はスレッド安全な応答順マッチではないため(request_countのロックは
+    # ChatBackend側、応答リストのpop順はスレッド間で非決定)、ここでは全軸が完了することだけを
+    # 見る。並列時の内容・順序・request_countの正しさは KeyedFakeBackend を使う
+    # test_pipeline.py 側のテストで検証済み。
+    axis_events = [e for e in events if e["type"] == "axis"]
+    assert {e["axis_id"] for e in axis_events} == {"image_type", "art_style", "subject", "character"}
+    assert events[-1]["type"] == "done"
+
+
 def test_classify_bad_request_returns_400(running_server):
     base_url, _ = running_server
     data = json.dumps({"mode": "choice"}).encode("utf-8")  # image_base64等が欠けている

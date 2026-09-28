@@ -23,6 +23,11 @@ SYSTEM_PROMPT = "You are an image classifier. Reply with one letter only."
 CHOOSE_PARAMS = {"max_tokens": 1, "temperature": 0, "logprobs": True, "top_logprobs": 20}
 YESNO_PARAMS = {"max_tokens": 1, "temperature": 0, "logprobs": True, "top_logprobs": 20}
 
+# E9 ホットロード用: サーバーの画像キャッシュに載せるだけの準備リクエスト。
+# システム文・画像部分は choose()/yes_no() と同じ _messages() を使うこと(キャッシュの先頭一致のため)。
+PRIME_TEXT = "Reply with A."
+PRIME_PARAMS = {"max_tokens": 1, "temperature": 0}
+
 # 複数選択(character軸)の定数
 CANDIDATE_FLOOR_RATIO = 0.001
 MAX_CANDIDATES = 4
@@ -147,6 +152,16 @@ def choose(
     relative_scores = {id_by_label[label]: score for label, score in scores_by_label.items()}
     selected = max(relative_scores, key=relative_scores.get)
     return {"relative_scores": relative_scores, "selected": selected, "elapsed_ms": elapsed_ms}
+
+
+def prime(backend, image_bytes: bytes, mime: str) -> dict:
+    """E9 ホットロード用: 画像をサーバーのキャッシュに載せるだけの準備リクエストを送る。
+    choose()/yes_no() と同じ _messages() で system文+画像を組み立てるため、後続の判定
+    リクエストとキャッシュの先頭が一致する。logprobs は不要(判定に使わないため)。
+    失敗は例外のまま呼び出し側(evaluate/server)に投げる。"""
+    messages = _messages(image_bytes, mime, PRIME_TEXT)
+    _response, elapsed_ms = backend.chat(messages, **PRIME_PARAMS)
+    return {"elapsed_ms": elapsed_ms}
 
 
 def yes_no(backend, image_bytes: bytes, mime: str, name: str, criteria: str) -> dict:

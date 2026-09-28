@@ -10,13 +10,16 @@ from __future__ import annotations
 import base64
 import json
 import os
+import queue
 import tempfile
+import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import pipeline
+from . import decision, pipeline
 from .backend import ChatBackend
+from .image import prepare_image
 from .taxonomy import Taxonomy
 
 WEB_DIR = Path(__file__).parent / "web"
@@ -139,6 +142,8 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                 base_url = req["base_url"]
                 model = req["model"]
                 max_edge = int(req.get("max_edge", 1024))
+                prime = bool(req.get("prime", False))
+                axis_concurrency = int(req.get("axis_concurrency", 1))
             except Exception as e:
                 self._send_json(400, {"error": f"bad request: {type(e).__name__}: {e}"})
                 return
@@ -166,8 +171,35 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
 
                 backend = backend_factory(base_url=base_url, model=model)
 
+                # イベントの書き出し(ソケットI/O)を判定の測定範囲から外すため、on_progress は
+                # queue.Queue に積むだけにし、専用の送信スレッドがソケットへ書く。クライアント
+                # 切断などで書き込みが失敗したら送信スレッドは止まるが、判定自体は最後まで走らせて
+                # そのまま結果を捨てる(判定をソケットの状態に引きずられて止めない)。
+                event_queue: queue.Queue = queue.Queue()
+
+                def writer_loop() -> None:
+                    while True:
+                        item = event_queue.get()
+                        if item is None:
+                            return
+                        try:
+                            _write_ndjson_line(self.wfile, item)
+                        except Exception:
+                            return  # クライアント切断等。以降キューに積まれても捨てるだけ。
+
+                writer_thread = threading.Thread(target=writer_loop, daemon=True)
+                writer_thread.start()
+
+                if prime:
+                    try:
+                        prime_image_bytes, prime_mime, _, _ = prepare_image(tmp_path, max_edge=max_edge)
+                        prime_result = decision.prime(backend, prime_image_bytes, prime_mime)
+                        event_queue.put({"type": "prime", "elapsed_ms": prime_result["elapsed_ms"]})
+                    except Exception as e:
+                        event_queue.put({"type": "prime", "error": f"{type(e).__name__}: {e}"})
+
                 def on_progress(event: dict) -> None:
-                    _write_ndjson_line(self.wfile, event)
+                    event_queue.put(event)
 
                 try:
                     result = pipeline.classify(
@@ -177,9 +209,9 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                         mode=mode,
                         max_edge=max_edge,
                         on_progress=on_progress,
+                        axis_concurrency=axis_concurrency,
                     )
-                    _write_ndjson_line(
-                        self.wfile,
+                    event_queue.put(
                         {
                             "type": "done",
                             "mode": mode,
@@ -187,14 +219,15 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                             "request_count": result["request_count"],
                             "errors": result["errors"],
                             "combined_evidence": result["combined_evidence"],
-                        },
+                        }
                     )
                 except Exception as e:
                     # 予期しない例外もストリームを開いたまま落とさず、イベントとして返す
                     # (不変条件: 失敗は失敗として記録し、別方式へ黙ってフォールバックしない)。
-                    _write_ndjson_line(
-                        self.wfile, {"type": "error", "detail": f"{type(e).__name__}: {e}"}
-                    )
+                    event_queue.put({"type": "error", "detail": f"{type(e).__name__}: {e}"})
+                finally:
+                    event_queue.put(None)  # 送信スレッドへ終了合図
+                    writer_thread.join()
             finally:
                 try:
                     os.remove(tmp_path)
