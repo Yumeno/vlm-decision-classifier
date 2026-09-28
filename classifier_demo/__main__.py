@@ -83,7 +83,13 @@ def cmd_classify(args: argparse.Namespace) -> int:
     taxonomy = load_taxonomy(args.taxonomy)
     backend = ChatBackend(base_url=args.base_url, model=args.model)
     result = pipeline.classify(
-        args.image, taxonomy, backend, mode=args.mode, max_edge=args.max_edge
+        args.image,
+        taxonomy,
+        backend,
+        mode=args.mode,
+        max_edge=args.max_edge,
+        confirm=args.confirm,
+        rank_threshold=args.rank_threshold,
     )
 
     print(f"image: {result['image']['name']}  mode: {result['mode']}")
@@ -150,6 +156,8 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         dataset_version=args.dataset_version,
         prime=args.prime,
         axis_concurrency=args.axis_concurrency,
+        confirm=args.confirm,
+        rank_threshold=args.rank_threshold,
     )
 
 
@@ -177,6 +185,18 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--mode", choices=["choice", "json"], default="choice")
     classify_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     classify_parser.add_argument("--max-edge", type=int, default=1024)
+    classify_parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="複数選択軸(character・outfit等)で上位候補ごとにyes/noを確認する(既定オフ)。"
+        "指定するとE1〜E4等これまでの実験と同じ判定になる",
+    )
+    classify_parser.add_argument(
+        "--rank-threshold",
+        type=float,
+        default=0.5,
+        help="--confirm を指定しないとき、複数選択軸で採用する相対スコアの閾値(既定0.5)",
+    )
     classify_parser.add_argument("--output")
     classify_parser.set_defaults(func=cmd_classify)
 
@@ -228,6 +248,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=1,
         help="E9: choiceモードで軸ごとの質問を同時に送る数(既定1=逐次)",
+    )
+    evaluate_parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="複数選択軸(character・outfit等)で上位候補ごとにyes/noを確認する(既定オフ)。"
+        "指定するとE1〜E4等これまでの実験と同じ判定になる(再現には本フラグが必要)",
+    )
+    evaluate_parser.add_argument(
+        "--rank-threshold",
+        type=float,
+        default=0.5,
+        help="--confirm を指定しないとき、複数選択軸で採用する相対スコアの閾値(既定0.5)",
     )
     evaluate_parser.set_defaults(func=cmd_evaluate)
 

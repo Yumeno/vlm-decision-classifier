@@ -102,7 +102,7 @@ def test_classify_choice_mode_records_axis_failure_and_succeeds_others(tmp_path)
         ]
     )
 
-    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64)
+    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64, confirm=True)
 
     assert result["mode"] == "choice"
     assert result["vision_tags"]["image_type"] == ["illustration"]
@@ -147,7 +147,7 @@ def test_classify_records_request_error_and_continues_other_axes(tmp_path):
         ]
     )
 
-    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64)
+    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64, confirm=True)
 
     assert "image_type" not in result["vision_tags"]
     assert result["vision_tags"]["art_style"] == ["anime_2d"]
@@ -189,7 +189,7 @@ def test_classify_character_confirmation_failure_excludes_from_vision_tags(tmp_p
         ]
     )
 
-    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64)
+    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64, confirm=True)
 
     assert "character" not in result["vision_tags"]
     assert result["axis_decisions"]["character"]["failed"] is True
@@ -221,7 +221,7 @@ def test_classify_on_progress_receives_metadata_then_axis_events_in_order(tmp_pa
 
     events: list[dict] = []
     result = pipeline.classify(
-        str(image_path), tax, backend, mode="choice", max_edge=64, on_progress=events.append
+        str(image_path), tax, backend, mode="choice", max_edge=64, on_progress=events.append, confirm=True
     )
 
     assert events[0]["type"] == "metadata"
@@ -249,6 +249,7 @@ def test_classify_on_progress_receives_metadata_then_axis_events_in_order(tmp_pa
         ),
         mode="choice",
         max_edge=64,
+        confirm=True,
     )
     # classification_wall_ms は実行のたびに変わるので、それ以外が一致することを見る
     result["timing_ms"]["classification_wall_ms"] = None
@@ -280,7 +281,7 @@ def test_classify_metadata_error_is_recorded_and_classification_continues(tmp_pa
         ]
     )
 
-    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64)
+    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64, confirm=True)
 
     assert result["metadata_evidence"] == {"format": "error", "loras": [], "prompt_tags": [], "matches": []}
     assert any(e["type"] == "metadata_error" for e in result["errors"])
@@ -353,8 +354,8 @@ def test_classify_axis_concurrency_matches_sequential_content_and_order(tmp_path
     # プロンプトの目印で応答を選ぶだけで、呼び出し順に依存しない。
     backend = _concurrency_backend()
 
-    result_sequential = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64, axis_concurrency=1)
-    result_parallel = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64, axis_concurrency=4)
+    result_sequential = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64, axis_concurrency=1, confirm=True)
+    result_parallel = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64, axis_concurrency=4, confirm=True)
 
     # classification_wall_ms は実行のたびに変わるので、それ以外の内容が完全に一致することを見る
     result_sequential["timing_ms"]["classification_wall_ms"] = None
@@ -380,7 +381,7 @@ def test_classify_axis_concurrency_request_count_is_correct(tmp_path):
     tax = _concurrency_taxonomy()
     backend = _concurrency_backend()
 
-    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64, axis_concurrency=4)
+    result = pipeline.classify(str(image_path), tax, backend, mode="choice", max_edge=64, axis_concurrency=4, confirm=True)
 
     # image_type(1) + art_style(1) + subject(1) + character(ranking 1 + confirm alisa 1) = 5
     assert result["request_count"] == 5
@@ -406,7 +407,14 @@ def test_classify_axis_concurrency_on_progress_thread_safe_and_complete(tmp_path
         lock_probe["concurrent_calls"] -= 1
 
     pipeline.classify(
-        str(image_path), tax, backend, mode="choice", max_edge=64, axis_concurrency=4, on_progress=on_progress
+        str(image_path),
+        tax,
+        backend,
+        mode="choice",
+        max_edge=64,
+        axis_concurrency=4,
+        on_progress=on_progress,
+        confirm=True,
     )
 
     # metadata 1回 + axis 4回(image_type/art_style/subject/character)

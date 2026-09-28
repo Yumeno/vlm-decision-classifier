@@ -228,7 +228,16 @@ def _relpath(path: str) -> str:
         return os.path.basename(path)
 
 
-def _classify_safe(image_path: str, taxonomy, backend, mode: str, max_edge: int, axis_concurrency: int = 1) -> dict:
+def _classify_safe(
+    image_path: str,
+    taxonomy,
+    backend,
+    mode: str,
+    max_edge: int,
+    axis_concurrency: int = 1,
+    confirm: bool = False,
+    rank_threshold: float = 0.5,
+) -> dict:
     """pipeline.classify を呼ぶ。1ケースの予期しない例外で全体を止めないための保険。
 
     pipeline.classify 自体は画像・メタデータ・軸ごとのエラーを内部で捕捉して結果に記録するため、
@@ -237,7 +246,14 @@ def _classify_safe(image_path: str, taxonomy, backend, mode: str, max_edge: int,
     start_ns = time.perf_counter_ns()
     try:
         return pipeline.classify(
-            image_path, taxonomy, backend, mode=mode, max_edge=max_edge, axis_concurrency=axis_concurrency
+            image_path,
+            taxonomy,
+            backend,
+            mode=mode,
+            max_edge=max_edge,
+            axis_concurrency=axis_concurrency,
+            confirm=confirm,
+            rank_threshold=rank_threshold,
         )
     except Exception as e:
         elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000
@@ -311,6 +327,8 @@ def run_evaluate(
     dataset_version: str | None = None,
     prime: bool = False,
     axis_concurrency: int = 1,
+    confirm: bool = False,
+    rank_threshold: float = 0.5,
 ) -> int:
     try:
         validate_modes(modes)
@@ -380,7 +398,9 @@ def run_evaluate(
         prime_info = _run_prime(case, backend, max_edge) if prime else None
         order = list(modes) if i % 2 == 0 else list(reversed(modes))
         for order_index, mode in enumerate(order):
-            result = _classify_safe(case["image_path"], taxonomy, backend, mode, max_edge, axis_concurrency)
+            result = _classify_safe(
+                case["image_path"], taxonomy, backend, mode, max_edge, axis_concurrency, confirm, rank_threshold
+            )
             if prime_info is not None:
                 result["prime_ms"] = prime_info["elapsed_ms"]
                 result["prime_error"] = prime_info["error"]
@@ -405,6 +425,8 @@ def run_evaluate(
         "warmup": warmup_info,
         "prime": prime,
         "axis_concurrency": axis_concurrency,
+        "confirm": confirm,
+        "rank_threshold": rank_threshold,
         "runtime_label": runtime_label,
         "runtime_info": runtime_info,
         "runtime_info_file": runtime_info_file,
@@ -427,7 +449,7 @@ def run_evaluate(
     ]
     report.write_cases_csv(os.path.join(output_dir, "cases.csv"), csv_rows, taxonomy)
 
-    summary_text = report.build_summary(evaluated_cases, records, modes, taxonomy)
+    summary_text = report.build_summary(evaluated_cases, records, modes, taxonomy, confirm, rank_threshold)
     with open(os.path.join(output_dir, "summary.md"), "w", encoding="utf-8") as f:
         f.write(summary_text)
 

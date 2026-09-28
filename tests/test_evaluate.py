@@ -538,6 +538,7 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
         output_dir=output_dir,
         runtime_info_path=str(runtime_info_path),
         dataset_version="dataset-v1.0.0",
+        confirm=True,
     )
     assert exit_code == 0
 
@@ -553,6 +554,8 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     assert run_data["case_counts"]["manifest_by_scenario"] == {"alisa_lora": 2, "similar": 1, "general": 2}
     assert run_data["case_counts"]["evaluated_by_scenario"] == {"alisa_lora": 2, "similar": 1, "general": 1}
     assert run_data["modes"] == modes
+    assert run_data["confirm"] is True
+    assert run_data["rank_threshold"] == 0.5
     assert run_data["runtime_label"] == "test-runtime"
     assert run_data["note"] == "test note"
     assert "sha256" in run_data["manifest"]
@@ -640,6 +643,8 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     # --- summary.md ---
     summary_path = Path(output_dir) / "summary.md"
     summary_text = summary_path.read_text(encoding="utf-8")
+    assert "実行条件: confirm=オン" in summary_text
+    assert "rank_threshold=0.5" in summary_text
     assert "N=4" in summary_text  # 全体件数(元画像3件+派生1件)
     assert "点推定を強い結論として扱わないこと" in summary_text
 
@@ -713,6 +718,7 @@ def test_run_evaluate_without_runtime_info_records_null(tmp_path, monkeypatch):
         runtime_label=None,
         note=None,
         output_dir=output_dir,
+        confirm=True,
     )
     assert exit_code == 0
 
@@ -861,6 +867,7 @@ def test_run_evaluate_records_warmup_details(tmp_path, monkeypatch):
         runtime_label=None,
         note=None,
         output_dir=output_dir,
+        confirm=True,
     )
     assert exit_code == 0
 
@@ -913,6 +920,7 @@ def test_run_evaluate_prime_records_separately_from_classification_wall_ms(tmp_p
         note=None,
         output_dir=output_dir,
         prime=True,
+        confirm=True,
     )
     assert exit_code == 0
     assert backend.request_count == 9
@@ -981,8 +989,12 @@ def test_run_evaluate_without_prime_summary_has_no_prime_lines(tmp_path, monkeyp
     run_data = json.loads((Path(output_dir) / "run.json").read_text(encoding="utf-8"))
     assert run_data["prime"] is False
     assert run_data["axis_concurrency"] == 1
+    # confirm/rank_thresholdを明示しなかった場合の既定値(作者指定): confirmオフ、閾値0.5
+    assert run_data["confirm"] is False
+    assert run_data["rank_threshold"] == 0.5
 
     summary_text = (Path(output_dir) / "summary.md").read_text(encoding="utf-8")
+    assert "実行条件: confirm=オフ" in summary_text
     assert "prime(画像の読み込み" not in summary_text
     assert "prime + 判定" not in summary_text
 

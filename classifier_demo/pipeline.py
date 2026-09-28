@@ -30,7 +30,9 @@ def _git_commit() -> str | None:
     return out.stdout.strip() or None
 
 
-def _process_axis(axis: Axis, backend, image_bytes: bytes, mime: str, on_progress, progress_lock) -> dict:
+def _process_axis(
+    axis: Axis, backend, image_bytes: bytes, mime: str, on_progress, progress_lock, confirm: bool, rank_threshold: float
+) -> dict:
     """1軸分の判定を実行し、classify() へマージするための結果をまとめて返す。
 
     axis_concurrency>=2 のときは複数スレッドから並行して呼ばれるため、on_progress の
@@ -45,7 +47,9 @@ def _process_axis(axis: Axis, backend, image_bytes: bytes, mime: str, on_progres
 
     try:
         if axis.multi:
-            result = decision.decide_multi_axis(backend, image_bytes, mime, axis)
+            result = decision.decide_multi_axis(
+                backend, image_bytes, mime, axis, confirm=confirm, rank_threshold=rank_threshold
+            )
             axis_decision = {
                 "relative_scores": result["relative_scores"],
                 "confirmations": result["confirmations"],
@@ -69,6 +73,8 @@ def _process_axis(axis: Axis, backend, image_bytes: bytes, mime: str, on_progres
                     "tags": result["tags"],
                     "failed": result["failed"],
                     "elapsed_ms": result["elapsed_ms"],
+                    "confirm": confirm,
+                    "rank_threshold": rank_threshold,
                 }
             )
         else:
@@ -115,6 +121,8 @@ def classify(
     max_edge: int = 1024,
     on_progress=None,
     axis_concurrency: int = 1,
+    confirm: bool = False,
+    rank_threshold: float = 0.5,
 ) -> dict:
     """`on_progress` はデモUIサーバー用の任意コールバック(既定Noneなら未使用・
     既存の挙動と戻り値は変わらない)。呼ばれる順序: メタデータイベント1回 →
@@ -122,6 +130,8 @@ def classify(
     2以上なら ThreadPoolExecutor で軸を並列実行する(on_progress は完了順に呼ばれうるが、
     戻り値の axis_decisions/vision_tags/errors/per_axis_timing は常に taxonomy.axes の順で
     組み立てるため、内容・順序は axis_concurrency の値によらず同じになる)。
+    `confirm`/`rank_threshold` は複数選択軸(character・outfit等)の採用方法を決める
+    (decision.decide_multi_axis 参照)。既定は confirm=False, rank_threshold=0.5。
     呼び出し側で例外を出さないこと。"""
     start_ns = time.perf_counter_ns()
     requests_before = backend.request_count
@@ -156,13 +166,23 @@ def classify(
             progress_lock = threading.Lock()
             if axis_concurrency <= 1:
                 axis_outcomes = [
-                    _process_axis(axis, backend, image_bytes, mime, on_progress, progress_lock)
+                    _process_axis(axis, backend, image_bytes, mime, on_progress, progress_lock, confirm, rank_threshold)
                     for axis in taxonomy.axes
                 ]
             else:
                 with ThreadPoolExecutor(max_workers=axis_concurrency) as executor:
                     futures = [
-                        executor.submit(_process_axis, axis, backend, image_bytes, mime, on_progress, progress_lock)
+                        executor.submit(
+                            _process_axis,
+                            axis,
+                            backend,
+                            image_bytes,
+                            mime,
+                            on_progress,
+                            progress_lock,
+                            confirm,
+                            rank_threshold,
+                        )
                         for axis in taxonomy.axes
                     ]
                     outcomes_by_axis_id = {}
@@ -232,6 +252,8 @@ def classify(
             "temperature": 0,
             "top_logprobs": 20,
             "dropped_reasoning_effort": backend.dropped_reasoning_effort,
+            "confirm": confirm,
+            "rank_threshold": rank_threshold,
         },
         "metadata_evidence": metadata_evidence,
         "vision_tags": vision_tags,

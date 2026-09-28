@@ -68,7 +68,9 @@ py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m classifier_demo check-manifest --manifest dataset\manifest.jsonl
 
 # データセット全件の評価(check-manifestを内部で先に実行し、エラーがあれば中断する)
-.venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --model <モデルID> --output-dir results\<名前>
+# 複数選択軸(character・outfit)の候補ごとのyes/no確認は既定オフ。E1〜E4等これまでの結果を
+# 再現するには --confirm を付ける(確認オンで従来と完全に同じ判定になる)。
+.venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --model <モデルID> --confirm --output-dir results\<名前>
 
 # 任意: 画像キャッシュ改造の再現用ベンチマーク(未改造版/改造版のllama-serverでそれぞれ実行して比較する。下記「画像キャッシュ改造(任意)」参照)
 .venv\Scripts\python.exe scripts\benchmark_cache.py --model <モデルID> --label vanilla --output results\cache\vanilla.json
@@ -77,6 +79,8 @@ py -3.12 -m venv .venv
 `evaluate` は選択式(`choice`)と通常JSON(`json`)を既定で両方実行し(`--modes choice,json`)、ケースごとに交互の順で実行して順序効果を抑える。出力先(`--output-dir`)には `run.json`（実行条件・除外ケース）、`cases.csv`（ケース別採点）、`summary.md`（集計）、`cases/<case_id>.<mode>.json`（生の分類結果）を書き出す。`rights_confirmed` が true でないケースは評価から除外され、`run.json` の `excluded_cases` に理由とともに記録される。`--runtime-info path\to\runtime.json` で、モデル/mmprojのSHA256・サーバー種別やcommit・パッチ有無・起動引数・GPUオフロードなど実行環境を記した任意のJSONファイルを渡すと、中身をそのまま（ファイル名とSHA256も添えて）`run.json` に記録する。
 
 E9(ホットロード・軸の並列送信)用に2つのオプションがある。`--prime` を付けると、各ケースでモードの交互順の前に画像だけの準備リクエストを1回送り(サーバーの画像キャッシュに載せる)、その所要時間を `prime_ms` として `classification_wall_ms` とは別に記録する(`cases.csv`・ケース別結果JSON・`summary.md` の Latency)。`--axis-concurrency N`(既定1=逐次)は選択式(`choice`)の軸ごとの質問をN並列で送る(サーバー側が対応スロット数を用意している前提)。両方とも `run.json` に記録される。
+
+複数選択軸(`character`・`outfit`)の判定方法は `--confirm`(既定オフ)と `--rank-threshold`(既定0.5)で切り替える。`--confirm` を付けると、候補の順位付け後に上位候補ごとへ独立したyes/noを送って確認する(リクエスト数が増える。E1〜E4等これまでの実験結果はこの方式)。付けない場合はyes/noを送らず、catch_allでない候補のうち相対スコアが `--rank-threshold` 以上のものをスコア降順で採用する(採用がゼロなら、`none`込みの全体最上位がcatch_allのときだけそれを採用する)。判定の速さと精度のトレードオフを比較する実験用のオプションで、`run.json` の `confirm`・`rank_threshold` と `summary.md` 冒頭の実行条件行に記録される。
 
 ### デモUI(動画収録用)
 
@@ -88,12 +92,13 @@ E9(ホットロード・軸の並列送信)用に2つのオプションがある
 
 起動前にLM Studio / llama-serverでモデルをロードしておく（`serve`自体はサーバーもモデルも起動しない）。ブラウザで `http://127.0.0.1:8765/` を開き、右上の「設定」でサーバーURL・モデルIDを指定してから画像をドロップして「判定する」を押す。接続先はこのPC上のサーバーだけ(ループバック)で、Host/Origin不一致やループバック以外の`base_url`は拒否する。
 
-- 既定(比較なし): 7軸が順に判定され、各軸のスコア帯（相対スコア、候補内で再正規化）が結果到着時に伸びる。複数選択軸(`outfit`・`character`)は候補の順位付けのあとに候補ごとのyes/no確認(P(yes))を表示する。
+- 既定(比較なし): 7軸が順に判定され、各軸のスコア帯（相対スコア、候補内で再正規化）が結果到着時に伸びる。複数選択軸(`outfit`・`character`)は、設定の「候補ごとに確認する(yes/no)」ONなら候補の順位付けのあとに候補ごとのyes/no確認(P(yes))を表示し、OFF(既定)ならyes/noの行を出さずスコア帯の上に「採用の閾値」の位置を細い縦線で示す。
 - 設定の「メタデータ証拠を表示」ON: PNG生成メタデータ由来のLoRA名・トリガーワード・キャラ一致と、画素からのキャラ判定を並べ、一致/不一致を表示する（`metadata_evidence`と`vision_tags`は統合せず別フィールドのまま）。
 - 設定の「比較」で「選択式 と 通常JSON」を選ぶと、同じ画像を選択式→通常JSONの順に実行し(同時実行はしない)、左右にスコア帯とJSON生テキスト・ラベル・所要時間を並べる。
 - 設定の「比較」で「サーバー1 と サーバー2」を選ぶと、未改造/改造のllama-serverなど2つのサーバーURLに選択式を順番に流し、時間を左右で比べる。
 - 設定の「先に画像を読み込む(ホットロード)」ONで、判定前に準備リクエストを1回送って画像をサーバーのキャッシュに載せる(比較モードでは両方の列が同じ条件になるよう最初の列の呼び出しにだけ付ける)。所要時間は画像欄の下に小さく表示し、列の経過時間には含めない。
 - 設定の「軸を並列に送る」ONで、選択式の軸ごとの質問を4並列で送る(サーバーが`-np 4`など対応スロット数を用意している前提)。
+- 設定の「候補ごとに確認する(yes/no)」(既定OFF)と「採用の閾値(confirmオフ時)」(既定0.5)で、複数選択軸の判定方法(`--confirm`/`--rank-threshold`と同じ)を切り替える。
 
 各結果列は「経過時間・リクエスト数 → 判定結果の表(7軸を1行ずつ) → 出力の中身(スコア帯・yes/no、またはJSON生テキスト)」の順に並ぶ。比較モードでは、両方の列がそろった時点で左右のラベルが異なる軸の行に印(左罫線+「不一致」表示)を付ける。
 

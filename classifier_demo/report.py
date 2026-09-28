@@ -424,7 +424,14 @@ def _pair_compare(
     return char_base_wins, char_other_wins, all_base_wins, all_other_wins, len(common_ids)
 
 
-def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[str], taxonomy: Taxonomy) -> str:
+def build_summary(
+    evaluated_cases: list[dict],
+    records: list[dict],
+    modes: list[str],
+    taxonomy: Taxonomy,
+    confirm: bool = False,
+    rank_threshold: float = 0.5,
+) -> str:
     """summary.md の本文を組み立てる。records は
     {"case", "mode", "order_index", "result"} の dict のリスト(実行順)。
 
@@ -451,6 +458,11 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
 
     lines: list[str] = []
     lines.append("# 評価サマリー")
+    lines.append("")
+    lines.append(
+        f"実行条件: confirm={'オン' if confirm else 'オフ'}(複数選択軸の候補ごとのyes/no確認)"
+        f", rank_threshold={rank_threshold}(confirmオフ時の採用閾値)"
+    )
     lines.append("")
     lines.append(
         f"評価ケース数(全体): N={len(evaluated_cases)}"

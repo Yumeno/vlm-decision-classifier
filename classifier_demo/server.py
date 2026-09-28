@@ -144,6 +144,8 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                 max_edge = int(req.get("max_edge", 1024))
                 prime = bool(req.get("prime", False))
                 axis_concurrency = int(req.get("axis_concurrency", 1))
+                confirm = bool(req.get("confirm", False))
+                rank_threshold = float(req.get("rank_threshold", 0.5))
             except Exception as e:
                 self._send_json(400, {"error": f"bad request: {type(e).__name__}: {e}"})
                 return
@@ -210,6 +212,8 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                         max_edge=max_edge,
                         on_progress=on_progress,
                         axis_concurrency=axis_concurrency,
+                        confirm=confirm,
+                        rank_threshold=rank_threshold,
                     )
                     event_queue.put(
                         {

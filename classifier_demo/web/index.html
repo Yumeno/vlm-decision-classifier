@@ -100,7 +100,7 @@ button, select, input {
   color: var(--muted);
   margin-bottom: 4px;
 }
-.field select, .field input[type="text"], .field input[type="url"] {
+.field select, .field input[type="text"], .field input[type="url"], .field input[type="number"] {
   width: 100%;
   padding: 7px 8px;
   border: 1px solid var(--rule);
@@ -369,12 +369,22 @@ button, select, input {
 }
 
 .score-band {
+  position: relative;
   display: flex;
   width: 100%;
   height: 26px;
   border: 1px solid var(--rule);
   border-radius: 2px;
   overflow: hidden;
+}
+.band-threshold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--graphite);
+  z-index: 1;
+  pointer-events: none;
 }
 .band-seg {
   height: 100%;
@@ -562,6 +572,14 @@ button, select, input {
     <div class="field checkbox">
       <input type="checkbox" id="axisParallel">
       <label for="axisParallel">軸を並列に送る</label>
+    </div>
+    <div class="field checkbox">
+      <input type="checkbox" id="confirmCandidates">
+      <label for="confirmCandidates">候補ごとに確認する(yes/no)</label>
+    </div>
+    <div class="field">
+      <label for="rankThreshold">採用の閾値(confirmオフ時)</label>
+      <input type="number" id="rankThreshold" value="0.5" min="0" max="1" step="0.01">
     </div>
   </div>
 </div>
@@ -836,6 +854,13 @@ function renderAxisEvent(container, event, track) {
     band.appendChild(seg);
     growPairs.push([seg, score]);
   });
+  if (event.multi && !event.confirm && typeof event.rank_threshold === 'number') {
+    // confirmオフ: yes/noの行を出さず、代わりにスコア帯の上に採用閾値の位置を細い縦線で示す。
+    const thresholdLine = document.createElement('div');
+    thresholdLine.className = 'band-threshold';
+    thresholdLine.style.left = (event.rank_threshold * 100).toFixed(2) + '%';
+    band.appendChild(thresholdLine);
+  }
   axisEl.appendChild(band);
   growWidths(growPairs);
 
@@ -871,7 +896,8 @@ function renderAxisEvent(container, event, track) {
   axisEl.appendChild(legend);
 
   // 単一選択軸は帯のコバルト区間(採用候補)で分かるため、別途「採用: …」の行は出さない。
-  if (event.multi) {
+  // confirmオフのときはyes/noを送っていないため、確認行そのものを出さない(帯の閾値線で足りる)。
+  if (event.multi && event.confirm) {
     const confirmWrap = document.createElement('div');
     confirmWrap.className = 'confirm-list';
     const confirmGrowPairs = [];
@@ -1168,7 +1194,7 @@ async function runTrack(track, payload, updateMetadata) {
       } else if (event.type === 'metadata') {
         if (updateMetadata) renderMetaEvidence(event.metadata_evidence);
       } else if (event.type === 'axis') {
-        requestsSoFar += 1 + (event.multi && event.candidates ? event.candidates.length : 0);
+        requestsSoFar += 1 + (event.multi && event.confirm && event.candidates ? event.candidates.length : 0);
         track.reqsEl.textContent = `${requestsSoFar} リクエスト`;
         renderAxisEvent(event.multi ? track.axisGridMulti : track.axisGridSingle, event, track);
       } else if (event.type === 'json_result') {
@@ -1218,6 +1244,8 @@ const modelInput = document.getElementById('modelId');
 const showMetadataInput = document.getElementById('showMetadata');
 const primeFirstInput = document.getElementById('primeFirst');
 const axisParallelInput = document.getElementById('axisParallel');
+const confirmCandidatesInput = document.getElementById('confirmCandidates');
+const rankThresholdInput = document.getElementById('rankThreshold');
 
 let currentFile = null;
 
@@ -1278,6 +1306,9 @@ async function runClassification() {
     const showMetadata = showMetadataInput.checked;
     const primeEnabled = primeFirstInput.checked;
     const axisConcurrency = axisParallelInput.checked ? 4 : 1;
+    const confirmCandidates = confirmCandidatesInput.checked;
+    const rankThreshold = parseFloat(rankThresholdInput.value);
+    const rankThresholdValue = Number.isFinite(rankThreshold) ? rankThreshold : 0.5;
 
     // 比較モードでは、両方の列が同じ条件になるよう prime は最初の列の呼び出しにだけ付ける
     // (2列目は同じサーバー・同じ画像なら既にキャッシュ済みのため)。
@@ -1302,8 +1333,8 @@ async function runClassification() {
         const trackJson = createTrack('通常JSON', 'json');
         resultsEl.appendChild(trackChoice.el);
         resultsEl.appendChild(trackJson.el);
-        await runTrack(trackChoice, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency }, showMetadata);
-        await runTrack(trackJson, { image_base64: base64, filename, mode: 'json', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency }, false);
+        await runTrack(trackChoice, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue }, showMetadata);
+        await runTrack(trackJson, { image_base64: base64, filename, mode: 'json', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue }, false);
         markMismatches(trackChoice, trackJson);
       } else if (comparisonMode === 'server_compare') {
         const baseUrl2 = baseUrl2Input.value.trim();
@@ -1311,13 +1342,13 @@ async function runClassification() {
         const trackB = createTrack('サーバー2', 'choice');
         resultsEl.appendChild(trackA.el);
         resultsEl.appendChild(trackB.el);
-        await runTrack(trackA, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency }, showMetadata);
-        await runTrack(trackB, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl2, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency }, false);
+        await runTrack(trackA, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue }, showMetadata);
+        await runTrack(trackB, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl2, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue }, false);
         markMismatches(trackA, trackB);
       } else {
         const track = createTrack('選択式', 'choice');
         resultsEl.appendChild(track.el);
-        await runTrack(track, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency }, showMetadata);
+        await runTrack(track, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue }, showMetadata);
       }
     } finally {
       overallTimer.stop();

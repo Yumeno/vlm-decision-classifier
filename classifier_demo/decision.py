@@ -16,7 +16,8 @@ from .taxonomy import Axis, Choice
 # yes/no の通信失敗を候補単位で捕捉する対象(pipeline側の軸単位の捕捉と同じ集合)
 REQUEST_EXCEPTIONS = (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError)
 
-LABELS = list("ABCDEFGHIJKLMNOPQRST")  # 最大20ラベル
+LABELS = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ") + list("abcdefghijklmnopqrstuvwxyz")  # 最大52ラベル
+CASE_INSENSITIVE_LABEL_LIMIT = 26  # これ以下はA-Zのみで大文字小文字を区別しない照合(従来どおり)
 
 SYSTEM_PROMPT = "You are an image classifier. Reply with one letter only."
 
@@ -87,11 +88,18 @@ def extract_top_logprobs(response: dict) -> list[dict]:
 def pool_labels(top_logprobs: list[dict], labels: list[str]) -> dict[str, float]:
     """`A`/` A` のような表記差を吸収して exp(logprob) を合算し、
     列挙した labels 内で再正規化した相対スコアを返す。
+
+    labels が26以下(A-Zのみ)なら、従来どおり strip + upper で大文字小文字を区別せずに
+    照合する(E1〜E4等の既存実験の再現性のため)。27以上(a-zを含む)なら、'A'と'a'を
+    区別する必要があるため strip のみで大文字小文字を区別して照合する。
     """
+    case_insensitive = len(labels) <= CASE_INSENSITIVE_LABEL_LIMIT
     mass = {label: 0.0 for label in labels}
     for tok in top_logprobs:
         token = tok.get("token", "")
-        letter = token.strip().upper()
+        letter = token.strip()
+        if case_insensitive:
+            letter = letter.upper()
         if letter in mass:
             try:
                 mass[letter] += math.exp(tok["logprob"])
@@ -187,9 +195,17 @@ def decide_axis(backend, image_bytes: bytes, mime: str, axis: Axis) -> dict:
     }
 
 
-def decide_multi_axis(backend, image_bytes: bytes, mime: str, axis: Axis) -> dict:
+def decide_multi_axis(
+    backend, image_bytes: bytes, mime: str, axis: Axis, confirm: bool, rank_threshold: float = 0.5
+) -> dict:
     """複数選択軸の判定(multi=True の軸すべてに共通。character のほか outfit 等も対象)。
-    ランキング1回 + 候補ごとの yes/no。"""
+
+    confirm=True: ランキング1回 + 候補ごとの yes/no 確認(E1〜E4等の既存実験と完全に同じ判定)。
+    confirm=False: yes/no を送らず、ランキングの相対スコアが rank_threshold 以上の
+    (catch_all でない)候補をスコア降順で採用する。確認を行わないため confirmations は
+    常に空で、failed は常に False(通信失敗の余地がランキング1回分しかなく、それは
+    decide_multi_axis 自体の例外として呼び出し側に伝播する)。
+    """
     ranking = choose(
         backend, image_bytes, mime, axis.question, axis.choices, axis.allow_none, axis.none_criteria
     )
@@ -199,37 +215,49 @@ def decide_multi_axis(backend, image_bytes: bytes, mime: str, axis: Axis) -> dic
     non_none_ids = [c.id for c in axis.choices]  # __none__ はそもそも axis.choices に含まれない
     candidate_ids = [cid for cid in non_none_ids if cid not in catch_all_ids]
 
-    max_score = max((relative_scores[cid] for cid in candidate_ids), default=0.0)
-    floor = max_score * CANDIDATE_FLOOR_RATIO
-    filtered = sorted(
-        (cid for cid in candidate_ids if relative_scores[cid] >= floor),
-        key=lambda cid: relative_scores[cid],
-        reverse=True,
-    )
-    candidates = filtered[:MAX_CANDIDATES]
+    if confirm:
+        max_score = max((relative_scores[cid] for cid in candidate_ids), default=0.0)
+        floor = max_score * CANDIDATE_FLOOR_RATIO
+        filtered = sorted(
+            (cid for cid in candidate_ids if relative_scores[cid] >= floor),
+            key=lambda cid: relative_scores[cid],
+            reverse=True,
+        )
+        candidates = filtered[:MAX_CANDIDATES]
 
-    by_id = {c.id: c for c in axis.choices}
-    confirmations: dict[str, float] = {}
-    confirmation_errors: dict[str, str] = {}
-    total_elapsed_ms = ranking["elapsed_ms"]
-    for cid in candidates:
-        c = by_id[cid]
-        try:
-            yn = yes_no(backend, image_bytes, mime, c.name, c.criteria)
-        except DecisionError as e:
-            confirmation_errors[cid] = f"{e.error_type}: {e.detail}"
-            continue
-        except REQUEST_EXCEPTIONS as e:
-            confirmation_errors[cid] = f"{type(e).__name__}: {e}"
-            continue
-        confirmations[cid] = yn["p_yes"]
-        total_elapsed_ms += yn["elapsed_ms"]
+        by_id = {c.id: c for c in axis.choices}
+        confirmations: dict[str, float] = {}
+        confirmation_errors: dict[str, str] = {}
+        total_elapsed_ms = ranking["elapsed_ms"]
+        for cid in candidates:
+            c = by_id[cid]
+            try:
+                yn = yes_no(backend, image_bytes, mime, c.name, c.criteria)
+            except DecisionError as e:
+                confirmation_errors[cid] = f"{e.error_type}: {e.detail}"
+                continue
+            except REQUEST_EXCEPTIONS as e:
+                confirmation_errors[cid] = f"{type(e).__name__}: {e}"
+                continue
+            confirmations[cid] = yn["p_yes"]
+            total_elapsed_ms += yn["elapsed_ms"]
 
-    tags = [cid for cid in candidates if confirmations.get(cid, 0.0) >= YES_THRESHOLD]
+        tags = [cid for cid in candidates if confirmations.get(cid, 0.0) >= YES_THRESHOLD]
 
-    # 確認(yes/no)が1件でも失敗した場合、この軸は失敗として扱う。
-    # 未確認のまま catch_all へフォールバックしない(確認できなかったことを隠さない)。
-    failed = bool(confirmation_errors)
+        # 確認(yes/no)が1件でも失敗した場合、この軸は失敗として扱う。
+        # 未確認のまま catch_all へフォールバックしない(確認できなかったことを隠さない)。
+        failed = bool(confirmation_errors)
+    else:
+        candidates = sorted(
+            (cid for cid in candidate_ids if relative_scores[cid] >= rank_threshold),
+            key=lambda cid: relative_scores[cid],
+            reverse=True,
+        )
+        confirmations = {}
+        confirmation_errors = {}
+        total_elapsed_ms = ranking["elapsed_ms"]
+        tags = list(candidates)
+        failed = False
 
     if not tags and not failed:
         # __none__ を含む全体の argmax が catch_all の場合だけ、catch_all をフォールバックにする。
