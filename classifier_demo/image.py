@@ -8,12 +8,22 @@ import io
 from PIL import Image, ImageOps
 
 
-def prepare_image(path: str, max_edge: int = 1024) -> tuple[bytes, str, tuple[int, int], tuple[int, int]]:
-    """画像を読み込み、EXIF回転補正・RGB化・縮小(長辺 max_edge、拡大はしない)して
-    PNGバイト列にエンコードする。
+JPEG_QUALITY = 90
 
-    Returns: (png_bytes, mime, original_size, sent_size)
+
+def prepare_image(
+    path: str,
+    max_edge: int = 1024,
+    image_format: str = "jpeg",
+    jpeg_quality: int = JPEG_QUALITY,
+) -> tuple[bytes, str, tuple[int, int], tuple[int, int]]:
+    """画像を読み込み、EXIF回転補正・RGB化・縮小(長辺 max_edge、拡大はしない)して
+    image_format("jpeg" または "png")でエンコードする。
+
+    Returns: (image_bytes, mime, original_size, sent_size)
     """
+    if image_format not in ("jpeg", "png"):
+        raise ValueError(f"unknown image_format: {image_format}")
     img = Image.open(path)
     img = ImageOps.exif_transpose(img)
     original_size = img.size
@@ -27,9 +37,13 @@ def prepare_image(path: str, max_edge: int = 1024) -> tuple[bytes, str, tuple[in
         img = img.resize(new_size, Image.LANCZOS)
 
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    png_bytes = buf.getvalue()
-    return png_bytes, "image/png", original_size, img.size
+    if image_format == "jpeg":
+        img.save(buf, format="JPEG", quality=jpeg_quality)
+        mime = "image/jpeg"
+    else:
+        img.save(buf, format="PNG")
+        mime = "image/png"
+    return buf.getvalue(), mime, original_size, img.size
 
 
 def file_sha256(path: str) -> str:

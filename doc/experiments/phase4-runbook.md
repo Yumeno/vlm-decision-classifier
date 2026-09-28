@@ -50,8 +50,8 @@ llama-server -m <models>/lmstudio-community/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gg
 ## 3. 測定(サーバーごとに)
 
 1. probe: `.venv/Scripts/python.exe -m classifier_demo probe --base-url http://127.0.0.1:1235/v1 --model <id>`(thinking が出ないこと、logprobs があること)
-2. E5(小ベンチマーク): `.venv/Scripts/python.exe scripts/benchmark_cache.py --base-url http://127.0.0.1:1235/v1 --model <id> --label vanilla --output results/E5/vanilla.json`(改造版は `--label patched`)
-3. E3/E4(全件、選択式のみ): `.venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model <id> --modes choice --warmup 1 --confirm --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-llamaserver-vanilla.json --runtime-label qwen-llamaserver-vanilla --output-dir results/E3_qwen-llamaserver-vanilla`(改造版は `patched`、`results/E4_…`)
+2. E5(小ベンチマーク): `.venv/Scripts/python.exe scripts/benchmark_cache.py --base-url http://127.0.0.1:1235/v1 --model <id> --label vanilla --image-format png --output results/E5/vanilla.json`(改造版は `--label patched`)
+3. E3/E4(全件、選択式のみ): `.venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model <id> --modes choice --warmup 1 --confirm --image-format png --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-llamaserver-vanilla.json --runtime-label qwen-llamaserver-vanilla --output-dir results/E3_qwen-llamaserver-vanilla`(改造版は `patched`、`results/E4_…`)
 4. サーバーを終了し、3090 に残っているプロセスがないことを確認する。
 
 ## 4. 記録

@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 from classifier_demo import decision
 from classifier_demo.backend import ChatBackend
 from classifier_demo.evaluate import _git_dirty
-from classifier_demo.image import file_sha256, prepare_image
+from classifier_demo.image import JPEG_QUALITY, file_sha256, prepare_image
 from classifier_demo.pipeline import _git_commit
 from classifier_demo.taxonomy import Axis, Taxonomy, load as load_taxonomy
 
@@ -215,6 +215,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     parser.add_argument("--max-edge", type=int, default=1024)
+    parser.add_argument(
+        "--image-format",
+        choices=["jpeg", "png"],
+        default="jpeg",
+        help="モデルへ送る画像の形式(既定jpeg、quality 90)。E5の再現には png を指定する",
+    )
     parser.add_argument("--label", default=None, help="この実行を識別する任意のラベル(例: vanilla/patched)")
     parser.add_argument("--output", required=True, help="出力JSONのパス(親フォルダがなければ作る)")
     return parser
@@ -230,8 +236,8 @@ def main(argv: list[str] | None = None) -> int:
     backend = ChatBackend(base_url=args.base_url, model=args.model)
 
     image_a_path, image_b_path = args.images
-    image_a_bytes, mime_a, _, _ = prepare_image(image_a_path, max_edge=args.max_edge)
-    image_b_bytes, mime_b, _, _ = prepare_image(image_b_path, max_edge=args.max_edge)
+    image_a_bytes, mime_a, _, _ = prepare_image(image_a_path, max_edge=args.max_edge, image_format=args.image_format)
+    image_b_bytes, mime_b, _, _ = prepare_image(image_b_path, max_edge=args.max_edge, image_format=args.image_format)
 
     warmup_axis = taxonomy.axes[0]
     warmup_record = _send_ranking(backend, image_b_bytes, mime_b, warmup_axis)
@@ -255,6 +261,8 @@ def main(argv: list[str] | None = None) -> int:
         },
         "taxonomy": {"path": args.taxonomy, "version": taxonomy.version, "sha256": taxonomy.sha256},
         "max_edge": args.max_edge,
+        "image_format": args.image_format,
+        "jpeg_quality": JPEG_QUALITY if args.image_format == "jpeg" else None,
         "repeats": args.repeats,
         "tool_commit": {"commit": _git_commit(), "dirty": _git_dirty()},
         "warmup": warmup_record,

@@ -88,6 +88,7 @@ def cmd_classify(args: argparse.Namespace) -> int:
         backend,
         mode=args.mode,
         max_edge=args.max_edge,
+        image_format=args.image_format,
         confirm=args.confirm,
         rank_threshold=args.rank_threshold,
     )
@@ -148,6 +149,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         backend=backend,
         modes=args.modes,
         max_edge=args.max_edge,
+        image_format=args.image_format,
         warmup=args.warmup,
         runtime_label=args.runtime_label,
         note=args.note,
@@ -186,6 +188,12 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     classify_parser.add_argument("--max-edge", type=int, default=1024)
     classify_parser.add_argument(
+        "--image-format",
+        choices=["jpeg", "png"],
+        default="jpeg",
+        help="モデルへ送る画像の形式(既定jpeg、quality 90)。E1〜E9の再現には png を指定する",
+    )
+    classify_parser.add_argument(
         "--confirm",
         action="store_true",
         help="複数選択軸(character・outfit等)で上位候補ごとにyes/noを確認する(既定オフ)。"
@@ -221,6 +229,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     evaluate_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     evaluate_parser.add_argument("--max-edge", type=int, default=1024)
+    evaluate_parser.add_argument(
+        "--image-format",
+        choices=["jpeg", "png"],
+        default="jpeg",
+        help="モデルへ送る画像の形式(既定jpeg、quality 90)。E1〜E9の再現には png を指定する",
+    )
     evaluate_parser.add_argument("--warmup", type=int, default=1)
     evaluate_parser.add_argument("--runtime-label", default=None)
     evaluate_parser.add_argument(

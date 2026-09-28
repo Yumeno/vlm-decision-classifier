@@ -13,7 +13,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from . import decision, json_baseline
-from .image import file_sha256, prepare_image
+from .image import JPEG_QUALITY, file_sha256, prepare_image
 from .metadata import extract_evidence
 from .taxonomy import Axis, Taxonomy
 
@@ -123,6 +123,7 @@ def classify(
     axis_concurrency: int = 1,
     confirm: bool = False,
     rank_threshold: float = 0.5,
+    image_format: str = "jpeg",
 ) -> dict:
     """`on_progress` はデモUIサーバー用の任意コールバック(既定Noneなら未使用・
     既存の挙動と戻り値は変わらない)。呼ばれる順序: メタデータイベント1回 →
@@ -147,7 +148,9 @@ def classify(
     original_sha256 = None
     metadata_evidence = None
     try:
-        image_bytes, mime, original_size, sent_size = prepare_image(image_path, max_edge=max_edge)
+        image_bytes, mime, original_size, sent_size = prepare_image(
+            image_path, max_edge=max_edge, image_format=image_format
+        )
         original_sha256 = file_sha256(image_path)
     except Exception as e:
         errors.append({"axis": None, "type": "image_error", "detail": f"{type(e).__name__}: {e}"})
@@ -249,6 +252,8 @@ def classify(
         "tool_commit": _git_commit(),
         "settings": {
             "max_edge": max_edge,
+            "image_format": image_format,
+            "jpeg_quality": JPEG_QUALITY if image_format == "jpeg" else None,
             "temperature": 0,
             "top_logprobs": 20,
             "dropped_reasoning_effort": backend.dropped_reasoning_effort,

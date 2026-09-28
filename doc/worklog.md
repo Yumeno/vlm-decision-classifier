@@ -39,6 +39,9 @@
   - E9b2 確認オン・並列4(準備4本同時): 21:26〜21:31、`acfe504`
   - E9e E9b2 と同じ + サーバーを `--no-cache-idle-slots` で起動: 21:35〜21:40、`acfe504`(runtime-info の起動引数にはこのフラグがないので、run.json の note に記載)
 - 並列時は準備を N 本同時に送る修正を Sonnet 5.5 が実装(Codex 1ラウンドで収束、コミット `acfe504`)。
+- 再現コマンド(改造版 llama-server を phase4-runbook の起動引数で起動。E9e だけ `--no-cache-idle-slots` を追加。条件ごとにサーバーを再起動。**2026-09-29 以降は送信画像の既定が JPEG に変わったので `--image-format png` が必要**):
+  `.venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model qwen3.5-9b --modes choice,json --warmup 1 --prime --image-format png --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-llamaserver-patched.json <条件> --output-dir results/<名前>`
+  - E9a: `--confirm --axis-concurrency 1` / E9b・E9b2・E9e: `--confirm --axis-concurrency 4` / E9c: `--axis-concurrency 1 --rank-threshold 0.5`
 
 **結果(元画像31件の平均。一次資料は各 summary.md)**
 

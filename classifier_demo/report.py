@@ -17,6 +17,7 @@ import re
 import statistics
 from collections import Counter
 
+from .image import JPEG_QUALITY
 from .taxonomy import Taxonomy
 
 _WS_RE = re.compile(r"\s+")
@@ -433,6 +434,8 @@ def build_summary(
     taxonomy: Taxonomy,
     confirm: bool = False,
     rank_threshold: float = 0.5,
+    max_edge: int | None = None,
+    image_format: str | None = None,
 ) -> str:
     """summary.md の本文を組み立てる。records は
     {"case", "mode", "order_index", "result"} の dict のリスト(実行順)。
@@ -461,10 +464,14 @@ def build_summary(
     lines: list[str] = []
     lines.append("# 評価サマリー")
     lines.append("")
-    lines.append(
+    condition = (
         f"実行条件: confirm={'オン' if confirm else 'オフ'}(複数選択軸の候補ごとのyes/no確認)"
         f", rank_threshold={rank_threshold}(confirmオフ時の採用閾値)"
     )
+    if image_format is not None:
+        condition += f", 送信画像: {image_format}(quality={JPEG_QUALITY})" if image_format == "jpeg" else f", 送信画像: {image_format}"
+        condition += f"・長辺{max_edge}"
+    lines.append(condition)
     lines.append("")
     lines.append(
         f"評価ケース数(全体): N={len(evaluated_cases)}"

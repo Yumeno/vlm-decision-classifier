@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from . import decision, pipeline, report
-from .image import prepare_image
+from .image import JPEG_QUALITY, prepare_image
 from .pipeline import _git_commit
 from .taxonomy import Taxonomy
 from .taxonomy import load as load_taxonomy
@@ -238,6 +238,7 @@ def _classify_safe(
     axis_concurrency: int = 1,
     confirm: bool = False,
     rank_threshold: float = 0.5,
+    image_format: str = "jpeg",
 ) -> dict:
     """pipeline.classify を呼ぶ。1ケースの予期しない例外で全体を止めないための保険。
 
@@ -255,6 +256,7 @@ def _classify_safe(
             axis_concurrency=axis_concurrency,
             confirm=confirm,
             rank_threshold=rank_threshold,
+            image_format=image_format,
         )
     except Exception as e:
         elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000
@@ -270,7 +272,7 @@ def _classify_safe(
         }
 
 
-def _run_warmup(cases: list[dict], taxonomy, backend, warmup: int, max_edge: int) -> dict:
+def _run_warmup(cases: list[dict], taxonomy, backend, warmup: int, max_edge: int, image_format: str = "jpeg") -> dict:
     """先頭ケースの画像・先頭軸の選択式質問で `warmup` 回のウォームアップを送る。
 
     使ったケースID・軸ID・試行回数・各試行のelapsed_msをそのまま記録する
@@ -286,7 +288,7 @@ def _run_warmup(cases: list[dict], taxonomy, backend, warmup: int, max_edge: int
     info["axis_id"] = axis.id
 
     try:
-        image_bytes, mime, _, _ = prepare_image(case["image_path"], max_edge=max_edge)
+        image_bytes, mime, _, _ = prepare_image(case["image_path"], max_edge=max_edge, image_format=image_format)
     except Exception:
         info["errors"] += warmup
         return info
@@ -300,7 +302,7 @@ def _run_warmup(cases: list[dict], taxonomy, backend, warmup: int, max_edge: int
     return info
 
 
-def _run_prime(case: dict, backend, max_edge: int, parallel: int = 1) -> dict:
+def _run_prime(case: dict, backend, max_edge: int, parallel: int = 1, image_format: str = "jpeg") -> dict:
     """E9 ホットロード用: 1ケースにつき、画像をサーバーのキャッシュに載せる準備リクエストを
     parallel 本同時に送る(並列送信時に全スロットへ画像を載せるため。parallel=1 なら1本)。
 
@@ -310,7 +312,7 @@ def _run_prime(case: dict, backend, max_edge: int, parallel: int = 1) -> dict:
     parallel = max(1, parallel)
     start = time.perf_counter_ns()
     try:
-        image_bytes, mime, _, _ = prepare_image(case["image_path"], max_edge=max_edge)
+        image_bytes, mime, _, _ = prepare_image(case["image_path"], max_edge=max_edge, image_format=image_format)
         if parallel == 1:
             # N=1 は従来どおり(prime自身の計測値をそのまま使う)
             result = decision.prime(backend, image_bytes, mime)
@@ -349,6 +351,7 @@ def run_evaluate(
     axis_concurrency: int = 1,
     confirm: bool = False,
     rank_threshold: float = 0.5,
+    image_format: str = "jpeg",
 ) -> int:
     try:
         validate_modes(modes)
@@ -409,17 +412,17 @@ def run_evaluate(
 
     started = datetime.now(timezone.utc).isoformat()
 
-    warmup_info = _run_warmup(evaluated_cases, taxonomy, backend, warmup, max_edge)
+    warmup_info = _run_warmup(evaluated_cases, taxonomy, backend, warmup, max_edge, image_format)
 
     records: list[dict] = []
     for i, case in enumerate(evaluated_cases):
         # prime はモードの交互順の前、ケースごとに1回(両モードとも画像キャッシュ済みの
         # 状態から比べるため)。classification_wall_ms には含めない(別記録)。
-        prime_info = _run_prime(case, backend, max_edge, axis_concurrency if axis_concurrency >= 2 else 1) if prime else None
+        prime_info = _run_prime(case, backend, max_edge, axis_concurrency if axis_concurrency >= 2 else 1, image_format) if prime else None
         order = list(modes) if i % 2 == 0 else list(reversed(modes))
         for order_index, mode in enumerate(order):
             result = _classify_safe(
-                case["image_path"], taxonomy, backend, mode, max_edge, axis_concurrency, confirm, rank_threshold
+                case["image_path"], taxonomy, backend, mode, max_edge, axis_concurrency, confirm, rank_threshold, image_format
             )
             if prime_info is not None:
                 result["prime_ms"] = prime_info["elapsed_ms"]
@@ -443,6 +446,8 @@ def run_evaluate(
         "base_url": backend.base_url,
         "modes": modes,
         "max_edge": max_edge,
+        "image_format": image_format,
+        "jpeg_quality": JPEG_QUALITY if image_format == "jpeg" else None,
         "warmup": warmup_info,
         "prime": prime,
         "prime_parallel": (axis_concurrency if axis_concurrency >= 2 else 1) if prime else None,
@@ -471,7 +476,9 @@ def run_evaluate(
     ]
     report.write_cases_csv(os.path.join(output_dir, "cases.csv"), csv_rows, taxonomy)
 
-    summary_text = report.build_summary(evaluated_cases, records, modes, taxonomy, confirm, rank_threshold)
+    summary_text = report.build_summary(
+        evaluated_cases, records, modes, taxonomy, confirm, rank_threshold, max_edge, image_format
+    )
     with open(os.path.join(output_dir, "summary.md"), "w", encoding="utf-8") as f:
         f.write(summary_text)
 

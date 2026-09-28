@@ -16,11 +16,11 @@
 3. **probe**: `.venv/Scripts/python.exe -m classifier_demo probe --model qwen3.5-9b`
    - logprobs あり・thinking なし・reasoning_effort が落ちていないことを確認する。
 4. **1件の試打**(両モード)
-   - `.venv/Scripts/python.exe -m classifier_demo classify dataset/images/M01.png --model qwen3.5-9b --mode choice --output results/trial/qwen_M01_choice.json`
+   - `.venv/Scripts/python.exe -m classifier_demo classify dataset/images/M01.png --model qwen3.5-9b --mode choice --image-format png --output results/trial/qwen_M01_choice.json`
    - 同じく `--mode json`。エラーがないこと、7軸すべてに結果が出ることを確認する。
 5. **全件評価**
    ```
-   .venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model qwen3.5-9b --modes choice,json --warmup 1 --confirm --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-lmstudio.json --runtime-label qwen-lmstudio --output-dir results/E1_qwen-lmstudio
+   .venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model qwen3.5-9b --modes choice,json --warmup 1 --confirm --image-format png --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-lmstudio.json --runtime-label qwen-lmstudio --output-dir results/E1_qwen-lmstudio
    ```
    - Gemma は `--model gemma-4-12b-it`、`--runtime-info doc/experiments/runtime/gemma-lmstudio.json`、`--runtime-label gemma-lmstudio`、`--output-dir results/E2_gemma-lmstudio`。
 6. **アンロード**: `lms unload qwen3.5-9b`(Gemma も同様)。作者に「使い終わった」と報告する。

@@ -144,6 +144,7 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                 base_url = req["base_url"]
                 model = req["model"]
                 max_edge = int(req.get("max_edge", 1024))
+                image_format = req.get("image_format", "jpeg")
                 prime = bool(req.get("prime", False))
                 axis_concurrency = int(req.get("axis_concurrency", 1))
                 confirm = bool(req.get("confirm", False))
@@ -154,6 +155,9 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
 
             if mode not in ("choice", "json"):
                 self._send_json(400, {"error": f"unknown mode: {mode}"})
+                return
+            if image_format not in ("jpeg", "png"):
+                self._send_json(400, {"error": f"unknown image_format: {image_format}"})
                 return
             if not self._is_loopback_base_url(base_url):
                 self._send_json(
@@ -198,7 +202,9 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                     prime_n = axis_concurrency if axis_concurrency >= 2 else 1
                     prime_start = time.perf_counter_ns()
                     try:
-                        prime_image_bytes, prime_mime, _, _ = prepare_image(tmp_path, max_edge=max_edge)
+                        prime_image_bytes, prime_mime, _, _ = prepare_image(
+                            tmp_path, max_edge=max_edge, image_format=image_format
+                        )
                         if prime_n == 1:
                             prime_result = decision.prime(backend, prime_image_bytes, prime_mime)
                             prime_ms = prime_result["elapsed_ms"]
@@ -225,6 +231,7 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                         backend,
                         mode=mode,
                         max_edge=max_edge,
+                        image_format=image_format,
                         on_progress=on_progress,
                         axis_concurrency=axis_concurrency,
                         confirm=confirm,
