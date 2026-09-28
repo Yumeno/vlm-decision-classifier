@@ -374,8 +374,10 @@ def _latency_block(recs: list[dict], mode: str) -> list[str]:
         r["result"]["prime_ms"] for r in recs if isinstance(r["result"].get("prime_ms"), (int, float))
     ]
     if prime_ms_values:
+        pp = max((r["result"].get("prime_parallel") or 1) for r in recs)
+        par = f"、{pp}本同時" if pp >= 2 else ""
         lines.append(
-            f"  - prime(画像の読み込み、N={len(prime_ms_values)}): "
+            f"  - prime(画像の読み込み{par}、N={len(prime_ms_values)}): "
             f"mean={statistics.mean(prime_ms_values):.1f}ms "
             f"p50={nearest_rank_percentile(prime_ms_values, 50):.1f}ms "
             f"p90={nearest_rank_percentile(prime_ms_values, 90):.1f}ms"

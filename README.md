@@ -78,7 +78,7 @@ py -3.12 -m venv .venv
 
 `evaluate` は選択式(`choice`)と通常JSON(`json`)を既定で両方実行し(`--modes choice,json`)、ケースごとに交互の順で実行して順序効果を抑える。出力先(`--output-dir`)には `run.json`（実行条件・除外ケース）、`cases.csv`（ケース別採点）、`summary.md`（集計）、`cases/<case_id>.<mode>.json`（生の分類結果）を書き出す。`rights_confirmed` が true でないケースは評価から除外され、`run.json` の `excluded_cases` に理由とともに記録される。`--runtime-info path\to\runtime.json` で、モデル/mmprojのSHA256・サーバー種別やcommit・パッチ有無・起動引数・GPUオフロードなど実行環境を記した任意のJSONファイルを渡すと、中身をそのまま（ファイル名とSHA256も添えて）`run.json` に記録する。
 
-E9(ホットロード・軸の並列送信)用に2つのオプションがある。`--prime` を付けると、各ケースでモードの交互順の前に画像だけの準備リクエストを1回送り(サーバーの画像キャッシュに載せる)、その所要時間を `prime_ms` として `classification_wall_ms` とは別に記録する(`cases.csv`・ケース別結果JSON・`summary.md` の Latency)。`--axis-concurrency N`(既定1=逐次)は選択式(`choice`)の軸ごとの質問をN並列で送る(サーバー側が対応スロット数を用意している前提)。両方とも `run.json` に記録される。
+E9(ホットロード・軸の並列送信)用に2つのオプションがある。`--prime` を付けると、各ケースでモードの交互順の前に画像だけの準備リクエストを1回送り(サーバーの画像キャッシュに載せる)、その所要時間を `prime_ms` として `classification_wall_ms` とは別に記録する(`cases.csv`・ケース別結果JSON・`summary.md` の Latency)。`--axis-concurrency N`(既定1=逐次)は選択式(`choice`)の軸ごとの質問をN並列で送る(サーバー側が対応スロット数を用意している前提)。`--prime` と `--axis-concurrency N`(N≥2)を併用すると、準備リクエストを N 本同時に送って全スロットに画像を載せてから判定に入る(`prime_ms` は全完了までの壁時計時間、送った本数は `run.json` の `prime_parallel`)。両方とも `run.json` に記録される。
 
 複数選択軸(`character`・`outfit`)の判定方法は `--confirm`(既定オフ)と `--rank-threshold`(既定0.5)で切り替える。`--confirm` を付けると、候補の順位付け後に上位候補ごとへ独立したyes/noを送って確認する(リクエスト数が増える。E1〜E4等これまでの実験結果はこの方式)。付けない場合はyes/noを送らず、catch_allでない候補のうち相対スコアが `--rank-threshold` 以上のものをスコア降順で採用する(採用がゼロなら、`none`込みの全体最上位がcatch_allのときだけそれを採用する)。判定の速さと精度のトレードオフを比較する実験用のオプションで、`run.json` の `confirm`・`rank_threshold` と `summary.md` 冒頭の実行条件行に記録される。
 

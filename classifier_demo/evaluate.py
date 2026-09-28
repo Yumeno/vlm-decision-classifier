@@ -16,6 +16,7 @@ import platform
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -299,18 +300,37 @@ def _run_warmup(cases: list[dict], taxonomy, backend, warmup: int, max_edge: int
     return info
 
 
-def _run_prime(case: dict, backend, max_edge: int) -> dict:
-    """E9 ホットロード用: 1ケースにつき1回、画像をサーバーのキャッシュに載せる準備リクエストを送る。
+def _run_prime(case: dict, backend, max_edge: int, parallel: int = 1) -> dict:
+    """E9 ホットロード用: 1ケースにつき、画像をサーバーのキャッシュに載せる準備リクエストを
+    parallel 本同時に送る(並列送信時に全スロットへ画像を載せるため。parallel=1 なら1本)。
 
-    prime自体の失敗(画像読み込み・通信のいずれも)はエラーとしてケースの記録に残し、
-    以降の判定は通常どおり続ける(1件の失敗で全件を止めない)。
+    elapsed_ms は開始から全完了までの壁時計時間。prime自体の失敗(画像読み込み・通信の
+    いずれも)はエラーとしてケースの記録に残し、以降の判定は通常どおり続ける。
     """
+    parallel = max(1, parallel)
+    start = time.perf_counter_ns()
     try:
         image_bytes, mime, _, _ = prepare_image(case["image_path"], max_edge=max_edge)
-        result = decision.prime(backend, image_bytes, mime)
-        return {"elapsed_ms": result["elapsed_ms"], "error": None}
+        if parallel == 1:
+            # N=1 は従来どおり(prime自身の計測値をそのまま使う)
+            result = decision.prime(backend, image_bytes, mime)
+            return {"elapsed_ms": result["elapsed_ms"], "error": None, "parallel": 1}
+        else:
+            with ThreadPoolExecutor(max_workers=parallel) as executor:
+                futures = [executor.submit(decision.prime, backend, image_bytes, mime) for _ in range(parallel)]
+                errors = []
+                for f in futures:
+                    try:
+                        f.result()
+                    except Exception as e:
+                        errors.append(f"{type(e).__name__}: {e}")
+            if errors:
+                elapsed_ms = (time.perf_counter_ns() - start) / 1e6
+                return {"elapsed_ms": elapsed_ms, "error": "; ".join(errors), "parallel": parallel}
+        elapsed_ms = (time.perf_counter_ns() - start) / 1e6
+        return {"elapsed_ms": elapsed_ms, "error": None, "parallel": parallel}
     except Exception as e:
-        return {"elapsed_ms": None, "error": f"{type(e).__name__}: {e}"}
+        return {"elapsed_ms": None, "error": f"{type(e).__name__}: {e}", "parallel": parallel}
 
 
 def run_evaluate(
@@ -395,7 +415,7 @@ def run_evaluate(
     for i, case in enumerate(evaluated_cases):
         # prime はモードの交互順の前、ケースごとに1回(両モードとも画像キャッシュ済みの
         # 状態から比べるため)。classification_wall_ms には含めない(別記録)。
-        prime_info = _run_prime(case, backend, max_edge) if prime else None
+        prime_info = _run_prime(case, backend, max_edge, axis_concurrency if axis_concurrency >= 2 else 1) if prime else None
         order = list(modes) if i % 2 == 0 else list(reversed(modes))
         for order_index, mode in enumerate(order):
             result = _classify_safe(
@@ -404,6 +424,7 @@ def run_evaluate(
             if prime_info is not None:
                 result["prime_ms"] = prime_info["elapsed_ms"]
                 result["prime_error"] = prime_info["error"]
+                result["prime_parallel"] = prime_info["parallel"]
             records.append({"case": case, "mode": mode, "order_index": order_index, "result": result})
             out_path = os.path.join(cases_dir, f"{case['case_id']}.{mode}.json")
             with open(out_path, "w", encoding="utf-8") as f:
@@ -424,6 +445,7 @@ def run_evaluate(
         "max_edge": max_edge,
         "warmup": warmup_info,
         "prime": prime,
+        "prime_parallel": (axis_concurrency if axis_concurrency >= 2 else 1) if prime else None,
         "axis_concurrency": axis_concurrency,
         "confirm": confirm,
         "rank_threshold": rank_threshold,

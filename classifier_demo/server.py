@@ -13,7 +13,9 @@ import os
 import queue
 import tempfile
 import threading
+import time
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -193,10 +195,23 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                 writer_thread.start()
 
                 if prime:
+                    prime_n = axis_concurrency if axis_concurrency >= 2 else 1
+                    prime_start = time.perf_counter_ns()
                     try:
                         prime_image_bytes, prime_mime, _, _ = prepare_image(tmp_path, max_edge=max_edge)
-                        prime_result = decision.prime(backend, prime_image_bytes, prime_mime)
-                        event_queue.put({"type": "prime", "elapsed_ms": prime_result["elapsed_ms"]})
+                        if prime_n == 1:
+                            prime_result = decision.prime(backend, prime_image_bytes, prime_mime)
+                            prime_ms = prime_result["elapsed_ms"]
+                        else:
+                            with ThreadPoolExecutor(max_workers=prime_n) as prime_executor:
+                                prime_futures = [
+                                    prime_executor.submit(decision.prime, backend, prime_image_bytes, prime_mime)
+                                    for _ in range(prime_n)
+                                ]
+                                for pf in prime_futures:
+                                    pf.result()
+                            prime_ms = (time.perf_counter_ns() - prime_start) / 1e6
+                        event_queue.put({"type": "prime", "elapsed_ms": prime_ms})
                     except Exception as e:
                         event_queue.put({"type": "prime", "error": f"{type(e).__name__}: {e}"})
 

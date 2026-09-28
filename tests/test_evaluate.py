@@ -1044,3 +1044,38 @@ def test_run_evaluate_excludes_derived_case_when_source_excluded(tmp_path, monke
     assert run_data["case_counts"]["excluded"] == 2
     excluded = {e["case_id"]: e["reason"] for e in run_data["excluded_cases"]}
     assert excluded == {"A01": "rights_not_confirmed", "A01-strip": "source excluded"}
+
+
+def _prime_case(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "images").mkdir()
+    img_path = Path("images/A01.png")
+    _make_plain_png(img_path)
+    return _minimal_case("A01", "images/A01.png", _sha256(img_path))
+
+
+def test_run_prime_sends_n_requests_when_parallel(tmp_path, monkeypatch):
+    # E9b: 並列送信時は準備リクエストを N 本送り、prime_parallel=N・elapsed_ms(壁時計)を返す。
+    case = _prime_case(tmp_path, monkeypatch)
+    backend = FakeBackend([make_logprobs_response({"A": 1.0})] * 4)
+    info = evaluate._run_prime(case, backend, 64, parallel=4)
+    assert backend.request_count == 4
+    assert info["parallel"] == 4
+    assert info["error"] is None
+    assert info["elapsed_ms"] is not None
+
+
+def test_run_prime_single_request_when_parallel_is_one(tmp_path, monkeypatch):
+    case = _prime_case(tmp_path, monkeypatch)
+    backend = FakeBackend([make_logprobs_response({"A": 1.0})])
+    info = evaluate._run_prime(case, backend, 64, parallel=1)
+    assert backend.request_count == 1
+    assert info["parallel"] == 1
+    assert info["elapsed_ms"] == 1.0
+
+
+def test_run_prime_parallel_records_error_when_one_fails(tmp_path, monkeypatch):
+    case = _prime_case(tmp_path, monkeypatch)
+    backend = FakeBackend([make_logprobs_response({"A": 1.0})] * 3 + [RuntimeError("boom")])
+    info = evaluate._run_prime(case, backend, 64, parallel=4)
+    assert "boom" in info["error"]
