@@ -10,7 +10,7 @@ import sys
 
 from PIL import Image
 
-from . import evaluate, pipeline
+from . import evaluate, pipeline, server
 from .backend import ChatBackend
 from .decision import Choice, DecisionError, choose
 from .taxonomy import load as load_taxonomy
@@ -151,6 +151,12 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     )
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    taxonomy = load_taxonomy(args.taxonomy)
+    server.serve(args.port, taxonomy)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="classifier_demo")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -210,6 +216,13 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_parser.add_argument("--note", default=None)
     evaluate_parser.add_argument("--output-dir", required=True)
     evaluate_parser.set_defaults(func=cmd_evaluate)
+
+    serve_parser = sub.add_parser(
+        "serve", help="run the recording demo UI server (loopback only, no auto model load)"
+    )
+    serve_parser.add_argument("--port", type=int, default=8765)
+    serve_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
+    serve_parser.set_defaults(func=cmd_serve)
 
     return parser
 

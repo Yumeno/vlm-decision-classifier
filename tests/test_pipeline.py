@@ -196,6 +196,61 @@ def test_classify_character_confirmation_failure_excludes_from_vision_tags(tmp_p
     )
 
 
+def test_classify_on_progress_receives_metadata_then_axis_events_in_order(tmp_path):
+    # デモUIサーバー用の拡張: on_progress を渡しても戻り値は変わらず、
+    # メタデータイベント1回 → 軸ごとに1回(taxonomy.axesの順)呼ばれる。
+    image_path = tmp_path / "img.png"
+    _make_image_with_alisa_lora(image_path)
+    tax = _test_taxonomy()
+
+    backend = FakeBackend(
+        [
+            make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # image_type
+            make_logprobs_response({"A": 0.8, "B": 0.1, "C": 0.05, "D": 0.05}),  # art_style
+            make_logprobs_response(
+                {"A": 0.7, "B": 0.1, "C": 0.1, "D": 0.05, "E": 0.03, "F": 0.02}
+            ),  # subject
+            make_no_logprobs_response(),  # character axis fails
+        ]
+    )
+
+    events: list[dict] = []
+    result = pipeline.classify(
+        str(image_path), tax, backend, mode="choice", max_edge=64, on_progress=events.append
+    )
+
+    assert events[0]["type"] == "metadata"
+    assert events[0]["metadata_evidence"]["format"] == "a1111"
+
+    axis_events = events[1:]
+    assert [e["axis_id"] for e in axis_events] == ["image_type", "art_style", "subject", "character"]
+    assert axis_events[0]["error"] is None
+    assert axis_events[0]["selected"] == "illustration"
+    assert axis_events[-1]["error"]["type"] == "no_logprobs"
+
+    # on_progress を渡しても戻り値そのものは変わらない
+    result_without_callback = pipeline.classify(
+        str(image_path),
+        tax,
+        FakeBackend(
+            [
+                make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),
+                make_logprobs_response({"A": 0.8, "B": 0.1, "C": 0.05, "D": 0.05}),
+                make_logprobs_response(
+                    {"A": 0.7, "B": 0.1, "C": 0.1, "D": 0.05, "E": 0.03, "F": 0.02}
+                ),
+                make_no_logprobs_response(),
+            ]
+        ),
+        mode="choice",
+        max_edge=64,
+    )
+    # classification_wall_ms は実行のたびに変わるので、それ以外が一致することを見る
+    result["timing_ms"]["classification_wall_ms"] = None
+    result_without_callback["timing_ms"]["classification_wall_ms"] = None
+    assert result == result_without_callback
+
+
 def test_classify_metadata_error_is_recorded_and_classification_continues(tmp_path, monkeypatch):
     image_path = tmp_path / "img.png"
     Image.new("RGB", (16, 16), (0, 0, 0)).save(image_path)

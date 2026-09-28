@@ -33,7 +33,7 @@
 | `doc/phase0-sources-models.md` | 移植元の要点、使用モデルとSHA256、probe結果、画像生成の条件 | あり |
 | `doc/dataset-plan.md` | 正解付与規則、31枠の生成計画表、manifest仕様、検収と正解付与の経緯 | あり |
 | `doc/worklog.md` | 作業記録（新しい順） | あり |
-| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`） | あり（分類コア・評価器） |
+| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`/`serve`）、動画収録用デモUIサーバー（`server.py`、静的ファイルは`classifier_demo/web/index.html`） | あり（分類コア・評価器・デモUI） |
 | `taxonomy/default.yaml` | 分類体系 0.4.1（7軸）と自作キャラの定義 | あり |
 | `dataset/` | 評価用データセット v1.0.0(`images/` 35ケース、`manifest.jsonl`、`DATASET_CARD.md`、正解の一次記録 `labels/`、生成記録 `generation/`) | あり |
 | `scripts/` | データセットの生成（Forge/ComfyUI）、メタデータ除去、データセット組み立て、`benchmark_cache.py`（Phase 4 / E5: 画像キャッシュ改造の再現用ベンチマーク） | あり |
@@ -75,6 +75,23 @@ py -3.12 -m venv .venv
 ```
 
 `evaluate` は選択式(`choice`)と通常JSON(`json`)を既定で両方実行し(`--modes choice,json`)、ケースごとに交互の順で実行して順序効果を抑える。出力先(`--output-dir`)には `run.json`（実行条件・除外ケース）、`cases.csv`（ケース別採点）、`summary.md`（集計）、`cases/<case_id>.<mode>.json`（生の分類結果）を書き出す。`rights_confirmed` が true でないケースは評価から除外され、`run.json` の `excluded_cases` に理由とともに記録される。`--runtime-info path\to\runtime.json` で、モデル/mmprojのSHA256・サーバー種別やcommit・パッチ有無・起動引数・GPUオフロードなど実行環境を記した任意のJSONファイルを渡すと、中身をそのまま（ファイル名とSHA256も添えて）`run.json` に記録する。
+
+### デモUI(動画収録用)
+
+軸ごとにスコアが伸びる様子をライブで見せるための1画面UI。標準ライブラリのみのサーバー(`http.server`)が静的ファイルを配信し、判定はNDJSONでストリーム配信する。ブラウザで見るだけで、外部には公開しない(待ち受け先は`127.0.0.1`固定で、変更するオプションはない)。
+
+```powershell
+.venv\Scripts\python.exe -m classifier_demo serve --port 8765
+```
+
+起動前にLM Studio / llama-serverでモデルをロードしておく（`serve`自体はサーバーもモデルも起動しない）。ブラウザで `http://127.0.0.1:8765/` を開き、右上の「設定」でサーバーURL・モデルIDを指定してから画像をドロップして「判定する」を押す。接続先はこのPC上のサーバーだけ(ループバック)で、Host/Origin不一致やループバック以外の`base_url`は拒否する。
+
+- 既定(比較なし): 7軸が順に判定され、各軸のスコア帯（相対スコア、候補内で再正規化）が結果到着時に伸びる。複数選択軸(`outfit`・`character`)は候補の順位付けのあとに候補ごとのyes/no確認(P(yes))を表示する。
+- 設定の「メタデータ証拠を表示」ON: PNG生成メタデータ由来のLoRA名・トリガーワード・キャラ一致と、画素からのキャラ判定を並べ、一致/不一致を表示する（`metadata_evidence`と`vision_tags`は統合せず別フィールドのまま）。
+- 設定の「比較」で「選択式 と 通常JSON」を選ぶと、同じ画像を選択式→通常JSONの順に実行し(同時実行はしない)、左右にスコア帯とJSON生テキスト・ラベル・所要時間を並べる。
+- 設定の「比較」で「サーバー1 と サーバー2」を選ぶと、未改造/改造のllama-serverなど2つのサーバーURLに選択式を順番に流し、時間を左右で比べる。
+
+失敗(選択肢トークンが出ない・thinkingが先に出る・logprobs欠損・通信エラー・JSON形式不正など)は例外で止めず、その場に理由を表示する。別方式へのフォールバックはしない。
 
 ### モデル/サーバー設定
 

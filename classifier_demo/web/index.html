@@ -1,0 +1,1171 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VLM Decision Classifier — Live Demo</title>
+<style>
+:root {
+  --paper: #E8EDF1;
+  --surface: #F6F8FA;
+  --graphite: #1E272E;
+  --graphite-70: rgba(30,39,46,.62);
+  --graphite-45: rgba(30,39,46,.40);
+  --graphite-25: rgba(30,39,46,.22);
+  --muted: #8A98A3;
+  --cobalt: #2F55D4;
+  --ocher: #B8892B;
+  --vermillion: #C8432F;
+  --rule: #C9D2D9;
+  --font-display: Bahnschrift, "Segoe UI", system-ui, sans-serif;
+  --font-body: "BIZ UDPGothic", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
+  --font-mono: Consolas, "BIZ UDGothic", monospace;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--graphite);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+button, select, input {
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--graphite);
+}
+
+:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--rule);
+  position: relative;
+}
+
+.app-title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.app-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 2px 0 0;
+}
+
+.settings-toggle {
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.settings-toggle:hover { border-color: var(--graphite-70); }
+
+.settings-panel {
+  display: none;
+  position: absolute;
+  right: 20px;
+  top: 56px;
+  width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 16px;
+  z-index: 20;
+}
+.settings-panel.open { display: block; }
+
+.field {
+  margin-bottom: 12px;
+}
+.field label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.field select, .field input[type="text"], .field input[type="url"] {
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--paper);
+}
+.field.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.field.checkbox label { margin-bottom: 0; color: var(--graphite); font-size: 15px; }
+.field.hidden { display: none; }
+
+.main {
+  display: flex;
+  align-items: stretch;
+  min-height: calc(100vh - 61px);
+}
+
+.left-col {
+  width: 30%;
+  min-width: 300px;
+  max-width: 420px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--rule);
+  padding: 20px;
+}
+
+.right-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.drop-zone {
+  border: 1px dashed var(--graphite-45);
+  border-radius: 4px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--muted);
+}
+.drop-zone.dragover {
+  border-color: var(--cobalt);
+  color: var(--cobalt);
+}
+.drop-zone img {
+  max-width: 100%;
+  max-height: 240px;
+  display: block;
+  margin: 0 auto 10px;
+}
+.drop-zone .hint { font-size: 14px; }
+.file-name {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 8px;
+  word-break: break-all;
+}
+
+.run-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.run-btn {
+  background: var(--cobalt);
+  color: var(--surface);
+  border: none;
+  border-radius: 3px;
+  padding: 10px 20px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.run-btn:disabled {
+  background: var(--graphite-25);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.overall-time {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+}
+
+.meta-panel {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+}
+.meta-panel.hidden { display: none; }
+.meta-heading {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.meta-format {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.meta-section { margin-bottom: 12px; }
+.meta-section h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 4px;
+}
+.meta-line {
+  font-size: 14px;
+  margin: 0 0 3px;
+}
+.meta-line.status-confirmed_by_both { color: var(--cobalt); }
+.meta-line.status-unknown { color: var(--vermillion); }
+.meta-empty { font-size: 14px; color: var(--muted); }
+
+.results {
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+}
+.track {
+  flex: 1;
+  min-width: 0;
+  padding: 20px;
+  border-right: 1px solid var(--rule);
+  container-type: inline-size;
+  container-name: track;
+}
+.track:last-child { border-right: none; }
+.track:nth-child(even) { background: var(--surface); }
+
+.track-head {
+  margin-bottom: 14px;
+}
+.track-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.track-time {
+  line-height: 1;
+}
+.track-time-pending {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-variant-numeric: tabular-nums;
+  font-size: 40px;
+  color: var(--muted);
+}
+.track-time-num {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-variant-numeric: tabular-nums;
+  font-size: 52px;
+}
+.track-time-unit {
+  font-size: 20px;
+  margin-left: 4px;
+  color: var(--muted);
+}
+.track-requests {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.track-summary {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+.track-error {
+  color: var(--vermillion);
+  font-size: 14px;
+}
+
+.axis-grid-single {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px 20px;
+  min-width: 0;
+}
+.axis-grid-multi {
+  margin-top: 14px;
+  min-width: 0;
+}
+.axis-grid-multi .axis:last-child {
+  margin-bottom: 0;
+}
+@container track (min-width: 380px) {
+  .axis-grid-single {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.axis {
+  margin-bottom: 14px;
+  min-width: 0;
+}
+.axis-grid-single .axis {
+  margin-bottom: 0;
+}
+.axis.has-error { }
+.axis-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.axis-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+.axis-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.axis-time {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.score-band {
+  display: flex;
+  width: 100%;
+  height: 26px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.band-seg {
+  height: 100%;
+  width: 0%;
+  transition: width .6s ease-out;
+  border-right: 1px solid var(--paper);
+}
+.band-seg:last-child { border-right: none; }
+.band-seg.adopted { background: var(--cobalt); }
+.band-seg.rank-0:not(.adopted) { background: var(--graphite-70); }
+.band-seg.rank-1 { background: var(--graphite-45); }
+.band-seg.rank-2 { background: var(--graphite-25); }
+.band-seg.rank-3 { background: var(--graphite-25); opacity: .6; }
+@media (prefers-reduced-motion: reduce) {
+  .band-seg { transition: none; }
+}
+
+.band-legend {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px 14px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--graphite-70);
+  overflow: hidden;
+}
+.legend-item {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  flex-shrink: 1;
+}
+.legend-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.legend-score {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.legend-item.adopted {
+  color: var(--cobalt);
+  font-weight: 600;
+}
+
+.axis-error-text {
+  font-size: 14px;
+  color: var(--vermillion);
+  margin: 4px 0 0;
+}
+
+.confirm-list {
+  margin-top: 10px;
+}
+.confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+.confirm-row.confirm-error {
+  color: var(--vermillion);
+}
+.confirm-label {
+  min-width: 140px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.confirm-bar {
+  position: relative;
+  flex: 1;
+  height: 10px;
+  background: var(--graphite-25);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.confirm-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  background: var(--ocher);
+  transition: width .6s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirm-fill { transition: none; }
+}
+.confirm-threshold {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--graphite);
+}
+.confirm-value {
+  width: 40px;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.confirm-check {
+  width: 32px;
+  flex-shrink: 0;
+  color: var(--cobalt);
+  font-weight: 600;
+}
+
+.json-block { }
+.json-raw {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 10px;
+  margin: 0 0 12px;
+  min-height: 1.6em;
+}
+.json-tags { margin-bottom: 10px; }
+.json-tag-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.json-tag-label { color: var(--muted); }
+.json-timing {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.empty-state {
+  font-size: 14px;
+  color: var(--muted);
+  padding: 20px;
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <p class="app-title">VLM Decision Classifier</p>
+    <p class="app-subtitle">選択式判定のライブ実演</p>
+  </div>
+  <button class="settings-toggle" id="settingsToggle" aria-expanded="false">設定</button>
+  <div class="settings-panel" id="settingsPanel">
+    <div class="field">
+      <label for="comparisonMode">比較</label>
+      <select id="comparisonMode">
+        <option value="none">比較なし</option>
+        <option value="json_vs_choice">選択式 と 通常JSON</option>
+        <option value="server_compare">サーバー1 と サーバー2(未改造/改造)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="baseUrl1">サーバーURL 1</label>
+      <input type="url" id="baseUrl1" value="http://127.0.0.1:1234/v1">
+    </div>
+    <div class="field" id="baseUrl2Field" style="display:none">
+      <label for="baseUrl2">サーバーURL 2</label>
+      <input type="url" id="baseUrl2" value="http://127.0.0.1:1234/v1">
+    </div>
+    <div class="field">
+      <label for="modelId">モデルID</label>
+      <input type="text" id="modelId" placeholder="LM Studioのモデル識別子">
+    </div>
+    <div class="field checkbox">
+      <input type="checkbox" id="showMetadata">
+      <label for="showMetadata">メタデータ証拠を表示</label>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="left-col">
+    <div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-label="画像を選ぶ">
+      <img id="previewImg" hidden alt="選択した画像のプレビュー">
+      <p class="hint" id="dropHint">画像をここにドロップするか、クリックして選ぶ</p>
+      <p class="file-name" id="fileName"></p>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" hidden>
+    <div class="run-row">
+      <button class="run-btn" id="runBtn" disabled>判定する</button>
+      <span class="overall-time" id="overallTime"></span>
+    </div>
+
+    <div class="meta-panel hidden" id="metaPanel">
+      <p class="meta-heading">生成メタデータ</p>
+      <div id="metaBody"></div>
+      <div id="metaComparison"></div>
+    </div>
+  </div>
+
+  <div class="right-col">
+    <div class="results" id="results">
+      <p class="empty-state">画像を選び、判定するを押すと、ここに結果が表示される。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const AXIS_LABELS = {
+  image_type: '画像の種類',
+  art_style: '画風',
+  color: '色',
+  subject: '被写体',
+  situation: '場面',
+  outfit: '服装',
+  character: 'キャラ',
+};
+
+const AXIS_ERROR_SENTENCES = {
+  thinking_before_answer: '思考過程が先に出力され、回答ラベルの相対スコアが取れなかった。',
+  no_logprobs: '確率情報が返らなかった。',
+  no_label_tokens: '選択肢のラベルが出力に含まれなかった。',
+  request_error: '通信に失敗した。',
+};
+
+const COMBINED_STATUS_SENTENCES = {
+  confirmed_by_both: '画像判定と一致',
+  metadata_only: '画像判定にはない(メタデータのみ)',
+  vision_only: 'メタデータの記録はない(画像判定のみ)',
+  unknown: 'character軸の判定が失敗したため不明',
+};
+
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function axisLabel(id) { return AXIS_LABELS[id] || id; }
+function idLabel(id) {
+  if (id === '__none__') return '該当なし';
+  return String(id).replace(/_/g, ' ');
+}
+
+function growWidths(pairs) {
+  // pairs: [[element, ratio], ...] を 0% から目標幅へ伸ばす(アニメーションはこれだけ)。
+  if (prefersReducedMotion) {
+    for (const [el, ratio] of pairs) el.style.width = (ratio * 100).toFixed(2) + '%';
+    return;
+  }
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      for (const [el, ratio] of pairs) el.style.width = (ratio * 100).toFixed(2) + '%';
+    });
+  });
+}
+
+function typeText(el, text) {
+  if (prefersReducedMotion || !text) {
+    el.textContent = text || '';
+    return;
+  }
+  let i = 0;
+  const step = Math.max(1, Math.ceil(text.length / 100));
+  const handle = setInterval(() => {
+    i += step;
+    if (i >= text.length) {
+      el.textContent = text;
+      clearInterval(handle);
+    } else {
+      el.textContent = text.slice(0, i);
+    }
+  }, 12);
+}
+
+// ---- ファイル読み込み ----
+
+function readAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1]);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+// ---- NDJSONストリーム ----
+
+async function streamClassify(payload, onEvent) {
+  const res = await fetch('/api/classify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    onEvent({ type: 'error', detail: text });
+    return;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buf = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, idx);
+      buf = buf.slice(idx + 1);
+      if (line.trim()) onEvent(JSON.parse(line));
+    }
+  }
+  if (buf.trim()) onEvent(JSON.parse(buf));
+}
+
+// ---- 軸(選択式)の描画 ----
+
+function describeAxisError(error) {
+  const sentence = AXIS_ERROR_SENTENCES[error.type] || `${error.type} が発生した。`;
+  return `${sentence}(${error.detail})`;
+}
+
+function renderAxisEvent(container, event) {
+  const axisEl = document.createElement('div');
+  axisEl.className = 'axis' + (event.error ? ' has-error' : '');
+
+  const head = document.createElement('div');
+  head.className = 'axis-head';
+  const name = document.createElement('span');
+  name.className = 'axis-name';
+  name.textContent = axisLabel(event.axis_id);
+  const idSpan = document.createElement('span');
+  idSpan.className = 'axis-id';
+  idSpan.textContent = event.axis_id;
+  head.appendChild(name);
+  head.appendChild(idSpan);
+  if (event.elapsed_ms != null) {
+    const t = document.createElement('span');
+    t.className = 'axis-time';
+    t.textContent = (event.elapsed_ms / 1000).toFixed(1) + '秒';
+    head.appendChild(t);
+  }
+  axisEl.appendChild(head);
+
+  if (event.error) {
+    const err = document.createElement('p');
+    err.className = 'axis-error-text';
+    err.textContent = describeAxisError(event.error);
+    axisEl.appendChild(err);
+    container.appendChild(axisEl);
+    return;
+  }
+
+  const entries = Object.entries(event.relative_scores).sort((a, b) => b[1] - a[1]);
+  const adoptedIds = new Set(event.multi ? event.tags : [event.selected]);
+
+  const band = document.createElement('div');
+  band.className = 'score-band';
+  const growPairs = [];
+  entries.forEach(([id, score], i) => {
+    const seg = document.createElement('div');
+    const rank = adoptedIds.has(id) ? -1 : Math.min(i, 3);
+    seg.className = 'band-seg' + (rank === -1 ? ' adopted' : ' rank-' + rank);
+    seg.style.width = '0%';
+    band.appendChild(seg);
+    growPairs.push([seg, score]);
+  });
+  axisEl.appendChild(band);
+  growWidths(growPairs);
+
+  const legend = document.createElement('div');
+  legend.className = 'band-legend';
+  // スコアが主役なので数字は常に表示し、狭い列では候補名の方だけ省略する。
+  // 2段組でも収まるよう、凡例は上位2件+ほかにする。
+  const LEGEND_TOP_N = 2;
+  const top = entries.slice(0, LEGEND_TOP_N);
+  const rest = entries.slice(LEGEND_TOP_N);
+  const addLegendItem = (name, score, adopted) => {
+    const item = document.createElement('span');
+    item.className = 'legend-item' + (adopted ? ' adopted' : '');
+    const nameEl = document.createElement('span');
+    nameEl.className = 'legend-name';
+    nameEl.textContent = name;
+    const scoreEl = document.createElement('span');
+    scoreEl.className = 'legend-score';
+    scoreEl.textContent = score.toFixed(2);
+    item.appendChild(nameEl);
+    item.appendChild(scoreEl);
+    legend.appendChild(item);
+  };
+  for (const [id, score] of top) {
+    addLegendItem(idLabel(id), score, adoptedIds.has(id));
+  }
+  if (rest.length) {
+    const restSum = rest.reduce((s, [, v]) => s + v, 0);
+    if (restSum.toFixed(2) !== '0.00') {
+      addLegendItem('ほか', restSum, false);
+    }
+  }
+  axisEl.appendChild(legend);
+
+  // 単一選択軸は帯のコバルト区間(採用候補)で分かるため、別途「採用: …」の行は出さない。
+  if (event.multi) {
+    const confirmWrap = document.createElement('div');
+    confirmWrap.className = 'confirm-list';
+    const confirmGrowPairs = [];
+    for (const cid of event.candidates) {
+      const err = event.confirmation_errors[cid];
+      const row = document.createElement('div');
+      row.className = 'confirm-row';
+      if (err) {
+        row.classList.add('confirm-error');
+        row.textContent = `${idLabel(cid)}: 確認できなかった(${err})`;
+        confirmWrap.appendChild(row);
+        continue;
+      }
+      const pYes = event.confirmations[cid];
+      const isAdopted = event.tags.includes(cid);
+
+      const label = document.createElement('span');
+      label.className = 'confirm-label';
+      label.textContent = idLabel(cid);
+
+      const barWrap = document.createElement('span');
+      barWrap.className = 'confirm-bar';
+      const fill = document.createElement('span');
+      fill.className = 'confirm-fill';
+      fill.style.width = '0%';
+      const threshold = document.createElement('span');
+      threshold.className = 'confirm-threshold';
+      barWrap.appendChild(fill);
+      barWrap.appendChild(threshold);
+
+      const value = document.createElement('span');
+      value.className = 'confirm-value';
+      value.textContent = pYes.toFixed(2);
+
+      const check = document.createElement('span');
+      check.className = 'confirm-check';
+      check.textContent = isAdopted ? '採用' : '';
+
+      row.appendChild(label);
+      row.appendChild(barWrap);
+      row.appendChild(value);
+      row.appendChild(check);
+      confirmWrap.appendChild(row);
+      confirmGrowPairs.push([fill, pYes]);
+    }
+    axisEl.appendChild(confirmWrap);
+    growWidths(confirmGrowPairs);
+    // 複数選択軸は各候補行の「採用」表示で足りるため、別途まとめの行は出さない。
+  }
+
+  container.appendChild(axisEl);
+}
+
+// ---- JSON方式の描画 ----
+
+function renderJsonResult(container, event) {
+  const wrap = document.createElement('div');
+  wrap.className = 'json-block';
+
+  const last = event.attempts[event.attempts.length - 1] || {};
+  const pre = document.createElement('pre');
+  pre.className = 'json-raw';
+  wrap.appendChild(pre);
+
+  if (event.tags) {
+    const list = document.createElement('div');
+    list.className = 'json-tags';
+    for (const [axisId, ids] of Object.entries(event.tags)) {
+      const row = document.createElement('div');
+      row.className = 'json-tag-row';
+      const lab = document.createElement('span');
+      lab.className = 'json-tag-label';
+      lab.textContent = axisLabel(axisId);
+      const val = document.createElement('span');
+      val.className = 'json-tag-value';
+      val.textContent = ids.length ? ids.map(idLabel).join('、') : '該当なし';
+      row.appendChild(lab);
+      row.appendChild(val);
+      list.appendChild(row);
+    }
+    wrap.appendChild(list);
+  } else {
+    const err = document.createElement('p');
+    err.className = 'axis-error-text';
+    err.textContent = `応答をJSONとして解釈できなかった。${event.error || ''}`;
+    wrap.appendChild(err);
+  }
+
+  const timing = document.createElement('p');
+  timing.className = 'json-timing';
+  timing.textContent = `試行 ${event.attempts.length} 回、所要 ${(event.total_ms / 1000).toFixed(1)}秒`;
+  wrap.appendChild(timing);
+
+  container.appendChild(wrap);
+  typeText(pre, last.raw_text || '(応答なし)');
+}
+
+function renderTrackDone(container, event) {
+  const line = document.createElement('p');
+  line.className = 'track-summary';
+  const parts = [`合計 ${(event.classification_wall_ms / 1000).toFixed(1)}秒`, `${event.request_count} リクエスト`];
+  if (event.errors && event.errors.length) parts.push(`エラー ${event.errors.length}件`);
+  line.textContent = parts.join(' ／ ');
+  container.appendChild(line);
+}
+
+function renderTrackError(container, detail) {
+  const p = document.createElement('p');
+  p.className = 'track-error';
+  p.textContent = `判定できなかった: ${detail}`;
+  container.appendChild(p);
+}
+
+// ---- メタデータパネル ----
+
+function clearMetaPanel() {
+  document.getElementById('metaBody').textContent = '';
+  document.getElementById('metaComparison').textContent = '';
+}
+
+function renderMetaEvidence(evidence) {
+  const body = document.getElementById('metaBody');
+  body.textContent = '';
+  if (!evidence || evidence.format === 'none') {
+    const p = document.createElement('p');
+    p.className = 'meta-empty';
+    p.textContent = '生成メタデータなし(PNG情報未検出)';
+    body.appendChild(p);
+    return;
+  }
+  if (evidence.format === 'error') {
+    const p = document.createElement('p');
+    p.className = 'meta-empty';
+    p.textContent = 'メタデータの抽出に失敗した';
+    body.appendChild(p);
+    return;
+  }
+
+  const fmt = document.createElement('p');
+  fmt.className = 'meta-format';
+  fmt.textContent = '形式: ' + evidence.format;
+  body.appendChild(fmt);
+
+  if (evidence.loras.length) {
+    const section = document.createElement('div');
+    section.className = 'meta-section';
+    const h = document.createElement('h4');
+    h.textContent = 'LoRA';
+    section.appendChild(h);
+    for (const l of evidence.loras) {
+      const p = document.createElement('p');
+      p.className = 'meta-line';
+      p.textContent = `${l.name}(weight ${l.weight ?? '不明'}、${l.source}）`;
+      section.appendChild(p);
+    }
+    body.appendChild(section);
+  }
+
+  if (evidence.matches.length) {
+    const section = document.createElement('div');
+    section.className = 'meta-section';
+    const h = document.createElement('h4');
+    h.textContent = 'メタデータ上のキャラ一致';
+    section.appendChild(h);
+    for (const m of evidence.matches) {
+      const p = document.createElement('p');
+      p.className = 'meta-line';
+      p.textContent = `${idLabel(m.character)} ← ${m.kind}: ${m.value}`;
+      section.appendChild(p);
+    }
+    body.appendChild(section);
+  } else if (!evidence.loras.length) {
+    const p = document.createElement('p');
+    p.className = 'meta-empty';
+    p.textContent = 'LoRA・トリガーワードの一致なし';
+    body.appendChild(p);
+  }
+}
+
+function applyCombinedEvidence(combined) {
+  const el = document.getElementById('metaComparison');
+  el.textContent = '';
+  const entries = Object.entries(combined || {});
+  if (!entries.length) return;
+
+  const section = document.createElement('div');
+  section.className = 'meta-section';
+  const h = document.createElement('h4');
+  h.textContent = '画像判定との比較';
+  section.appendChild(h);
+  for (const [cid, status] of entries) {
+    const p = document.createElement('p');
+    p.className = 'meta-line status-' + status;
+    p.textContent = `${idLabel(cid)}: ${COMBINED_STATUS_SENTENCES[status] || status}`;
+    section.appendChild(p);
+  }
+  el.appendChild(section);
+}
+
+// ---- トラック(1回の判定の列) ----
+
+function createTrack(title, mode) {
+  const el = document.createElement('section');
+  el.className = 'track';
+
+  const head = document.createElement('div');
+  head.className = 'track-head';
+  const h = document.createElement('h2');
+  h.className = 'track-title';
+  h.textContent = title;
+
+  const time = document.createElement('div');
+  time.className = 'track-time';
+  const pending = document.createElement('span');
+  pending.className = 'track-time-pending';
+  pending.textContent = '待機中';
+  const timeValue = document.createElement('span');
+  timeValue.className = 'track-time-value';
+  timeValue.hidden = true;
+  const timeNum = document.createElement('span');
+  timeNum.className = 'track-time-num';
+  timeNum.textContent = '0.0';
+  const timeUnit = document.createElement('span');
+  timeUnit.className = 'track-time-unit';
+  timeUnit.textContent = '秒';
+  timeValue.appendChild(timeNum);
+  timeValue.appendChild(timeUnit);
+  time.appendChild(pending);
+  time.appendChild(timeValue);
+
+  const reqs = document.createElement('div');
+  reqs.className = 'track-requests';
+
+  head.appendChild(h);
+  head.appendChild(time);
+  head.appendChild(reqs);
+  el.appendChild(head);
+
+  const body = document.createElement('div');
+  body.className = 'track-body';
+  el.appendChild(body);
+
+  // choiceモードだけ、単一選択の軸(上・2段組)と複数選択の軸(下・全幅)を
+  // 別々の入れ物に分けて、7軸が縦に伸びすぎないようにする。
+  let axisGridSingle = null;
+  let axisGridMulti = null;
+  if (mode === 'choice') {
+    axisGridSingle = document.createElement('div');
+    axisGridSingle.className = 'axis-grid-single';
+    axisGridMulti = document.createElement('div');
+    axisGridMulti.className = 'axis-grid-multi';
+    body.appendChild(axisGridSingle);
+    body.appendChild(axisGridMulti);
+  }
+
+  return { el, body, timeNum, timePending: pending, timeValue, reqsEl: reqs, axisGridSingle, axisGridMulti };
+}
+
+async function runTrack(track, payload, updateMetadata) {
+  track.timePending.hidden = true;
+  track.timeValue.hidden = false;
+
+  const start = performance.now();
+  let requestsSoFar = 0;
+  const timerHandle = setInterval(() => {
+    track.timeNum.textContent = ((performance.now() - start) / 1000).toFixed(1);
+  }, 100);
+
+  try {
+    await streamClassify(payload, (event) => {
+      if (event.type === 'metadata') {
+        if (updateMetadata) renderMetaEvidence(event.metadata_evidence);
+      } else if (event.type === 'axis') {
+        requestsSoFar += 1 + (event.multi && event.candidates ? event.candidates.length : 0);
+        track.reqsEl.textContent = `${requestsSoFar} リクエスト`;
+        renderAxisEvent(event.multi ? track.axisGridMulti : track.axisGridSingle, event);
+      } else if (event.type === 'json_result') {
+        requestsSoFar += event.attempts.length;
+        track.reqsEl.textContent = `${requestsSoFar} リクエスト`;
+        renderJsonResult(track.body, event);
+      } else if (event.type === 'done') {
+        track.timeNum.textContent = (event.classification_wall_ms / 1000).toFixed(1);
+        track.reqsEl.textContent = `${event.request_count} リクエスト`;
+        renderTrackDone(track.body, event);
+        if (updateMetadata) applyCombinedEvidence(event.combined_evidence);
+      } else if (event.type === 'error') {
+        renderTrackError(track.body, event.detail);
+      }
+    });
+  } catch (e) {
+    renderTrackError(track.body, String(e));
+  } finally {
+    clearInterval(timerHandle);
+  }
+}
+
+// ---- 画面全体の配線 ----
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const previewImg = document.getElementById('previewImg');
+const dropHint = document.getElementById('dropHint');
+const fileNameEl = document.getElementById('fileName');
+const runBtn = document.getElementById('runBtn');
+const overallTimeEl = document.getElementById('overallTime');
+const resultsEl = document.getElementById('results');
+const metaPanel = document.getElementById('metaPanel');
+
+const settingsToggle = document.getElementById('settingsToggle');
+const settingsPanel = document.getElementById('settingsPanel');
+const comparisonModeSelect = document.getElementById('comparisonMode');
+const baseUrl1Input = document.getElementById('baseUrl1');
+const baseUrl2Field = document.getElementById('baseUrl2Field');
+const baseUrl2Input = document.getElementById('baseUrl2');
+const modelInput = document.getElementById('modelId');
+const showMetadataInput = document.getElementById('showMetadata');
+
+let currentFile = null;
+
+settingsToggle.addEventListener('click', () => {
+  const open = settingsPanel.classList.toggle('open');
+  settingsToggle.setAttribute('aria-expanded', String(open));
+});
+
+comparisonModeSelect.addEventListener('change', () => {
+  baseUrl2Field.style.display = comparisonModeSelect.value === 'server_compare' ? 'block' : 'none';
+});
+
+function setFile(file) {
+  currentFile = file;
+  previewImg.src = URL.createObjectURL(file);
+  previewImg.hidden = false;
+  dropHint.hidden = true;
+  fileNameEl.textContent = file.name;
+  runBtn.disabled = false;
+}
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    fileInput.click();
+  }
+});
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (file) setFile(file);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) setFile(fileInput.files[0]);
+});
+
+async function runClassification() {
+  if (!currentFile) return;
+  runBtn.disabled = true;
+  resultsEl.textContent = '';
+
+  try {
+    // 画像の読み込み(FileReader)がここで失敗しても、外側のcatch/finallyで
+    // ボタンの再有効化とエラー表示を行う(読み込み失敗のまま固まらないようにする)。
+    const base64 = await readAsBase64(currentFile);
+    const filename = currentFile.name;
+    const model = modelInput.value.trim();
+    const baseUrl1 = baseUrl1Input.value.trim();
+    const comparisonMode = comparisonModeSelect.value;
+    const showMetadata = showMetadataInput.checked;
+
+    metaPanel.classList.toggle('hidden', !showMetadata);
+    clearMetaPanel();
+
+    overallTimeEl.textContent = '0.0秒';
+    const overallStart = performance.now();
+    const overallHandle = setInterval(() => {
+      overallTimeEl.textContent = ((performance.now() - overallStart) / 1000).toFixed(1) + '秒';
+    }, 100);
+
+    try {
+      if (comparisonMode === 'json_vs_choice') {
+        const trackChoice = createTrack('選択式', 'choice');
+        const trackJson = createTrack('通常JSON', 'json');
+        resultsEl.appendChild(trackChoice.el);
+        resultsEl.appendChild(trackJson.el);
+        await runTrack(trackChoice, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model }, showMetadata);
+        await runTrack(trackJson, { image_base64: base64, filename, mode: 'json', base_url: baseUrl1, model }, false);
+      } else if (comparisonMode === 'server_compare') {
+        const baseUrl2 = baseUrl2Input.value.trim();
+        const trackA = createTrack('サーバー1', 'choice');
+        const trackB = createTrack('サーバー2', 'choice');
+        resultsEl.appendChild(trackA.el);
+        resultsEl.appendChild(trackB.el);
+        await runTrack(trackA, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model }, showMetadata);
+        await runTrack(trackB, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl2, model }, false);
+      } else {
+        const track = createTrack('選択式', 'choice');
+        resultsEl.appendChild(track.el);
+        await runTrack(track, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model }, showMetadata);
+      }
+    } finally {
+      clearInterval(overallHandle);
+      overallTimeEl.textContent = ((performance.now() - overallStart) / 1000).toFixed(1) + '秒';
+    }
+  } catch (e) {
+    resultsEl.textContent = '';
+    const p = document.createElement('p');
+    p.className = 'track-error';
+    p.textContent = `画像の読み込みに失敗した: ${e && e.message ? e.message : e}`;
+    resultsEl.appendChild(p);
+  } finally {
+    runBtn.disabled = false;
+  }
+}
+
+runBtn.addEventListener('click', runClassification);
+</script>
+</body>
+</html>

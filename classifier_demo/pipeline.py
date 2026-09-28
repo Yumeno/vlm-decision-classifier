@@ -34,7 +34,11 @@ def classify(
     backend,
     mode: str = "choice",
     max_edge: int = 1024,
+    on_progress=None,
 ) -> dict:
+    """`on_progress` はデモUIサーバー用の任意コールバック(既定Noneなら未使用・
+    既存の挙動と戻り値は変わらない)。呼ばれる順序: メタデータイベント1回 →
+    (choiceモードのみ)軸ごとに1回、taxonomy.axesの順。呼び出し側で例外を出さないこと。"""
     start_ns = time.perf_counter_ns()
     requests_before = backend.request_count
 
@@ -61,8 +65,12 @@ def classify(
             errors.append({"axis": None, "type": "metadata_error", "detail": f"{type(e).__name__}: {e}"})
             metadata_evidence = {"format": "error", "loras": [], "prompt_tags": [], "matches": []}
 
+        if on_progress is not None:
+            on_progress({"type": "metadata", "metadata_evidence": metadata_evidence})
+
         if mode == "choice":
             for axis in taxonomy.axes:
+                event: dict = {"type": "axis", "axis_id": axis.id, "multi": axis.multi, "error": None}
                 try:
                     if axis.multi:
                         result = decision.decide_multi_axis(backend, image_bytes, mime, axis)
@@ -80,6 +88,17 @@ def classify(
                             errors.append(
                                 {"axis": axis.id, "type": "candidate_confirmation_error", "detail": f"candidate {cid}: {err}"}
                             )
+                        event.update(
+                            {
+                                "relative_scores": result["relative_scores"],
+                                "candidates": result["candidates"],
+                                "confirmations": result["confirmations"],
+                                "confirmation_errors": result["confirmation_errors"],
+                                "tags": result["tags"],
+                                "failed": result["failed"],
+                                "elapsed_ms": result["elapsed_ms"],
+                            }
+                        )
                     else:
                         result = decision.decide_axis(backend, image_bytes, mime, axis)
                         axis_decisions[axis.id] = {
@@ -88,13 +107,24 @@ def classify(
                         }
                         selected = result["selected"]
                         vision_tags[axis.id] = [] if selected == decision.NONE_ID else [selected]
+                        event.update(
+                            {
+                                "relative_scores": result["relative_scores"],
+                                "selected": result["selected"],
+                                "elapsed_ms": result["elapsed_ms"],
+                            }
+                        )
                     per_axis_timing[axis.id] = result["elapsed_ms"]
                 except decision.DecisionError as e:
                     errors.append({"axis": axis.id, "type": e.error_type, "detail": e.detail})
+                    event["error"] = {"type": e.error_type, "detail": e.detail}
                 except decision.REQUEST_EXCEPTIONS as e:
                     errors.append(
                         {"axis": axis.id, "type": "request_error", "detail": f"{type(e).__name__}: {e}"}
                     )
+                    event["error"] = {"type": "request_error", "detail": f"{type(e).__name__}: {e}"}
+                if on_progress is not None:
+                    on_progress(event)
         elif mode == "json":
             json_baseline_result = json_baseline.classify_json(backend, image_bytes, mime, taxonomy)
             if json_baseline_result["tags"] is not None:
@@ -103,6 +133,8 @@ def classify(
                 errors.append(
                     {"axis": None, "type": "json_format_error", "detail": json_baseline_result["error"]}
                 )
+            if on_progress is not None:
+                on_progress({"type": "json_result", **json_baseline_result})
         else:
             raise ValueError(f"unknown mode: {mode}")
 
