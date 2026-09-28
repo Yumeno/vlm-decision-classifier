@@ -78,7 +78,7 @@ py -3.12 -m venv .venv
 .venv\Scripts\python.exe scripts\benchmark_cache.py --model <モデルID> --label vanilla --image-format png --output results\cache\vanilla.json
 ```
 
-`evaluate` は選択式(`choice`)と通常JSON(`json`)を既定で両方実行し(`--modes choice,json`)、ケースごとに交互の順で実行して順序効果を抑える。出力先(`--output-dir`)には `run.json`（実行条件・除外ケース）、`cases.csv`（ケース別採点）、`summary.md`（集計）、`cases/<case_id>.<mode>.json`（生の分類結果）を書き出す。`rights_confirmed` が true でないケースは評価から除外され、`run.json` の `excluded_cases` に理由とともに記録される。`--runtime-info path\to\runtime.json` で、モデル/mmprojのSHA256・サーバー種別やcommit・パッチ有無・起動引数・GPUオフロードなど実行環境を記した任意のJSONファイルを渡すと、中身をそのまま（ファイル名とSHA256も添えて）`run.json` に記録する。
+`evaluate` は選択式(`choice`)と通常JSON(`json`)を既定で両方実行し(`--modes choice,json`)、ケースごとに交互の順で実行して順序効果を抑える。3方式(1軸ずつ・通常JSON・束ね質問)を比べるときは `--modes choice,json,bundled`(3モードはケースごとに実行順を回転する)。出力先(`--output-dir`)には `run.json`（実行条件・除外ケース）、`cases.csv`（ケース別採点）、`summary.md`（集計）、`cases/<case_id>.<mode>.json`（生の分類結果）を書き出す。`rights_confirmed` が true でないケースは評価から除外され、`run.json` の `excluded_cases` に理由とともに記録される。`--runtime-info path\to\runtime.json` で、モデル/mmprojのSHA256・サーバー種別やcommit・パッチ有無・起動引数・GPUオフロードなど実行環境を記した任意のJSONファイルを渡すと、中身をそのまま（ファイル名とSHA256も添えて）`run.json` に記録する。
 
 E9(ホットロード・軸の並列送信)用に2つのオプションがある。`--prime` を付けると、各ケースでモードの交互順の前に画像だけの準備リクエストを1回送り(サーバーの画像キャッシュに載せる)、その所要時間を `prime_ms` として `classification_wall_ms` とは別に記録する(`cases.csv`・ケース別結果JSON・`summary.md` の Latency)。`--axis-concurrency N`(既定1=逐次)は選択式(`choice`)の軸ごとの質問をN並列で送る(サーバー側が対応スロット数を用意している前提)。`--prime` と `--axis-concurrency N`(N≥2)を併用すると、準備リクエストを N 本同時に送って全スロットに画像を載せてから判定に入る(`prime_ms` は全完了までの壁時計時間、送った本数は `run.json` の `prime_parallel`)。両方とも `run.json` に記録される。
 
@@ -168,7 +168,7 @@ Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードす�
 4. メタデータ抽出、分類体系、選択式判定、通常JSON分類、共通の評価器を実装。
 5. 固定データセットで全方式を評価し、Qwenのllama.cpp改造比較を実施(結果は [`doc/experiments/report.md`](doc/experiments/report.md))。
 
-詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)・E7(束ね質問)・E8(メタデータ補助の対照実験)は初版MVPの完了条件外の追加課題です(`AGENTS.md`参照)。
+詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)・E8(メタデータ補助の対照実験)は初版MVPの完了条件外の追加課題です(E7 束ね質問は2026-09-29 作者判断で初版に含める)(`AGENTS.md`参照)。
 
 ## 公開前の確認
 

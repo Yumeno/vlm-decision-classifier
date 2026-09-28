@@ -550,6 +550,13 @@ button, select, input {
       </select>
     </div>
     <div class="field">
+      <label for="askStyle">選択式の聞き方</label>
+      <select id="askStyle">
+        <option value="choice" selected>1軸ずつ</option>
+        <option value="bundled">束ね質問(1リクエストで全軸)</option>
+      </select>
+    </div>
+    <div class="field">
       <label for="baseUrl1">サーバーURL 1</label>
       <input type="url" id="baseUrl1" value="http://127.0.0.1:1234/v1">
     </div>
@@ -1208,7 +1215,7 @@ async function runTrack(track, payload, updateMetadata) {
       } else if (event.type === 'metadata') {
         if (updateMetadata) renderMetaEvidence(event.metadata_evidence);
       } else if (event.type === 'axis') {
-        requestsSoFar += 1 + (event.multi && event.confirm && event.candidates ? event.candidates.length : 0);
+        requestsSoFar = event.bundled ? 1 : requestsSoFar + 1 + (event.multi && event.confirm && event.candidates ? event.candidates.length : 0);
         track.reqsEl.textContent = `${requestsSoFar} リクエスト`;
         renderAxisEvent(event.multi ? track.axisGridMulti : track.axisGridSingle, event, track);
       } else if (event.type === 'json_result') {
@@ -1254,6 +1261,7 @@ const comparisonModeSelect = document.getElementById('comparisonMode');
 const baseUrl1Input = document.getElementById('baseUrl1');
 const baseUrl2Field = document.getElementById('baseUrl2Field');
 const baseUrl2Input = document.getElementById('baseUrl2');
+const askStyleInput = document.getElementById('askStyle');
 const modelInput = document.getElementById('modelId');
 const showMetadataInput = document.getElementById('showMetadata');
 const primeFirstInput = document.getElementById('primeFirst');
@@ -1327,6 +1335,8 @@ async function runClassification() {
     const rankThresholdValue = Number.isFinite(rankThreshold) ? rankThreshold : 0.5;
     const maxEdge = parseInt(maxEdgeInput.value, 10);
     const imageFormat = imageFormatInput.value;
+    const askMode = askStyleInput.value; // 'choice' | 'bundled'(選択式の列をどちらで判定するか)
+    const choiceTitle = askMode === 'bundled' ? '選択式(束ね質問)' : '選択式';
 
     // 比較モードでは、両方の列が同じ条件になるよう prime は最初の列の呼び出しにだけ付ける
     // (2列目は同じサーバー・同じ画像なら既にキャッシュ済みのため)。
@@ -1347,11 +1357,11 @@ async function runClassification() {
 
     try {
       if (comparisonMode === 'json_vs_choice') {
-        const trackChoice = createTrack('選択式', 'choice');
+        const trackChoice = createTrack(choiceTitle, 'choice');
         const trackJson = createTrack('通常JSON', 'json');
         resultsEl.appendChild(trackChoice.el);
         resultsEl.appendChild(trackJson.el);
-        await runTrack(trackChoice, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
+        await runTrack(trackChoice, { image_base64: base64, filename, mode: askMode, base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
         await runTrack(trackJson, { image_base64: base64, filename, mode: 'json', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, false);
         markMismatches(trackChoice, trackJson);
       } else if (comparisonMode === 'server_compare') {
@@ -1360,13 +1370,13 @@ async function runClassification() {
         const trackB = createTrack('サーバー2', 'choice');
         resultsEl.appendChild(trackA.el);
         resultsEl.appendChild(trackB.el);
-        await runTrack(trackA, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
-        await runTrack(trackB, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl2, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, false);
+        await runTrack(trackA, { image_base64: base64, filename, mode: askMode, base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
+        await runTrack(trackB, { image_base64: base64, filename, mode: askMode, base_url: baseUrl2, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, false);
         markMismatches(trackA, trackB);
       } else {
-        const track = createTrack('選択式', 'choice');
+        const track = createTrack(choiceTitle, 'choice');
         resultsEl.appendChild(track.el);
-        await runTrack(track, { image_base64: base64, filename, mode: 'choice', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
+        await runTrack(track, { image_base64: base64, filename, mode: askMode, base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
       }
     } finally {
       overallTimer.stop();

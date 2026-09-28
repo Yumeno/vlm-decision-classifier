@@ -113,6 +113,68 @@ def _process_axis(
     }
 
 
+def _classify_bundled(taxonomy: Taxonomy, backend, image_bytes: bytes, mime: str, rank_threshold: float, on_progress):
+    """E7 束ね質問: リクエスト1回で全軸を判定し、choice と同じ形の結果・イベントにする。
+    on_progress は1リクエストの完了後に軸ごとのイベントをまとめて出す。"""
+    axis_decisions: dict = {}
+    vision_tags: dict[str, list[str]] = {}
+    errors: list[dict] = []
+    events: list[dict] = []
+    bundled_info: dict = {"raw_text": None, "positions": {}, "request_ms": None}
+
+    try:
+        res = decision.decide_bundled(backend, image_bytes, mime, taxonomy, rank_threshold)
+        axis_results = res["axes"]
+        bundled_info = {
+            "raw_text": res["raw_text"],
+            "positions": {aid: r["position"] for aid, r in axis_results.items() if r.get("error") is None},
+            "request_ms": res["elapsed_ms"],
+        }
+        request_error = None
+    except decision.DecisionError as e:
+        axis_results, request_error = {}, {"type": e.error_type, "detail": e.detail}
+    except decision.REQUEST_EXCEPTIONS as e:
+        axis_results, request_error = {}, {"type": "request_error", "detail": f"{type(e).__name__}: {e}"}
+
+    for axis in taxonomy.axes:
+        event: dict = {
+            "type": "axis", "axis_id": axis.id, "multi": axis.multi, "error": None, "bundled": True,
+            "elapsed_ms": bundled_info["request_ms"],
+        }
+        r = axis_results.get(axis.id)
+        err = request_error if request_error is not None else (r or {}).get("error")
+        if err is not None:
+            errors.append({"axis": axis.id, "type": err["type"], "detail": err["detail"]})
+            event["error"] = err
+        elif axis.multi:
+            axis_decisions[axis.id] = {
+                "relative_scores": r["relative_scores"],
+                "confirmations": {},
+                "confirmation_errors": {},
+                "candidates": r["candidates"],
+                "tags": r["tags"],
+                "failed": False,
+            }
+            vision_tags[axis.id] = r["tags"]
+            event.update(
+                {
+                    "relative_scores": r["relative_scores"], "candidates": r["candidates"],
+                    "confirmations": {}, "confirmation_errors": {}, "tags": r["tags"], "failed": False,
+                    "confirm": False, "rank_threshold": rank_threshold,
+                }
+            )
+        else:
+            axis_decisions[axis.id] = {"relative_scores": r["relative_scores"], "selected": r["selected"]}
+            vision_tags[axis.id] = [] if r["selected"] == decision.NONE_ID else [r["selected"]]
+            event.update({"relative_scores": r["relative_scores"], "selected": r["selected"]})
+        events.append(event)
+
+    if on_progress is not None:
+        for event in events:
+            on_progress(event)
+    return {"axis_decisions": axis_decisions, "vision_tags": vision_tags, "errors": errors, "bundled": bundled_info}
+
+
 def classify(
     image_path: str,
     taxonomy: Taxonomy,
@@ -127,7 +189,7 @@ def classify(
 ) -> dict:
     """`on_progress` はデモUIサーバー用の任意コールバック(既定Noneなら未使用・
     既存の挙動と戻り値は変わらない)。呼ばれる順序: メタデータイベント1回 →
-    (choiceモードのみ)軸ごとに1回。`axis_concurrency<=1` なら taxonomy.axes の順で逐次、
+    (choice/bundledモードのみ)軸ごとに1回(bundledは1リクエスト完了後にまとめて)。`axis_concurrency<=1` なら taxonomy.axes の順で逐次、
     2以上なら ThreadPoolExecutor で軸を並列実行する(on_progress は完了順に呼ばれうるが、
     戻り値の axis_decisions/vision_tags/errors/per_axis_timing は常に taxonomy.axes の順で
     組み立てるため、内容・順序は axis_concurrency の値によらず同じになる)。
@@ -141,6 +203,7 @@ def classify(
     axis_decisions: dict = {}
     vision_tags: dict[str, list[str]] = {}
     json_baseline_result = None
+    bundled_info = None
     per_axis_timing: dict[str, float] = {}
 
     image_bytes = mime = None
@@ -205,6 +268,14 @@ def classify(
                 errors.extend(outcome["errors"])
                 if outcome["elapsed_ms"] is not None:
                     per_axis_timing[axis_id] = outcome["elapsed_ms"]
+        elif mode == "bundled":
+            out = _classify_bundled(taxonomy, backend, image_bytes, mime, rank_threshold, on_progress)
+            axis_decisions = out["axis_decisions"]
+            vision_tags = out["vision_tags"]
+            errors.extend(out["errors"])
+            bundled_info = out["bundled"]
+            if bundled_info["request_ms"] is not None:
+                per_axis_timing["bundled_request_ms"] = bundled_info["request_ms"]
         elif mode == "json":
             json_baseline_result = json_baseline.classify_json(backend, image_bytes, mime, taxonomy)
             if json_baseline_result["tags"] is not None:
@@ -267,8 +338,10 @@ def classify(
         "request_count": request_count,
         "errors": errors,
     }
-    if mode == "choice":
+    if mode in ("choice", "bundled"):
         result["axis_decisions"] = axis_decisions
+        if mode == "bundled":
+            result["bundled"] = bundled_info
     else:
         result["json_baseline"] = json_baseline_result
     return result

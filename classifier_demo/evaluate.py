@@ -26,7 +26,16 @@ from .pipeline import _git_commit
 from .taxonomy import Taxonomy
 from .taxonomy import load as load_taxonomy
 
-VALID_MODES = {"choice", "json"}  # ペア比較(report.build_summary)は choice vs json の2方式のみを前提とする
+VALID_MODES = {"choice", "json", "bundled"}
+
+
+def case_mode_order(modes: list[str], i: int) -> list[str]:
+    """ケースiのモード実行順(順序効果の抑制)。2モードは交互(偶数=順、奇数=逆順)、
+    3モードは i%3 だけ回転する。"""
+    if len(modes) == 3:
+        k = i % 3
+        return list(modes[k:]) + list(modes[:k])
+    return list(modes) if i % 2 == 0 else list(reversed(modes))
 
 
 def validate_modes(modes: list[str]) -> None:
@@ -419,7 +428,7 @@ def run_evaluate(
         # prime はモードの交互順の前、ケースごとに1回(両モードとも画像キャッシュ済みの
         # 状態から比べるため)。classification_wall_ms には含めない(別記録)。
         prime_info = _run_prime(case, backend, max_edge, axis_concurrency if axis_concurrency >= 2 else 1, image_format) if prime else None
-        order = list(modes) if i % 2 == 0 else list(reversed(modes))
+        order = case_mode_order(modes, i)
         for order_index, mode in enumerate(order):
             result = _classify_safe(
                 case["image_path"], taxonomy, backend, mode, max_edge, axis_concurrency, confirm, rank_threshold, image_format

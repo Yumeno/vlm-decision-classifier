@@ -62,8 +62,8 @@ def _messages(image_bytes: bytes, mime: str, user_text: str) -> list[dict]:
     ]
 
 
-def extract_top_logprobs(response: dict) -> list[dict]:
-    """response から先頭トークンの top_logprobs を取り出す。
+def _logprob_content(response: dict) -> list[dict]:
+    """response から logprobs.content(出力トークンごとのエントリ)を取り出す。
     thinking で埋まった/logprobs が欠けたケースは DecisionError を送出する。
     """
     choices = response.get("choices") or []
@@ -81,8 +81,12 @@ def extract_top_logprobs(response: dict) -> list[dict]:
         if reasoning_content or reasoning_tokens:
             raise DecisionError("thinking_before_answer", "reasoning content/tokens present before answer")
         raise DecisionError("no_logprobs", "logprobs.content is empty")
+    return content
 
-    return content[0].get("top_logprobs") or []
+
+def extract_top_logprobs(response: dict) -> list[dict]:
+    """response から先頭トークンの top_logprobs を取り出す。"""
+    return _logprob_content(response)[0].get("top_logprobs") or []
 
 
 def pool_labels(top_logprobs: list[dict], labels: list[str]) -> dict[str, float]:
@@ -114,6 +118,9 @@ def pool_labels(top_logprobs: list[dict], labels: list[str]) -> dict[str, float]
     return {label: value / total for label, value in mass.items()}
 
 
+CHOICE_ANSWER_SUFFIX = "\n\nAnswer with the single letter only."
+
+
 def _build_choice_prompt(
     question: str,
     choices: list[Choice],
@@ -128,7 +135,7 @@ def _build_choice_prompt(
             lines.append(f"{none_label}. none of the above - {none_criteria}")
         else:
             lines.append(f"{none_label}. none of the above")
-    return f"{question}\n\n" + "\n".join(lines) + "\n\nAnswer with the single letter only."
+    return f"{question}\n\n" + "\n".join(lines) + CHOICE_ANSWER_SUFFIX
 
 
 def choose(
@@ -195,6 +202,24 @@ def decide_axis(backend, image_bytes: bytes, mime: str, axis: Axis) -> dict:
     }
 
 
+def _rank_threshold_candidates(axis: Axis, relative_scores: dict[str, float], rank_threshold: float) -> list[str]:
+    """確認オフ時の採用候補: 相対スコアが rank_threshold 以上の非 catch_all をスコア降順で。"""
+    return sorted(
+        (c.id for c in axis.choices if not c.catch_all and relative_scores[c.id] >= rank_threshold),
+        key=lambda cid: relative_scores[cid],
+        reverse=True,
+    )
+
+
+def _catch_all_fallback(axis: Axis, relative_scores: dict[str, float]) -> list[str]:
+    """タグが空のとき、__none__ を含む全体の argmax が catch_all の場合だけ catch_all を返す。
+    __none__ 自体が全体最高ならタグなし(空)のまま。"""
+    overall_top = max(relative_scores, key=relative_scores.get)
+    if overall_top in {c.id for c in axis.choices if c.catch_all}:
+        return [overall_top]
+    return []
+
+
 def decide_multi_axis(
     backend, image_bytes: bytes, mime: str, axis: Axis, confirm: bool, rank_threshold: float = 0.5
 ) -> dict:
@@ -248,11 +273,7 @@ def decide_multi_axis(
         # 未確認のまま catch_all へフォールバックしない(確認できなかったことを隠さない)。
         failed = bool(confirmation_errors)
     else:
-        candidates = sorted(
-            (cid for cid in candidate_ids if relative_scores[cid] >= rank_threshold),
-            key=lambda cid: relative_scores[cid],
-            reverse=True,
-        )
+        candidates = _rank_threshold_candidates(axis, relative_scores, rank_threshold)
         confirmations = {}
         confirmation_errors = {}
         total_elapsed_ms = ranking["elapsed_ms"]
@@ -260,11 +281,7 @@ def decide_multi_axis(
         failed = False
 
     if not tags and not failed:
-        # __none__ を含む全体の argmax が catch_all の場合だけ、catch_all をフォールバックにする。
-        # __none__ 自体が全体最高ならタグなしのままにする。
-        overall_top = max(relative_scores, key=relative_scores.get)
-        if overall_top in catch_all_ids:
-            tags = [overall_top]
+        tags = _catch_all_fallback(axis, relative_scores)
 
     return {
         "relative_scores": relative_scores,
@@ -275,3 +292,91 @@ def decide_multi_axis(
         "failed": failed,
         "elapsed_ms": total_elapsed_ms,
     }
+
+
+BUNDLED_INSTRUCTION = (
+    "Answer each question above with its letter, one letter per question, in the order of the questions, "
+    "separated by single spaces. Write nothing but the letters."
+)
+
+
+def _axis_labels(axis: Axis) -> list[str]:
+    return LABELS[: len(axis.choices) + (1 if axis.allow_none else 0)]
+
+
+def _build_bundled_prompt(axes: list[Axis]) -> str:
+    """全軸を番号付きで並べる。各軸の質問・選択肢の書式は _build_choice_prompt と同じ
+    (末尾の "Answer with the single letter only." だけ除き、束ね用の指示を最後に1回置く)。"""
+    blocks = []
+    for i, axis in enumerate(axes, start=1):
+        body = _build_choice_prompt(
+            axis.question, axis.choices, _axis_labels(axis), axis.allow_none, axis.none_criteria
+        )
+        body = body.removesuffix(CHOICE_ANSWER_SUFFIX)
+        blocks.append(f"Question {i}:\n" + body)
+    return "\n\n".join(blocks) + "\n\n" + BUNDLED_INSTRUCTION
+
+
+def _normalize_label_token(token: str, labels: list[str]) -> str:
+    """pool_labels と同じ照合規則(26以下は大文字小文字を区別しない)でトークンを正規化する。"""
+    letter = token.strip()
+    return letter.upper() if len(labels) <= CASE_INSENSITIVE_LABEL_LIMIT else letter
+
+
+def decide_bundled(backend, image_bytes: bytes, mime: str, taxonomy, rank_threshold: float = 0.5) -> dict:
+    """E7 束ね質問: 1リクエストで全軸を聞き、軸ごとに1トークンずつ答えさせる。
+    各出力位置の top_logprobs を、その軸の選択肢の相対スコアとして読む(確認オフのルール)。
+
+    ラベルが見つからなかった軸は error={"type": "bundled_format_error", ...} を持ち、
+    任意の選択肢に強制しない(見つかった軸は判定する)。thinking/logprobs欠損は DecisionError。
+    """
+    axes = taxonomy.axes
+    prompt = _build_bundled_prompt(axes)
+    messages = _messages(image_bytes, mime, prompt)
+    params = {**CHOOSE_PARAMS, "max_tokens": 2 * len(axes)}
+
+    response, elapsed_ms = backend.chat(messages, **params)
+    content = _logprob_content(response)
+    raw_text = "".join(entry.get("token", "") for entry in content)
+
+    # 出力を先頭から見て、その時点の軸のラベル集合に入るトークンを軸の順に1つずつ割り当てる。
+    positions: dict[str, int] = {}
+    k = 0
+    for pos, entry in enumerate(content):
+        if k >= len(axes):
+            break
+        labels = _axis_labels(axes[k])
+        if _normalize_label_token(entry.get("token", ""), labels) in labels:
+            positions[axes[k].id] = pos
+            k += 1
+
+    results: dict[str, dict] = {}
+    for axis in axes:
+        if axis.id not in positions:
+            results[axis.id] = {
+                "error": {
+                    "type": "bundled_format_error",
+                    "detail": f"no label token found for axis {axis.id!r}; output: {raw_text!r}",
+                }
+            }
+            continue
+        labels = _axis_labels(axis)
+        try:
+            scores_by_label = pool_labels(content[positions[axis.id]].get("top_logprobs") or [], labels)
+        except DecisionError as e:
+            results[axis.id] = {"error": {"type": e.error_type, "detail": e.detail}}
+            continue
+        id_by_label = {labels[i]: c.id for i, c in enumerate(axis.choices)}
+        if axis.allow_none:
+            id_by_label[labels[len(axis.choices)]] = NONE_ID
+        relative_scores = {id_by_label[lb]: sc for lb, sc in scores_by_label.items()}
+        entry = {"relative_scores": relative_scores, "position": positions[axis.id], "error": None}
+        if axis.multi:
+            candidates = _rank_threshold_candidates(axis, relative_scores, rank_threshold)
+            entry["candidates"] = candidates
+            entry["tags"] = list(candidates) or _catch_all_fallback(axis, relative_scores)
+        else:
+            entry["selected"] = max(relative_scores, key=relative_scores.get)
+        results[axis.id] = entry
+
+    return {"axes": results, "raw_text": raw_text, "elapsed_ms": elapsed_ms}

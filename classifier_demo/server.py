@@ -153,7 +153,7 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                 self._send_json(400, {"error": f"bad request: {type(e).__name__}: {e}"})
                 return
 
-            if mode not in ("choice", "json"):
+            if mode not in ("choice", "json", "bundled"):
                 self._send_json(400, {"error": f"unknown mode: {mode}"})
                 return
             if image_format not in ("jpeg", "png"):

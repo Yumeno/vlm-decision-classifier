@@ -12,6 +12,7 @@ micro/macro)を受ける。character 固有なのはメタデータ照合(LoRA�
 from __future__ import annotations
 
 import csv
+import itertools
 import math
 import re
 import statistics
@@ -688,29 +689,28 @@ def build_summary(
     if len(modes) >= 2:
         lines.append(f"## モード間のペア比較(元画像 N={n_source} 件。全ケース分母も併記)")
         lines.append("")
-        base, other = modes[0], modes[1]
+        for base, other in itertools.combinations(modes, 2):
+            base_by_case_src = {r["case"]["case_id"]: r for r in by_mode_source[base]}
+            other_by_case_src = {r["case"]["case_id"]: r for r in by_mode_source[other]}
+            cb_wins_src, co_wins_src, ab_wins_src, ao_wins_src, n_common_src = _pair_compare(
+                base_by_case_src, other_by_case_src, taxonomy
+            )
+            lines.append(f"### 元画像({base} vs {other}、N={n_common_src})")
+            lines.append("")
+            lines.append(f"- キャラ完全一致: {base}のみ正解 {cb_wins_src} 件 / {other}のみ正解 {co_wins_src} 件")
+            lines.append(f"- 全軸正解: {base}のみ正解 {ab_wins_src} 件 / {other}のみ正解 {ao_wins_src} 件")
+            lines.append("")
 
-        base_by_case_src = {r["case"]["case_id"]: r for r in by_mode_source[base]}
-        other_by_case_src = {r["case"]["case_id"]: r for r in by_mode_source[other]}
-        cb_wins_src, co_wins_src, ab_wins_src, ao_wins_src, n_common_src = _pair_compare(
-            base_by_case_src, other_by_case_src, taxonomy
-        )
-        lines.append(f"### 元画像({base} vs {other}、N={n_common_src})")
-        lines.append("")
-        lines.append(f"- キャラ完全一致: {base}のみ正解 {cb_wins_src} 件 / {other}のみ正解 {co_wins_src} 件")
-        lines.append(f"- 全軸正解: {base}のみ正解 {ab_wins_src} 件 / {other}のみ正解 {ao_wins_src} 件")
-        lines.append("")
-
-        base_by_case_all = {r["case"]["case_id"]: r for r in by_mode_all[base]}
-        other_by_case_all = {r["case"]["case_id"]: r for r in by_mode_all[other]}
-        cb_wins_all, co_wins_all, ab_wins_all, ao_wins_all, n_common_all = _pair_compare(
-            base_by_case_all, other_by_case_all, taxonomy
-        )
-        lines.append(f"### 全ケース({base} vs {other}、N={n_common_all})")
-        lines.append("")
-        lines.append(f"- キャラ完全一致: {base}のみ正解 {cb_wins_all} 件 / {other}のみ正解 {co_wins_all} 件")
-        lines.append(f"- 全軸正解: {base}のみ正解 {ab_wins_all} 件 / {other}のみ正解 {ao_wins_all} 件")
-        lines.append("")
+            base_by_case_all = {r["case"]["case_id"]: r for r in by_mode_all[base]}
+            other_by_case_all = {r["case"]["case_id"]: r for r in by_mode_all[other]}
+            cb_wins_all, co_wins_all, ab_wins_all, ao_wins_all, n_common_all = _pair_compare(
+                base_by_case_all, other_by_case_all, taxonomy
+            )
+            lines.append(f"### 全ケース({base} vs {other}、N={n_common_all})")
+            lines.append("")
+            lines.append(f"- キャラ完全一致: {base}のみ正解 {cb_wins_all} 件 / {other}のみ正解 {co_wins_all} 件")
+            lines.append(f"- 全軸正解: {base}のみ正解 {ab_wins_all} 件 / {other}のみ正解 {ao_wins_all} 件")
+            lines.append("")
 
     lines.append("## 注記")
     lines.append("")
