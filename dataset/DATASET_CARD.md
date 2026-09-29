@@ -52,4 +52,16 @@
 - Anima(Forge Neo / ComfyUI)の生成物: CircleStone Labs Non-Commercial License v1.2 §2.e により、生成物は用途を問わず利用できる(モデルと LoRA は非商用。どちらも同梱しない)。
 - Codex CLI の生成物: OpenAI の規約上、出力は利用者のもの。Antigravity CLI の生成物: Google の規約上、出力は利用者が利用できる(いずれも 2026-09-25 確認)。
 - N01・N02 は、作者の自作キャラクター Alisa の既存画像を参照画像として使った(参照画像はデータセットに含めない)。
-- Alisa は作者のオリジナルキャラクター。データセット画像の再配布条件は、リポジトリのライセンス確定時に明記する(未確定)。
+- Alisa は作者のオリジナルキャラクター。
+
+## ライセンス(画像)
+
+著作権者: 資材部の懲りない面々(公式: http://jmd.ickx.jp/fet 、2026-09-29 作者決定)
+
+| 対象 | ライセンス |
+|---|---|
+| 正解の character に Alisa を含む画像: A01〜A04、M01、M02、N01〜N03(元画像9枚)と派生 A01-strip〜A04-strip | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| それ以外の元画像22枚(第2のオリジナルキャラクターだけが写る画像、メタデータにだけ Alisa の記録がある C02 を含む) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+
+- 対象は `dataset/images/` の画像ファイル。manifest・正解ラベル・生成記録などのテキストの扱いは、コードのライセンス確定時に明記する(未確定)。
+- クレジット表記の例: 「画像: 資材部の懲りない面々 http://jmd.ickx.jp/fet (vlm-decision-classifier データセット、CC BY-NC-SA 4.0 / CC BY 4.0)」。

@@ -24,7 +24,7 @@
 
 **議論の大前提**: 既存のVLMをJevのように使うと、画像を扱うための処理（画像の最初の読み込み、リクエストごとの画像の送り直しとキャッシュからの復元）が必ず乗ります。テキストだけのJevほどは速くなりません（Jevは同じ環境で測っていないので、速度の比較ではなく構造の話です）。詳しくは [`doc/experiments/report.md`](doc/experiments/report.md) §1.1 を参照してください。
 
-**現状**: Phase 5（レポート・公開準備）まで進み、E1〜E5（Qwen/Gemma、通常JSONとの比較、llama.cpp画像キャッシュ改造の比較）、E9（ホットロード・確認のオン・オフ・軸の並列）、E7（束ね質問、送信画像の形式と長辺）、E7e（束ね質問の複数選択）の実験が済んでいます。実測結果は [`doc/experiments/report.md`](doc/experiments/report.md) にあります。
+**現状**: Phase 5（レポート・公開準備）まで進み、E1〜E5（Qwen/Gemma、通常JSONとの比較、llama.cpp画像キャッシュ改造の比較）、E9（ホットロード・確認のオン・オフ・軸の並列）、E7（束ね質問、送信画像の形式と長辺）、E7e（束ね質問の複数選択）の実験が済んでいます。その後、記事の本表として、1つのコミット・同じ条件で全条件を取り直し（最終の取り直し F1〜F3、各3回）、さらに小型モデル（Qwen3.5 4B/2B/0.8B、Gemma 4 E4B/E2B。S1〜S9）を比べました。実測結果は [`doc/experiments/report.md`](doc/experiments/report.md) にあります（本表は §1.2、E1〜E9・E7は経緯として §4）。
 
 何を実演するか:
 
@@ -160,7 +160,7 @@ LM Studio にモデルをロードした状態で、次の順に実行します�
 
 ## 6. おすすめの設定(速い構成)
 
-小標本での実測に基づく、速い構成です（Qwen3.5 9B、改造版 llama-server、RTX 3090。根拠は [`report.md`](doc/experiments/report.md) §4.6〜§4.10）。
+小標本での実測に基づく、速い構成です（Qwen3.5 9B、改造版 llama-server、RTX 3090。根拠は [`report.md`](doc/experiments/report.md) §1.2（最終の取り直し）と §4.6〜§4.10（経緯））。
 
 - **サーバー**: llama.cpp の画像キャッシュ改造版 llama-server（`doc/patches/llamacpp-mtmd-checkpoint.patch`、上流 `f95b0d9` に当てる1行）。ビルド手順は [`doc/experiments/phase4-runbook.md`](doc/experiments/phase4-runbook.md) §1。起動引数（`doc/experiments/runtime/qwen-llamaserver-patched.json` の記録）:
 
@@ -168,26 +168,27 @@ LM Studio にモデルをロードした状態で、次の順に実行します�
   llama-server -m Qwen3.5-9B-Q4_K_M.gguf --mmproj mmproj-Qwen3.5-9B-BF16.gguf --alias qwen3.5-9b -ngl 99 -c 8192 -np 4 --kv-unified -sm none -mg 0 --port 1235
   ```
 
-  `--alias` が `--model` に渡すモデルIDになります。`-sm none -mg 0` は1枚のGPUに載せる指定で、番号はCUDAの並び順です（§11）。改造版でなくても動きますが、選択式（1軸ずつ）は遅くなります（未改造版8.7秒 → 改造版3.1秒、E3/E4。判定は変わらない）。
+  `--alias` が `--model` に渡すモデルIDになります。`-sm none -mg 0` は1枚のGPUに載せる指定で、番号はCUDAの並び順です（§11）。改造版でなくても動きますが、選択式（1軸ずつ）は遅くなります（最終の取り直しで、未改造版5.40秒 → 改造版1.51秒（F2/F1、長辺1024）。判定は変わらない）。
 - **質問方式**: `--modes bundled`（全軸を1リクエストで答えさせる束ね質問）。方式を比べるなら `--modes choice,json,bundled`（ケースごとに実行順を回転します）。
 - **`--prime`**: 各画像で判定の前に画像だけの準備リクエストを1回送り、画像をサーバーのキャッシュに載せます。準備の時間は `prime_ms` として、判定時間（`classification_wall_ms`）とは別に記録されます。
-- **送信画像**: JPEG（quality 90、長辺1024）が既定です。長辺は `--max-edge 768` で下げられます（画像の読み込みが0.80秒 → 0.55秒）。
+- **送信画像**: JPEG（quality 90、長辺1024）が既定です。長辺は `--max-edge 768` で下げられます（画像の読み込みが0.85秒 → 0.58秒。F1）。
 - **複数選択の軸（服装・キャラ）**: 順位付けの相対スコアは候補どうしで合計1を取り合うので、2つ以上写る画像を取りこぼします。拾いたいときは `--bundled-multi yn`（束ね質問の中で候補ごとのY/N欄にします）。
 
 ```powershell
 .venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model qwen3.5-9b --modes choice,json,bundled --prime --bundled-multi yn --output-dir results\fast
 ```
 
-実測の目安（E7c・E7e。Qwen3.5 9B、改造版llama-server、JPEG 1024、元画像31件の平均。画像は読み込み済みの状態での判定時間。各条件1回の測定）:
+実測の目安（最終の取り直し F1。Qwen3.5 9B Q4_K_M、改造版llama-server、JPEG 1024、元画像31件、3回の平均。画像は読み込み済みの状態での判定時間）:
 
 | 方式 | 判定時間 | 備考 |
 |---|---:|---|
-| 束ね質問（順位付け、`--bundled-multi rank`） | 0.80秒 | リクエスト1回。E7c |
-| 束ね質問（Y/N欄、`--bundled-multi yn`） | 1.36秒 | リクエスト1回。E7e |
-| 通常JSON | 1.60秒 | 平均約55トークンの生成時間が大半。E7e |
-| 1軸ずつ（確認オフ） | 1.36秒 | リクエスト7回。E7e |
+| 束ね質問（順位付け、`--bundled-multi rank`） | 0.88秒 | リクエスト1回 |
+| 束ね質問（Y/N欄、`--bundled-multi yn`） | 1.39秒 | リクエスト1回。キャラは31/31 |
+| 1軸ずつ（確認オフ） | 1.51秒 | リクエスト7回 |
+| 通常JSON | 1.68秒 | 平均約55トークンの生成時間が大半 |
 
-画像を最初に読み込む費用（準備）は別に0.80秒（長辺1024）です。小標本の1回ずつの測定なので、差は目安として読んでください。
+画像を最初に読み込む費用（準備）は別に0.85秒（長辺1024）です。判定は3回の繰り返しで1件も変わりませんでした。
+**小型モデル**（Qwen3.5 4B/2B/0.8B、Gemma 4 E4B/E2B）では、1軸ずつの選択式が頑健でした（0.8Bでも単一選択5軸の平均85〜87%）。束ね質問はモデルが回答の形式を守れるかに左右され、小さいほど形式不正が増えます（Qwen 4Bは全件が形式不正）。小型で速さを取るなら、まず1軸ずつです（詳細は §12、report §1.3）。
 
 ## 7. オプション一覧
 
@@ -331,6 +332,8 @@ LM Studio にモデルをロードした状態で、次の順に実行します�
 | E5 | 同じ画像で質問だけ変える／画像切替A→B→Aの小ベンチマーク | 下記 | `E5_qwen-llamaserver/`（`vanilla.json`/`patched.json`） |
 | E9a〜E9e | ホットロード、確認のオン・オフ、軸の並列（改造版llama-server） | 下記 | `E9a_…`〜`E9e_…` |
 | E7a〜E7e | 束ね質問、送信画像の形式・長辺、束ね質問の複数選択（Y/N欄） | 下記 | `E7a_…`〜`E7e_…` |
+| F1〜F3（最終の取り直し） | 記事の本表。Qwen改造・Qwen未改造・Gemma改造 × 長辺1024/768 × 回a/b × 3回（36回） | [`final-runbook.md`](doc/experiments/final-runbook.md)、`scripts/run_final_matrix.sh` | `final/` |
+| S1〜S9（小型モデル） | 小型モデル9種の比較（F1〜F3と同じ手順、繰り返し1回） | `scripts/run_small_matrix.sh` | `small/` |
 
 ### E1 / E1-J / E2 / E2-J（Phase 3。LM Studio）
 
@@ -395,6 +398,32 @@ Gemmaは `--model gemma-4-12b-it --runtime-info doc\experiments\runtime\gemma-lm
 | E7a（記号のみ・空白区切り、PNG1024） | コミット `cc427e6` をチェックアウトして実行 | 束ね質問の回答形式を、のちに番号付きへ変えた（形式のずれが起きたため）ので、現在のコードでは再現できない。結果は比較には使っていない（report §4.7） |
 
 測定時のコミット・時刻・条件は、各フォルダの `run.json`（`tool_commit`、`started`、`note` など）と [`report.md`](doc/experiments/report.md) §2、[`doc/worklog.md`](doc/worklog.md) にあります。
+
+### F1〜F3（最終の取り直し）
+
+記事の本表です。手順の詳細は [`final-runbook.md`](doc/experiments/final-runbook.md)。3条件（F1 Qwen改造、F2 Qwen未改造、F3 Gemma改造）× 長辺2 × 回2 × 繰り返し3 = 36回を、繰り返しを一番外側にして回します（回ごとにサーバーを再起動）。llama.cppの `vanilla/`（未改造）と `patched/`（改造）をビルドして置いたフォルダ、Qwen・GemmaのGGUFフォルダを環境変数で渡します。Windows の Git Bash で、リポジトリのルートから:
+
+```bash
+LLAMACPP_DIR=<llama.cpp の置き場所> QWEN_DIR=<Qwen の GGUF のフォルダ> GEMMA_DIR=<Gemma の GGUF のフォルダ> bash scripts/run_final_matrix.sh
+```
+
+集計（各回の `results/final/<回>/` の `cases.csv`・`run.json` から、時間の平均±標準偏差・精度・失敗・繰り返しの揺れを出す）:
+
+```powershell
+.venv\Scripts\python.exe scripts\aggregate_final.py --input results\final --output doc\experiments\final
+```
+
+出力は `doc/experiments/final/summary.md` と `runs/`（各回の生データ）、`progress.log`。実行環境は `doc/experiments/runtime/final-*.json`（`--runtime-info` に渡したもの）です。
+
+### S1〜S9（小型モデル）
+
+F1〜F3と同じ手順（改造版llama-server、JPEG・長辺1024、`--prime`、回a/b）を、繰り返し1回で、小型モデル9種について回します。モデルは `lmstudio-community` のGGUF（Q4_K_M / Q8_0）とmmproj BF16で、フォルダ構成はスクリプト内の一覧（`LIST`）を参照してください。
+
+```bash
+LLAMACPP_DIR=<llama.cpp の置き場所> LMSC_DIR=<lmstudio-community のモデルフォルダ> bash scripts/run_small_matrix.sh
+```
+
+出力は `doc/experiments/small/summary.md`（表）と `runs/`。実行環境は `doc/experiments/runtime/small-S*.json`。
 
 ### 実験の比較条件
 
@@ -476,7 +505,23 @@ axes:
 
 元画像31件の小標本です。数値は方式の挙動を見るための材料で、1〜2件の差は誤差の範囲です。一次資料は [`doc/experiments/report.md`](doc/experiments/report.md) と各フォルダの `summary.md`・`run.json` です。
 
-**精度**（E1b/E2b。taxonomy 0.4.1、確認オン・PNG1024、選択式 / 通常JSON、%。服装・キャラは完全一致）:
+**最終の取り直し（F1〜F3。本表）**: 記事の本表として、1つのコミット（`21589dd`）・同じ条件で取り直しました（Qwen3.5 9B 改造版・未改造版、Gemma 4 12B 改造版。長辺1024と768、各3回）。**判定は3回の繰り返しで1件も変わりませんでした**（揺れ 0/217、全30単位）。失敗は、1軸ずつ・束ね質問で0件、通常JSONの形式不正がQwenで各回1件・Gemmaで各回2件でした。
+
+判定時間（Qwen3.5 9B・改造版・長辺1024、画像読み込み済み、3回の平均±標準偏差）と精度（元画像31件、%。服装・キャラは完全一致）:
+
+| 方式 | 判定時間 | リクエスト数 | image_type | art_style | color | subject | situation | outfit | character |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 束ね質問（順位付け） | 878±9 ms | 1.00 | 93.5 | 90.3 | 100.0 | 96.8 | 90.3 | 93.5 | 87.1 |
+| 束ね質問（Y/N欄） | 1390±3 ms | 1.00 | 96.8 | 87.1 | 100.0 | 96.8 | 90.3 | 83.9 | 100.0 |
+| 1軸ずつ（確認オフ） | 1512±7 ms | 7.00 | 93.5 | 77.4 | 100.0 | 96.8 | 83.9 | 90.3 | 90.3 |
+| 1軸ずつ（確認オン） | 2341±15 ms | 11.29 | 93.5 | 77.4 | 100.0 | 96.8 | 83.9 | 77.4 | 93.5 |
+| 通常JSON | 1680±7 ms | 1.06 | 96.8 | 77.4 | 93.5 | 93.5 | 83.9 | 90.3 | 87.1 |
+
+別条件の判定時間（長辺1024。束ね rank / 束ね Y/N / 1軸ずつ 確認オフ / 確認オン / JSON、ms）: F2 Qwen未改造 1466 / 1979 / 5395 / 8633 / 1671、F3 Gemma改造 1526 / 2091 / 3082 / 4163 / 2113。長辺768、Gemmaの精度、他の全条件は [`report.md`](doc/experiments/report.md) §1.2 と [`doc/experiments/final/summary.md`](doc/experiments/final/summary.md)。
+
+**小型モデル（S1〜S9。繰り返し1回）**: 1軸ずつの選択式は小さくしても単一選択の精度がほとんど落ちません（0.8Bでも平均85〜87%）。通常JSONは小型ほど形式不正が増えて崩れます（Qwen 2B Q4で9件）。束ね質問は、モデルが回答の形式を守れるかに成否が依存し、Qwen 4Bは全件が形式不正でした（中身は1軸ずつとほぼ同じ答え）。Y/N欄（16欄）は小型でほぼ崩れます。境目ははっきりせず、1回の測定です（[`report.md`](doc/experiments/report.md) §1.3）。
+
+**旧・経緯の数値（E1b/E2b。taxonomy 0.4.1、確認オン・PNG1024、選択式 / 通常JSON、%。服装・キャラは完全一致）**:
 
 | 軸 | Qwen3.5 9B | Gemma 4 12B |
 |---|---|---|
@@ -488,16 +533,18 @@ axes:
 | outfit | 74.2 / 90.3 | 71.0 / 83.9 |
 | character | 93.5 / 87.1 | 93.5 / 93.5 |
 
-**処理時間**（Qwen、選択式1画像あたり。E4以外はPNG1024、確認オン）: LM Studio 9.3秒（E1b）→ llama-server 未改造 8.7秒（E3）→ 改造 3.1秒（E4）。判定はE3とE4で全件一致。通常JSONは約2秒（E1b: 1.96秒）。
-
-**方式ごとの速度**（E7c/E7e、改造版、JPEG1024、画像読み込み済みの判定時間）: 束ね質問 0.80秒、束ね質問のY/N欄 1.36秒、1軸ずつ（確認オフ）1.36秒、通常JSON 1.60秒（§6の表）。束ね質問は通常JSONの約2倍速。
+E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はPNG1024、確認オン）: LM Studio 9.3秒（E1b）→ llama-server 未改造 8.7秒（E3）→ 改造 3.1秒（E4）。判定はE3とE4で全件一致。
 
 **主な観察**:
-- 単一選択の軸では、選択式は通常JSONと同等以上でした。characterは taxonomy 0.4.1 の `none` の説明文で、選択式が両モデルとも93.5%に上がりました（選択肢の文言設計の影響であり、方式の限界ではない）。
-- outfit は、選択式で `school_uniform` の誤検出が残ります（確認オンの段階で近い候補にも「はい」が付きやすい）。確認オフ（E9c）では90.3%、ただしキャラは複数写る画像を取りこぼします。
-- 束ね質問のY/N欄（E7e）はキャラ31/31で、2人写る画像も拾えました。服装は87.1%（27/31）。
+- 束ね質問（順位付け）は0.88秒で、通常JSON（1.68秒）の約半分。未改造サーバー（F2）でも束ね質問はJSONより速い（1.47秒 vs 1.67秒）が、1軸ずつは未改造だと5.40秒と遅い（改造版1.51秒）。
+- 1軸ずつ（確認オフ）はJSONと同程度の時間（1.51秒 vs 1.68秒）。1リクエストは速くても回数が積み重なる。
+- 束ね質問のY/N欄は、キャラが全条件（F1〜F3、長辺1024・768）で31/31。服装は83.9〜93.5%。
+- Gemmaは1リクエストの固定費がQwenより大きく（約350ms vs 約130ms、サーバーログ。SWAの復元とみられるが未検証）、1軸ずつがQwenより遅い（3.08秒 vs 1.51秒）。キャッシュ復元の重さはモデルの構造に依存します。
+- 長辺768は、画像の読み込みとJSONを速くします（F1: 準備848→581ms、JSON 1680→1391ms）。束ね質問はほぼ変わらず、精度は多くの軸で同じでした。
+- 単一選択の軸では、選択式は通常JSONと同等以上でした。characterは taxonomy 0.4.1 の `none` の説明文で、選択式が両モデルとも93.5%に上がりました（E1b/E2b。選択肢の文言設計の影響であり、方式の限界ではない）。
+- outfit は、確認オン（1軸ずつ）で `school_uniform` の誤検出が残ります（近い候補にも「はい」が付きやすい）。確認オフでは90.3%（F1）、ただし複数写る画像のキャラは順位付けだと取りこぼします。
 - 軸の並列送信は、この組み合わせでは得になりませんでした（E9b/b2/e）。
-- 同じ判定ロジックでも、キャッシュの使われ方で際どいケースの予測が揺れました（report §4.9）。
+- 同じ回の中でのキャッシュの使われ方（準備の有無・並列）で、際どいケースの予測が揺れました（report §4.9）。サーバーを再起動して同じ条件で測れば、判定は完全に再現します（F1〜F3）。
 - メタデータの読み取りは全35ケースで正解（LoRA名・トリガーワード・形式）。メタデータ除去コピーでも画素からのキャラ判定は変わりませんでした。
 
 **既知の失敗**:
@@ -506,7 +553,7 @@ axes:
 - 通常JSON方式では、単一選択の軸をリストで返す形式不正が起こることがある。
 - E2（Gemma）で、LM Studioサーバー側のChannel Errorによりyes/no確認が2件失敗した（失敗として分母に残した。E2bでは再発せず）。
 
-詳細は [`doc/experiments/report.md`](doc/experiments/report.md) §4〜§6 を参照。
+詳細は [`doc/experiments/report.md`](doc/experiments/report.md) §1.2〜§1.3（本表・小型モデル）、§4〜§6（経緯・限界）を参照。
 
 ## 13. リポジトリの構成とリンク
 
@@ -521,11 +568,14 @@ axes:
 | `doc/dataset-plan.md` | 正解付与規則、31枠の生成計画表、manifest仕様、検収と正解付与の経緯 |
 | `doc/worklog.md` | 作業記録（新しい順） |
 | `doc/experiments/` | 実験レポート(`report.md`)、実験ごとの`run.json`/`cases.csv`/`summary.md`、実行手順書(`phase3-runbook.md`/`phase4-runbook.md`)、実行環境記録(`runtime/`) |
+| `doc/experiments/final/` | 最終の取り直し(F1〜F3)の集計(`summary.md`)、各回の生データ(`runs/`)、`progress.log` |
+| `doc/experiments/small/` | 小型モデルの比較(S1〜S9)の表(`summary.md`)、各回の生データ(`runs/`)、`progress.log`、probeログ |
+| `doc/experiments/final-runbook.md` | 最終の取り直しの手順書(条件・回・実行と集計) |
 | `doc/patches/` | llama.cpp画像キャッシュ改造の固定差分(`llamacpp-mtmd-checkpoint.patch`、上流 `f95b0d9` に当てる1行) |
 | `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、束ね質問、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`/`serve`）、デモUIサーバー（`server.py`、静的ファイルは`web/index.html`） |
 | `taxonomy/default.yaml` | 分類体系 0.4.1（7軸）と自作キャラの定義 |
 | `dataset/` | 評価用データセット v1.0.0(`images/` 35ケース、`manifest.jsonl`、`DATASET_CARD.md`、正解の一次記録 `labels/`、生成記録 `generation/`) |
-| `scripts/` | データセットの生成（`generate_forge.py`/`generate_comfy.py`）、メタデータ除去、データセット組み立て（`build_dataset.py`）、`benchmark_cache.py`（E5） |
+| `scripts/` | データセットの生成（`generate_forge.py`/`generate_comfy.py`）、メタデータ除去、データセット組み立て（`build_dataset.py`）、`benchmark_cache.py`（E5）、`run_final_matrix.sh`（最終の取り直しF1〜F3の実行ループ）、`aggregate_final.py`（F1〜F3の集計）、`run_small_matrix.sh`（小型モデルS1〜S9の実行ループ） |
 | `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・束ね質問・pipeline・評価器・サーバー・生成スクリプト） |
 
 ### データセット
@@ -550,6 +600,7 @@ Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードす�
 4. メタデータ抽出、分類体系、選択式判定、通常JSON分類、共通の評価器を実装。
 5. 固定データセットで全方式を評価し、Qwenのllama.cpp改造比較を実施（E1〜E5）。
 6. ホットロード・確認のオン・オフ・軸の並列（E9）、束ね質問と送信画像（E7）、束ね質問の複数選択（E7e）を追加。デモUIを作成。
+7. 記事の本表として、最終の取り直し（F1〜F3、36回）と小型モデルの比較（S1〜S9）を実施。
 
 詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)・E8(メタデータ補助の対照実験)は初版MVPの完了条件外の追加課題です(E7 束ね質問は2026-09-29 作者判断で初版に含める)(`AGENTS.md`参照)。
 
