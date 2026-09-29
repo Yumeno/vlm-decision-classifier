@@ -3,8 +3,12 @@
 REPO=${REPO:-$(pwd)}
 LB=${LLAMACPP_DIR:?}
 MD=${LMSC_DIR:?lmstudio-community のモデルフォルダ}
-OUT=$REPO/results/small
+OUT=${OUT:-$REPO/results/small}
+# 再測定用(既定は従来どおり)。例: PRIME=0 OUT=results/small_reprime
+PRIME=${PRIME:-1}  # 0 なら --prime を付けない
+PRIME_FLAG=""; [ "$PRIME" = 1 ] && PRIME_FLAG="--prime"
 mkdir -p $OUT; LOG=$OUT/progress.log; cd $REPO
+echo "$(date -u +%FT%TZ) START PRIME=$PRIME" >> $LOG
 stop_server() { P=$(netstat -ano | grep ':1235 ' | grep LISTENING | awk '{print $5}' | head -1); [ -n "$P" ] && taskkill //F //PID $P > /dev/null 2>&1; sleep 4; }
 start_server() { # repo file mmproj alias name
   ($LB/patched/build/bin/Release/llama-server.exe -m $MD/$1/$2 --mmproj $MD/$1/$3 --alias $4 -ngl 99 -c 8192 -np 4 --kv-unified -sm none -mg 0 --port 1235 > $OUT/server_$5.log 2>&1 &)
@@ -24,7 +28,7 @@ while read sid alias repo f mp; do
       echo "$(date -u +%FT%TZ) probe $sid: $(grep -E 'logprobs present|thinking detected' $OUT/${sid}_probe.log | tr '\n' ' ')" >> $LOG
       VA="--modes choice,json,bundled --rank-threshold 0.5 --bundled-multi rank"
     else VA="--modes choice,bundled --confirm --bundled-multi yn"; fi
-    .venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model $alias $VA --warmup 1 --prime --axis-concurrency 1 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/small-$sid.json --runtime-label $name --note "small-model comparison $name" --output-dir $OUT/$name > $OUT/$name.stdout.log 2>&1
+    .venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model $alias $VA --warmup 1 $PRIME_FLAG --axis-concurrency 1 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/small-$sid.json --runtime-label $name --note "small-model comparison $name" --output-dir $OUT/$name > $OUT/$name.stdout.log 2>&1
     echo "$(date -u +%FT%TZ) done $name exit=$?" >> $LOG
   done
 done <<'LIST'
