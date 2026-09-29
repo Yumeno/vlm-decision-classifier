@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import json
 import math
+import re
 import urllib.error
 
 from .taxonomy import Axis, Choice
@@ -295,8 +296,9 @@ def decide_multi_axis(
 
 
 BUNDLED_INSTRUCTION = (
-    "Answer each question above with its letter, one letter per question, in the order of the questions, "
-    "separated by single spaces. Write nothing but the letters."
+    "Answer each question above on its own line, one line per question, in the order of the questions. "
+    "Write each line as the question number, a colon, a single space, and the answer letter "
+    "(format: \"<question number>: <letter>\"). Write nothing else."
 )
 
 
@@ -333,22 +335,25 @@ def decide_bundled(backend, image_bytes: bytes, mime: str, taxonomy, rank_thresh
     axes = taxonomy.axes
     prompt = _build_bundled_prompt(axes)
     messages = _messages(image_bytes, mime, prompt)
-    params = {**CHOOSE_PARAMS, "max_tokens": 2 * len(axes)}
+    params = {**CHOOSE_PARAMS, "max_tokens": 5 * len(axes)}
 
     response, elapsed_ms = backend.chat(messages, **params)
     content = _logprob_content(response)
     raw_text = "".join(entry.get("token", "") for entry in content)
 
-    # 出力を先頭から見て、その時点の軸のラベル集合に入るトークンを軸の順に1つずつ割り当てる。
+    # 出力を先頭から連結しながら見て、ラベルのトークンで、直前までの連結テキストが
+    # "<k>:"(末尾の空白は無視)で終わるものを軸 k(1始まり)の答えとする。同じ k は最初のものを採用。
     positions: dict[str, int] = {}
-    k = 0
+    prefix = ""
     for pos, entry in enumerate(content):
-        if k >= len(axes):
-            break
-        labels = _axis_labels(axes[k])
-        if _normalize_label_token(entry.get("token", ""), labels) in labels:
-            positions[axes[k].id] = pos
-            k += 1
+        token = entry.get("token", "")
+        m = re.search(r"(\d+):$", prefix.rstrip())
+        if m and 1 <= int(m.group(1)) <= len(axes):
+            axis = axes[int(m.group(1)) - 1]
+            labels = _axis_labels(axis)
+            if axis.id not in positions and _normalize_label_token(token, labels) in labels:
+                positions[axis.id] = pos
+        prefix += token
 
     results: dict[str, dict] = {}
     for axis in axes:
