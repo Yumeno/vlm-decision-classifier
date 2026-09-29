@@ -295,14 +295,7 @@ def decide_multi_axis(
     }
 
 
-BUNDLED_INSTRUCTION = (
-    "Answer each question above on its own line, one line per question, in the order of the questions. "
-    "Write each line as the question number, a colon, a single space, and the answer letter "
-    "(format: \"<question number>: <letter>\"). Write nothing else."
-)
-
-
-BUNDLED_YN_INSTRUCTION = (
+BUNDLED_TEMPLATE_INSTRUCTION = (
     "Answer with exactly the following lines, in this order, "
     "replacing each ? with the letter of your answer. Write nothing else."
 )
@@ -338,11 +331,9 @@ def _build_bundled_prompt(axes: list[Axis], multi_mode: str = "rank") -> str:
         body = body.removesuffix(CHOICE_ANSWER_SUFFIX)
         keys.append(str(i))
         blocks.append(f"Question {i}:\n" + body)
-    if multi_mode == "yn":
-        # 欄が多く番号に小文字が混ざるので、回答の雛形を明示する
-        instruction = BUNDLED_YN_INSTRUCTION + "\n" + "\n".join(f"{k}: ?" for k in keys)
-    else:
-        instruction = BUNDLED_INSTRUCTION
+    # 欄が多く「A: A」「Question 1: A」等の崩れが出たため、yn・rank とも回答の雛形を明示する
+    # (E7a〜E7d の rank は雛形なしの指示文だった。git 履歴を参照)
+    instruction = BUNDLED_TEMPLATE_INSTRUCTION + "\n" + "\n".join(f"{k}: ?" for k in keys)
     return "\n\n".join(blocks) + "\n\n" + instruction
 
 
