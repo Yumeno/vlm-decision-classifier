@@ -248,6 +248,7 @@ def _classify_safe(
     confirm: bool = False,
     rank_threshold: float = 0.5,
     image_format: str = "jpeg",
+    bundled_multi: str = "rank",
 ) -> dict:
     """pipeline.classify を呼ぶ。1ケースの予期しない例外で全体を止めないための保険。
 
@@ -266,6 +267,7 @@ def _classify_safe(
             confirm=confirm,
             rank_threshold=rank_threshold,
             image_format=image_format,
+            bundled_multi=bundled_multi,
         )
     except Exception as e:
         elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000
@@ -361,6 +363,7 @@ def run_evaluate(
     confirm: bool = False,
     rank_threshold: float = 0.5,
     image_format: str = "jpeg",
+    bundled_multi: str = "rank",
 ) -> int:
     try:
         validate_modes(modes)
@@ -431,7 +434,8 @@ def run_evaluate(
         order = case_mode_order(modes, i)
         for order_index, mode in enumerate(order):
             result = _classify_safe(
-                case["image_path"], taxonomy, backend, mode, max_edge, axis_concurrency, confirm, rank_threshold, image_format
+                case["image_path"], taxonomy, backend, mode, max_edge, axis_concurrency, confirm, rank_threshold, image_format,
+                bundled_multi,
             )
             if prime_info is not None:
                 result["prime_ms"] = prime_info["elapsed_ms"]
@@ -463,6 +467,7 @@ def run_evaluate(
         "axis_concurrency": axis_concurrency,
         "confirm": confirm,
         "rank_threshold": rank_threshold,
+        "bundled_multi": bundled_multi,
         "runtime_label": runtime_label,
         "runtime_info": runtime_info,
         "runtime_info_file": runtime_info_file,
@@ -486,7 +491,7 @@ def run_evaluate(
     report.write_cases_csv(os.path.join(output_dir, "cases.csv"), csv_rows, taxonomy)
 
     summary_text = report.build_summary(
-        evaluated_cases, records, modes, taxonomy, confirm, rank_threshold, max_edge, image_format
+        evaluated_cases, records, modes, taxonomy, confirm, rank_threshold, max_edge, image_format, bundled_multi
     )
     with open(os.path.join(output_dir, "summary.md"), "w", encoding="utf-8") as f:
         f.write(summary_text)

@@ -188,3 +188,111 @@ def test_three_mode_order_rotates_and_two_mode_alternates():
     assert evaluate.case_mode_order(["choice", "json"], 0) == ["choice", "json"]
     assert evaluate.case_mode_order(["choice", "json"], 1) == ["json", "choice"]
     evaluate.validate_modes(modes)
+
+
+# ---- E7e: 複数選択軸を候補ごとの Y/N 欄にする(multi_mode="yn") ----
+
+
+def _yn(k, letter_probs: dict[str, float]) -> list[dict]:
+    """サブ質問 "<k>: <記号>\n"。k は "3a" のような文字列。"""
+    return _ans(k, "A", letter_probs)
+
+
+def test_yn_prompt_lists_sub_questions_for_multi_axis_only():
+    prompt = decision._build_bundled_prompt(_tax().axes, "yn")
+    assert "Question 1:\nqa\n" in prompt and "Question 2:\nqb\n" in prompt  # 単一選択は従来どおり
+    for key, name, crit in (("3a", "M", "cm"), ("3b", "N", "cn"), ("3c", "rest", "cr")):  # catch_all も含む
+        assert f"Question {key}:\nIs {name} ({crit}) present in the image?\n\nA. yes\nB. no" in prompt
+    assert "Question 3:" not in prompt and "qc" not in prompt
+    assert prompt.endswith(decision.BUNDLED_INSTRUCTION)
+    # rank は従来どおり(サブ質問なし)
+    assert "3a" not in decision._build_bundled_prompt(_tax().axes, "rank")
+
+
+def test_yn_reads_p_yes_and_adopts_multiple():
+    entries = (
+        _ans(1, "A", {"A": 0.8, "B": 0.2})
+        + _ans(2, "B", {"A": 0.3, "B": 0.7})
+        + _yn("3a", {"A": 0.99, "B": 0.01})
+        + _yn("3b", {" A": 0.6, "B": 0.4})  # 空白付きラベルも合算
+        + _yn("3c", {"A": 0.1, "B": 0.9})
+    )
+    backend = FakeBackend([_resp(entries)])
+    res = decision.decide_bundled(backend, b"i", "image/png", _tax(), multi_mode="yn")
+    assert backend.request_count == 1
+    a3 = res["axes"]["a3"]
+    assert a3["error"] is None
+    assert math.isclose(a3["confirmations"]["m"], 0.99)
+    assert math.isclose(a3["confirmations"]["n"], 0.6)
+    assert math.isclose(a3["confirmations"]["rest"], 0.1)
+    assert a3["tags"] == ["m", "n"]  # 2つ同時に採用(P(yes)降順)
+    assert a3["candidates"] == ["m", "n", "rest"]
+    assert res["axes"]["a1"]["selected"] == "x" and res["axes"]["a2"]["selected"] == "q"
+
+
+def test_yn_catch_all_adopted_as_normal_candidate_and_empty_when_none():
+    entries = (
+        _ans(1, "A", {"A": 1.0}) + _ans(2, "A", {"A": 1.0})
+        + _yn("3a", {"A": 0.2, "B": 0.8}) + _yn("3b", {"A": 0.2, "B": 0.8}) + _yn("3c", {"A": 0.7, "B": 0.3})
+    )
+    res = decision.decide_bundled(FakeBackend([_resp(entries)]), b"i", "image/png", _tax(), multi_mode="yn")
+    assert res["axes"]["a3"]["tags"] == ["rest"]
+    entries[-5:] = _yn("3c", {"A": 0.3, "B": 0.7})
+    res = decision.decide_bundled(FakeBackend([_resp(entries)]), b"i", "image/png", _tax(), multi_mode="yn")
+    assert res["axes"]["a3"]["tags"] == []  # 全部 no なら空(catch_all へのフォールバックもしない)
+
+
+def test_yn_missing_sub_question_is_axis_format_error():
+    entries = (
+        _ans(1, "A", {"A": 1.0}) + _ans(2, "A", {"A": 1.0})
+        + _yn("3a", {"A": 0.9, "B": 0.1}) + _yn("3c", {"A": 0.9, "B": 0.1})  # 3b が抜けた
+    )
+    res = decision.decide_bundled(FakeBackend([_resp(entries)]), b"i", "image/png", _tax(), multi_mode="yn")
+    err = res["axes"]["a3"]["error"]
+    assert err["type"] == "bundled_format_error" and "3b=n" in err["detail"]
+    assert res["axes"]["a1"]["error"] is None  # 他の軸には影響しない
+
+
+def test_yn_max_tokens_scales_with_fields():
+    entries = _ans(1, "A", {"A": 1.0})
+    class Recording(FakeBackend):
+        max_tokens: list = []
+
+        def chat(self, messages, **params):
+            self.max_tokens.append(params["max_tokens"])
+            return super().chat(messages, **params)
+
+    backend = Recording([_resp(entries), _resp(entries)])
+    backend.max_tokens = []
+    decision.decide_bundled(backend, b"i", "image/png", _tax(), multi_mode="yn")
+    decision.decide_bundled(backend, b"i", "image/png", _tax(), multi_mode="rank")
+    assert backend.max_tokens == [5 * (1 + 1 + 3), 5 * 3]
+
+
+def test_rank_is_default_and_unchanged_by_sub_numbers():
+    # rank では "3a:" のような番号は無視され、従来どおり "3:" だけが軸3の答え
+    entries = _ans(1, "A", {"A": 1.0}) + _ans(2, "A", {"A": 1.0}) + _yn("3a", {"A": 1.0}) + _ans(3, "A", {"A": 0.9, "B": 0.1})
+    res = decision.decide_bundled(FakeBackend([_resp(entries)]), b"i", "image/png", _tax(), 0.5)
+    assert res["axes"]["a3"]["position"] == 18 and res["axes"]["a3"]["tags"] == ["m"]
+
+
+def test_pipeline_bundled_yn_records_confirmations_and_setting(tmp_path):
+    from PIL import Image
+
+    img = tmp_path / "i.png"
+    Image.new("RGB", (16, 16), (1, 2, 3)).save(img)
+    entries = (
+        _ans(1, "A", {"A": 0.8, "B": 0.2}) + _ans(2, "B", {"A": 0.3, "B": 0.7})
+        + _yn("3a", {"A": 0.99, "B": 0.01}) + _yn("3b", {"A": 0.98, "B": 0.02}) + _yn("3c", {"A": 0.1, "B": 0.9})
+    )
+    events = []
+    result = pipeline.classify(
+        str(img), _tax(), FakeBackend([_resp(entries)]), mode="bundled", max_edge=64,
+        on_progress=events.append, bundled_multi="yn",
+    )
+    assert result["request_count"] == 1 and result["errors"] == []
+    assert result["settings"]["bundled_multi"] == "yn"
+    assert result["vision_tags"]["a3"] == ["m", "n"]
+    assert result["axis_decisions"]["a3"]["confirmations"]["m"] > 0.9
+    ev = [e for e in events if e["type"] == "axis" and e["axis_id"] == "a3"][0]
+    assert ev["confirm"] is True and ev["multi_mode"] == "yn" and ev["candidates"] == ["m", "n", "rest"]

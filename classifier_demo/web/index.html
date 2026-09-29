@@ -557,6 +557,13 @@ button, select, input {
       </select>
     </div>
     <div class="field">
+      <label for="bundledMulti">束ね質問の複数選択</label>
+      <select id="bundledMulti" disabled>
+        <option value="rank" selected>相対スコアで判定</option>
+        <option value="yn">候補ごとに Y/N</option>
+      </select>
+    </div>
+    <div class="field">
       <label for="baseUrl1">サーバーURL 1</label>
       <input type="url" id="baseUrl1" value="http://127.0.0.1:1234/v1">
     </div>
@@ -874,60 +881,64 @@ function renderAxisEvent(container, event, track) {
     setResultValue(track, event.axis_id, label, false);
   }
 
+  // 束ね質問の「候補ごとに Y/N」(E7e)の複数選択軸は相対スコアの帯が無く、下の yes/no の行だけを出す。
+  const ynOnly = event.multi && event.multi_mode === 'yn';
   const entries = Object.entries(event.relative_scores).sort((a, b) => b[1] - a[1]);
   const adoptedIds = new Set(event.multi ? event.tags : [event.selected]);
 
-  const band = document.createElement('div');
-  band.className = 'score-band';
-  const growPairs = [];
-  entries.forEach(([id, score], i) => {
-    const seg = document.createElement('div');
-    const rank = adoptedIds.has(id) ? -1 : Math.min(i, 3);
-    seg.className = 'band-seg' + (rank === -1 ? ' adopted' : ' rank-' + rank);
-    seg.style.width = '0%';
-    band.appendChild(seg);
-    growPairs.push([seg, score]);
-  });
-  if (event.multi && !event.confirm && typeof event.rank_threshold === 'number') {
-    // confirmオフ: yes/noの行を出さず、代わりにスコア帯の上に採用閾値の位置を細い縦線で示す。
-    const thresholdLine = document.createElement('div');
-    thresholdLine.className = 'band-threshold';
-    thresholdLine.style.left = (event.rank_threshold * 100).toFixed(2) + '%';
-    band.appendChild(thresholdLine);
-  }
-  axisEl.appendChild(band);
-  growWidths(growPairs);
-
-  const legend = document.createElement('div');
-  legend.className = 'band-legend';
-  // スコアが主役なので数字は常に表示し、狭い列では候補名の方だけ省略する。
-  // 2段組でも収まるよう、凡例は上位2件+ほかにする。
-  const LEGEND_TOP_N = 2;
-  const top = entries.slice(0, LEGEND_TOP_N);
-  const rest = entries.slice(LEGEND_TOP_N);
-  const addLegendItem = (name, score, adopted) => {
-    const item = document.createElement('span');
-    item.className = 'legend-item' + (adopted ? ' adopted' : '');
-    const nameEl = document.createElement('span');
-    nameEl.className = 'legend-name';
-    nameEl.textContent = name;
-    const scoreEl = document.createElement('span');
-    scoreEl.className = 'legend-score';
-    scoreEl.textContent = score.toFixed(2);
-    item.appendChild(nameEl);
-    item.appendChild(scoreEl);
-    legend.appendChild(item);
-  };
-  for (const [id, score] of top) {
-    addLegendItem(idLabel(id), score, adoptedIds.has(id));
-  }
-  if (rest.length) {
-    const restSum = rest.reduce((s, [, v]) => s + v, 0);
-    if (restSum.toFixed(2) !== '0.00') {
-      addLegendItem('ほか', restSum, false);
+  if (!ynOnly) {
+    const band = document.createElement('div');
+    band.className = 'score-band';
+    const growPairs = [];
+    entries.forEach(([id, score], i) => {
+      const seg = document.createElement('div');
+      const rank = adoptedIds.has(id) ? -1 : Math.min(i, 3);
+      seg.className = 'band-seg' + (rank === -1 ? ' adopted' : ' rank-' + rank);
+      seg.style.width = '0%';
+      band.appendChild(seg);
+      growPairs.push([seg, score]);
+    });
+    if (event.multi && !event.confirm && typeof event.rank_threshold === 'number') {
+      // confirmオフ: yes/noの行を出さず、代わりにスコア帯の上に採用閾値の位置を細い縦線で示す。
+      const thresholdLine = document.createElement('div');
+      thresholdLine.className = 'band-threshold';
+      thresholdLine.style.left = (event.rank_threshold * 100).toFixed(2) + '%';
+      band.appendChild(thresholdLine);
     }
+    axisEl.appendChild(band);
+    growWidths(growPairs);
+
+    const legend = document.createElement('div');
+    legend.className = 'band-legend';
+    // スコアが主役なので数字は常に表示し、狭い列では候補名の方だけ省略する。
+    // 2段組でも収まるよう、凡例は上位2件+ほかにする。
+    const LEGEND_TOP_N = 2;
+    const top = entries.slice(0, LEGEND_TOP_N);
+    const rest = entries.slice(LEGEND_TOP_N);
+    const addLegendItem = (name, score, adopted) => {
+      const item = document.createElement('span');
+      item.className = 'legend-item' + (adopted ? ' adopted' : '');
+      const nameEl = document.createElement('span');
+      nameEl.className = 'legend-name';
+      nameEl.textContent = name;
+      const scoreEl = document.createElement('span');
+      scoreEl.className = 'legend-score';
+      scoreEl.textContent = score.toFixed(2);
+      item.appendChild(nameEl);
+      item.appendChild(scoreEl);
+      legend.appendChild(item);
+    };
+    for (const [id, score] of top) {
+      addLegendItem(idLabel(id), score, adoptedIds.has(id));
+    }
+    if (rest.length) {
+      const restSum = rest.reduce((s, [, v]) => s + v, 0);
+      if (restSum.toFixed(2) !== '0.00') {
+        addLegendItem('ほか', restSum, false);
+      }
+    }
+    axisEl.appendChild(legend);
   }
-  axisEl.appendChild(legend);
 
   // 単一選択軸は帯のコバルト区間(採用候補)で分かるため、別途「採用: …」の行は出さない。
   // confirmオフのときはyes/noを送っていないため、確認行そのものを出さない(帯の閾値線で足りる)。
@@ -1275,6 +1286,7 @@ const baseUrl1Input = document.getElementById('baseUrl1');
 const baseUrl2Field = document.getElementById('baseUrl2Field');
 const baseUrl2Input = document.getElementById('baseUrl2');
 const askStyleInput = document.getElementById('askStyle');
+const bundledMultiInput = document.getElementById('bundledMulti');
 const modelInput = document.getElementById('modelId');
 const showMetadataInput = document.getElementById('showMetadata');
 const primeFirstInput = document.getElementById('primeFirst');
@@ -1295,12 +1307,19 @@ comparisonModeSelect.addEventListener('change', () => {
   baseUrl2Field.style.display = comparisonModeSelect.value === 'server_compare' ? 'block' : 'none';
 });
 
+// 束ね質問の複数選択は、聞き方が束ね質問のときだけ有効。
+function syncBundledMulti() {
+  bundledMultiInput.disabled = askStyleInput.value !== 'bundled';
+}
+askStyleInput.addEventListener('change', syncBundledMulti);
+
 // ---- 設定の保存と復元(localStorage。使えない環境では初期値のまま動く) ----
 
 const SETTINGS_KEY = 'vlmDecisionClassifier.settings.v1';
 const SETTING_INPUTS = {
   comparisonMode: comparisonModeSelect,
   askStyle: askStyleInput,
+  bundledMulti: bundledMultiInput,
   baseUrl1: baseUrl1Input,
   baseUrl2: baseUrl2Input,
   modelId: modelInput,
@@ -1325,6 +1344,7 @@ function applySettings(values) {
     if (el.tagName === 'SELECT' && el.value !== String(values[key])) el.value = SETTING_DEFAULTS[key];
   }
   baseUrl2Field.style.display = comparisonModeSelect.value === 'server_compare' ? 'block' : 'none';
+  syncBundledMulti();
 }
 
 function saveSettings() {
@@ -1353,6 +1373,7 @@ document.getElementById('resetSettings').addEventListener('click', () => {
 });
 
 loadSettings();
+syncBundledMulti();
 
 function setFile(file) {
   currentFile = file;
@@ -1407,6 +1428,7 @@ async function runClassification() {
     const rankThresholdValue = Number.isFinite(rankThreshold) ? rankThreshold : 0.5;
     const maxEdge = parseInt(maxEdgeInput.value, 10);
     const imageFormat = imageFormatInput.value;
+    const bundledMulti = bundledMultiInput.value; // 'rank' | 'yn'(askMode が bundled のときだけサーバーが使う)
     const askMode = askStyleInput.value; // 'choice' | 'bundled'(選択式の列をどちらで判定するか)
     const choiceTitle = askMode === 'bundled' ? '選択式(束ね質問)' : '選択式';
 
@@ -1433,8 +1455,8 @@ async function runClassification() {
         const trackJson = createTrack('通常JSON', 'json');
         resultsEl.appendChild(trackChoice.el);
         resultsEl.appendChild(trackJson.el);
-        await runTrack(trackChoice, { image_base64: base64, filename, mode: askMode, base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
-        await runTrack(trackJson, { image_base64: base64, filename, mode: 'json', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, false);
+        await runTrack(trackChoice, { image_base64: base64, filename, mode: askMode, base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, bundled_multi: bundledMulti, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
+        await runTrack(trackJson, { image_base64: base64, filename, mode: 'json', base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, bundled_multi: bundledMulti, max_edge: maxEdge, image_format: imageFormat }, false);
         markMismatches(trackChoice, trackJson);
       } else if (comparisonMode === 'server_compare') {
         const baseUrl2 = baseUrl2Input.value.trim();
@@ -1442,13 +1464,13 @@ async function runClassification() {
         const trackB = createTrack('サーバー2', 'choice');
         resultsEl.appendChild(trackA.el);
         resultsEl.appendChild(trackB.el);
-        await runTrack(trackA, { image_base64: base64, filename, mode: askMode, base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
-        await runTrack(trackB, { image_base64: base64, filename, mode: askMode, base_url: baseUrl2, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, false);
+        await runTrack(trackA, { image_base64: base64, filename, mode: askMode, base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, bundled_multi: bundledMulti, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
+        await runTrack(trackB, { image_base64: base64, filename, mode: askMode, base_url: baseUrl2, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, bundled_multi: bundledMulti, max_edge: maxEdge, image_format: imageFormat }, false);
         markMismatches(trackA, trackB);
       } else {
         const track = createTrack(choiceTitle, 'choice');
         resultsEl.appendChild(track.el);
-        await runTrack(track, { image_base64: base64, filename, mode: askMode, base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
+        await runTrack(track, { image_base64: base64, filename, mode: askMode, base_url: baseUrl1, model, prime: nextPrimeFlag(), axis_concurrency: axisConcurrency, confirm: confirmCandidates, rank_threshold: rankThresholdValue, bundled_multi: bundledMulti, max_edge: maxEdge, image_format: imageFormat }, showMetadata);
       }
     } finally {
       overallTimer.stop();

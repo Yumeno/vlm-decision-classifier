@@ -91,6 +91,7 @@ def cmd_classify(args: argparse.Namespace) -> int:
         image_format=args.image_format,
         confirm=args.confirm,
         rank_threshold=args.rank_threshold,
+        bundled_multi=args.bundled_multi,
     )
 
     print(f"image: {result['image']['name']}  mode: {result['mode']}")
@@ -160,6 +161,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         axis_concurrency=args.axis_concurrency,
         confirm=args.confirm,
         rank_threshold=args.rank_threshold,
+        bundled_multi=args.bundled_multi,
     )
 
 
@@ -204,6 +206,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.5,
         help="--confirm を指定しないとき、複数選択軸で採用する相対スコアの閾値(既定0.5)",
+    )
+    classify_parser.add_argument(
+        "--bundled-multi",
+        choices=["rank", "yn"],
+        default="rank",
+        help="束ね質問(bundled)での複数選択軸の扱い。rank=相対スコアと閾値(既定)、yn=候補ごとのYes/No欄(E7e)",
     )
     classify_parser.add_argument("--output")
     classify_parser.set_defaults(func=cmd_classify)
@@ -274,6 +282,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.5,
         help="--confirm を指定しないとき、複数選択軸で採用する相対スコアの閾値(既定0.5)",
+    )
+    evaluate_parser.add_argument(
+        "--bundled-multi",
+        choices=["rank", "yn"],
+        default="rank",
+        help="束ね質問(bundled)での複数選択軸の扱い。rank=相対スコアと閾値(既定)、yn=候補ごとのYes/No欄(E7e)",
     )
     evaluate_parser.set_defaults(func=cmd_evaluate)
 

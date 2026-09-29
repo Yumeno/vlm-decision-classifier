@@ -150,12 +150,16 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                 axis_concurrency = int(req.get("axis_concurrency", 1))
                 confirm = bool(req.get("confirm", False))
                 rank_threshold = float(req.get("rank_threshold", 0.5))
+                bundled_multi = req.get("bundled_multi", "rank")
             except Exception as e:
                 self._send_json(400, {"error": f"bad request: {type(e).__name__}: {e}"})
                 return
 
             if mode not in ("choice", "json", "bundled"):
                 self._send_json(400, {"error": f"unknown mode: {mode}"})
+                return
+            if bundled_multi not in ("rank", "yn"):
+                self._send_json(400, {"error": f"unknown bundled_multi: {bundled_multi}"})
                 return
             if image_format not in ("jpeg", "png"):
                 self._send_json(400, {"error": f"unknown image_format: {image_format}"})
@@ -237,6 +241,7 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                         axis_concurrency=axis_concurrency,
                         confirm=confirm,
                         rank_threshold=rank_threshold,
+                        bundled_multi=bundled_multi,
                     )
                     event_queue.put(
                         {

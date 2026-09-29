@@ -113,7 +113,10 @@ def _process_axis(
     }
 
 
-def _classify_bundled(taxonomy: Taxonomy, backend, image_bytes: bytes, mime: str, rank_threshold: float, on_progress):
+def _classify_bundled(
+    taxonomy: Taxonomy, backend, image_bytes: bytes, mime: str, rank_threshold: float, on_progress,
+    multi_mode: str = "rank",
+):
     """E7 束ね質問: リクエスト1回で全軸を判定し、choice と同じ形の結果・イベントにする。
     on_progress は1リクエストの完了後に軸ごとのイベントをまとめて出す。"""
     axis_decisions: dict = {}
@@ -123,7 +126,7 @@ def _classify_bundled(taxonomy: Taxonomy, backend, image_bytes: bytes, mime: str
     bundled_info: dict = {"raw_text": None, "positions": {}, "request_ms": None}
 
     try:
-        res = decision.decide_bundled(backend, image_bytes, mime, taxonomy, rank_threshold)
+        res = decision.decide_bundled(backend, image_bytes, mime, taxonomy, rank_threshold, multi_mode)
         axis_results = res["axes"]
         bundled_info = {
             "raw_text": res["raw_text"],
@@ -147,9 +150,12 @@ def _classify_bundled(taxonomy: Taxonomy, backend, image_bytes: bytes, mime: str
             errors.append({"axis": axis.id, "type": err["type"], "detail": err["detail"]})
             event["error"] = err
         elif axis.multi:
+            # yn(E7e)のときは候補ごとの P(yes) を confirmations に入れ、UI の yes/no 表示に載せる。
+            yn = multi_mode == "yn"
+            confirmations = r["confirmations"] if yn else {}
             axis_decisions[axis.id] = {
                 "relative_scores": r["relative_scores"],
-                "confirmations": {},
+                "confirmations": confirmations,
                 "confirmation_errors": {},
                 "candidates": r["candidates"],
                 "tags": r["tags"],
@@ -159,8 +165,8 @@ def _classify_bundled(taxonomy: Taxonomy, backend, image_bytes: bytes, mime: str
             event.update(
                 {
                     "relative_scores": r["relative_scores"], "candidates": r["candidates"],
-                    "confirmations": {}, "confirmation_errors": {}, "tags": r["tags"], "failed": False,
-                    "confirm": False, "rank_threshold": rank_threshold,
+                    "confirmations": confirmations, "confirmation_errors": {}, "tags": r["tags"], "failed": False,
+                    "confirm": yn, "rank_threshold": rank_threshold, "multi_mode": multi_mode,
                 }
             )
         else:
@@ -186,6 +192,7 @@ def classify(
     confirm: bool = False,
     rank_threshold: float = 0.5,
     image_format: str = "jpeg",
+    bundled_multi: str = "rank",
 ) -> dict:
     """`on_progress` はデモUIサーバー用の任意コールバック(既定Noneなら未使用・
     既存の挙動と戻り値は変わらない)。呼ばれる順序: メタデータイベント1回 →
@@ -269,7 +276,7 @@ def classify(
                 if outcome["elapsed_ms"] is not None:
                     per_axis_timing[axis_id] = outcome["elapsed_ms"]
         elif mode == "bundled":
-            out = _classify_bundled(taxonomy, backend, image_bytes, mime, rank_threshold, on_progress)
+            out = _classify_bundled(taxonomy, backend, image_bytes, mime, rank_threshold, on_progress, bundled_multi)
             axis_decisions = out["axis_decisions"]
             vision_tags = out["vision_tags"]
             errors.extend(out["errors"])
@@ -330,6 +337,7 @@ def classify(
             "dropped_reasoning_effort": backend.dropped_reasoning_effort,
             "confirm": confirm,
             "rank_threshold": rank_threshold,
+            "bundled_multi": bundled_multi,
         },
         "metadata_evidence": metadata_evidence,
         "vision_tags": vision_tags,

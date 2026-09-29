@@ -306,11 +306,24 @@ def _axis_labels(axis: Axis) -> list[str]:
     return LABELS[: len(axis.choices) + (1 if axis.allow_none else 0)]
 
 
-def _build_bundled_prompt(axes: list[Axis]) -> str:
+def _sub_key(k: int, j: int) -> str:
+    """yn の複数選択軸のサブ質問番号: 軸番号 + 小文字(6a, 6b, ...)。"""
+    return f"{k}{chr(ord('a') + j)}"
+
+
+def _build_bundled_prompt(axes: list[Axis], multi_mode: str = "rank") -> str:
     """全軸を番号付きで並べる。各軸の質問・選択肢の書式は _build_choice_prompt と同じ
-    (末尾の "Answer with the single letter only." だけ除き、束ね用の指示を最後に1回置く)。"""
+    (末尾の "Answer with the single letter only." だけ除き、束ね用の指示を最後に1回置く)。
+    multi_mode="yn" の複数選択軸は、選択肢ごとの yes/no サブ質問(yes_no と同じ文面)を並べる。"""
     blocks = []
     for i, axis in enumerate(axes, start=1):
+        if multi_mode == "yn" and axis.multi:
+            for j, c in enumerate(axis.choices):
+                blocks.append(
+                    f"Question {_sub_key(i, j)}:\n"
+                    f"Is {c.name} ({c.criteria}) present in the image?\n\nA. yes\nB. no"
+                )
+            continue
         body = _build_choice_prompt(
             axis.question, axis.choices, _axis_labels(axis), axis.allow_none, axis.none_criteria
         )
@@ -325,39 +338,62 @@ def _normalize_label_token(token: str, labels: list[str]) -> str:
     return letter.upper() if len(labels) <= CASE_INSENSITIVE_LABEL_LIMIT else letter
 
 
-def decide_bundled(backend, image_bytes: bytes, mime: str, taxonomy, rank_threshold: float = 0.5) -> dict:
+def decide_bundled(
+    backend, image_bytes: bytes, mime: str, taxonomy, rank_threshold: float = 0.5, multi_mode: str = "rank"
+) -> dict:
     """E7 束ね質問: 1リクエストで全軸を聞き、軸ごとに1トークンずつ答えさせる。
     各出力位置の top_logprobs を、その軸の選択肢の相対スコアとして読む(確認オフのルール)。
+
+    multi_mode="yn"(E7e): 複数選択軸は選択肢ごとの yes/no サブ質問(6a, 6b, ...)にし、
+    各サブ質問の A(yes) の相対スコアを P(yes) として YES_THRESHOLD 以上をすべて採用する
+    (catch_all も通常の候補。1つも無ければ空)。サブ質問が1つでも見つからない軸は
+    bundled_format_error(欠けた選択肢を detail に)。"rank" は従来どおり。
 
     ラベルが見つからなかった軸は error={"type": "bundled_format_error", ...} を持ち、
     任意の選択肢に強制しない(見つかった軸は判定する)。thinking/logprobs欠損は DecisionError。
     """
+    if multi_mode not in ("rank", "yn"):
+        raise ValueError(f"unknown multi_mode: {multi_mode}")
     axes = taxonomy.axes
-    prompt = _build_bundled_prompt(axes)
+    yn_axis = {a.id: multi_mode == "yn" and a.multi for a in axes}
+    prompt = _build_bundled_prompt(axes, multi_mode)
     messages = _messages(image_bytes, mime, prompt)
-    params = {**CHOOSE_PARAMS, "max_tokens": 5 * len(axes)}
+    n_fields = sum(len(a.choices) if yn_axis[a.id] else 1 for a in axes)
+    params = {**CHOOSE_PARAMS, "max_tokens": 5 * n_fields}
 
     response, elapsed_ms = backend.chat(messages, **params)
     content = _logprob_content(response)
     raw_text = "".join(entry.get("token", "") for entry in content)
 
+    # 質問番号(キー)ごとの、ラベルとして読める記号の集合。yn の複数選択軸は "6a" 等のサブ質問。
+    key_labels: dict[str, list[str]] = {}
+    for i, axis in enumerate(axes, start=1):
+        if yn_axis[axis.id]:
+            for j in range(len(axis.choices)):
+                key_labels[_sub_key(i, j)] = ["A", "B"]
+        else:
+            key_labels[str(i)] = _axis_labels(axis)
+
     # 出力を先頭から連結しながら見て、ラベルのトークンで、直前までの連結テキストが
-    # "<k>:"(末尾の空白は無視)で終わるものを軸 k(1始まり)の答えとする。同じ k は最初のものを採用。
-    positions: dict[str, int] = {}
+    # "<番号>:"(末尾の空白は無視。番号は 3 や 6a)で終わるものをその質問の答えとする。
+    # 同じ番号は最初のものを採用。
+    key_pos: dict[str, int] = {}
     prefix = ""
     for pos, entry in enumerate(content):
         token = entry.get("token", "")
-        m = re.search(r"(\d+):$", prefix.rstrip())
-        if m and 1 <= int(m.group(1)) <= len(axes):
-            axis = axes[int(m.group(1)) - 1]
-            labels = _axis_labels(axis)
-            if axis.id not in positions and _normalize_label_token(token, labels) in labels:
-                positions[axis.id] = pos
+        m = re.search(r"(\d+[a-z]?):$", prefix.rstrip())
+        if m and m.group(1) in key_labels:
+            labels = key_labels[m.group(1)]
+            if m.group(1) not in key_pos and _normalize_label_token(token, labels) in labels:
+                key_pos[m.group(1)] = pos
         prefix += token
 
     results: dict[str, dict] = {}
-    for axis in axes:
-        if axis.id not in positions:
+    for i, axis in enumerate(axes, start=1):
+        if yn_axis[axis.id]:
+            results[axis.id] = _read_yn_axis(axis, i, content, key_pos, raw_text)
+            continue
+        if str(i) not in key_pos:
             results[axis.id] = {
                 "error": {
                     "type": "bundled_format_error",
@@ -365,9 +401,10 @@ def decide_bundled(backend, image_bytes: bytes, mime: str, taxonomy, rank_thresh
                 }
             }
             continue
+        pos = key_pos[str(i)]
         labels = _axis_labels(axis)
         try:
-            scores_by_label = pool_labels(content[positions[axis.id]].get("top_logprobs") or [], labels)
+            scores_by_label = pool_labels(content[pos].get("top_logprobs") or [], labels)
         except DecisionError as e:
             results[axis.id] = {"error": {"type": e.error_type, "detail": e.detail}}
             continue
@@ -375,7 +412,7 @@ def decide_bundled(backend, image_bytes: bytes, mime: str, taxonomy, rank_thresh
         if axis.allow_none:
             id_by_label[labels[len(axis.choices)]] = NONE_ID
         relative_scores = {id_by_label[lb]: sc for lb, sc in scores_by_label.items()}
-        entry = {"relative_scores": relative_scores, "position": positions[axis.id], "error": None}
+        entry = {"relative_scores": relative_scores, "position": pos, "error": None}
         if axis.multi:
             candidates = _rank_threshold_candidates(axis, relative_scores, rank_threshold)
             entry["candidates"] = candidates
@@ -385,3 +422,37 @@ def decide_bundled(backend, image_bytes: bytes, mime: str, taxonomy, rank_thresh
         results[axis.id] = entry
 
     return {"axes": results, "raw_text": raw_text, "elapsed_ms": elapsed_ms}
+
+
+def _read_yn_axis(axis: Axis, k: int, content: list[dict], key_pos: dict[str, int], raw_text: str) -> dict:
+    """E7e: 複数選択軸のサブ質問(<k>a, <k>b, ...)から P(yes) を読み、YES_THRESHOLD 以上を採用する。"""
+    keys = {c.id: _sub_key(k, j) for j, c in enumerate(axis.choices)}
+    missing = [cid for cid, key in keys.items() if key not in key_pos]
+    if missing:
+        return {
+            "error": {
+                "type": "bundled_format_error",
+                "detail": f"no label token found for sub-questions of axis {axis.id!r}: "
+                f"{[keys[c] + '=' + c for c in missing]}; output: {raw_text!r}",
+            }
+        }
+    confirmations: dict[str, float] = {}
+    for cid, key in keys.items():
+        try:
+            scores = pool_labels(content[key_pos[key]].get("top_logprobs") or [], ["A", "B"])
+        except DecisionError as e:
+            return {"error": {"type": e.error_type, "detail": f"sub-question {key} ({cid}): {e.detail}"}}
+        confirmations[cid] = scores["A"]
+    tags = sorted(
+        (cid for cid, p in confirmations.items() if p >= YES_THRESHOLD),
+        key=lambda cid: confirmations[cid],
+        reverse=True,
+    )
+    return {
+        "relative_scores": {},
+        "confirmations": confirmations,
+        "candidates": list(keys),
+        "tags": tags,
+        "position": {cid: key_pos[key] for cid, key in keys.items()},
+        "error": None,
+    }
