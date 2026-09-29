@@ -10,7 +10,7 @@
       "repo": "lmstudio-community/gemma-4-E2B-it-GGUF",
       "revision": "eed445ccfb8aef2e279df1a97e133baf06e443b4",
       "file": "gemma-4-E2B-it-Q4_K_M.gguf",
-      "sha256": "(ダウンロード完了後に記入)"
+      "sha256": "71e6e8cb64a76da1a734fb8f6ba389d2784950d9902f5e87244fca0a15190c94"
     },
     "mmproj": {
       "file": "mmproj-gemma-4-E2B-it-BF16.gguf",
