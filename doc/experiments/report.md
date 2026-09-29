@@ -147,7 +147,7 @@
 | サーバー(LM Studio) | E1/E1-J/E2/E2-J/E1b/E2b。エンジン `llama.cpp-win-x86_64-nvidia-cuda12-avx2@2.41.0`、LM Studio CLI commit `69d945a` |
 | サーバー(llama-server) | E3/E4/E5。上流 `https://github.com/ggml-org/llama.cpp` commit `f95b0d95394d5e311ba8228689972843178c5e28`(`llama-server --version` は `0.4.1-dev (build 1, commit f95b0d9)`)。未改造版(E3)と改造版(E4)は同一コミット・同一ビルド手順から作り、差はパッチ1行のみ |
 | パッチ | `doc/patches/llamacpp-mtmd-checkpoint.patch`(`tools/server/server-context.cpp` の `do_checkpoint = do_checkpoint && !has_mtmd;` を無効化) |
-| GPU | RTX 3090 24GBのみで速度計測。E1/E1-J/E2/E2-Jは別プロジェクトのパッチ適用版llama-serverが常駐した状態で計測(`run.json` に記録)。E1b/E2b以降はRTX 3090に他プロセスなしを確認して計測 |
+| GPU | RTX 3090 24GBのみで速度計測。3090 は外付け GPU(AORUS RTX 3090 GAMING BOX、GV-N3090IXEB-24GD)で、PC 側の Thunderbolt 拡張カード GIGABYTE GC-MAPLE RIDGE 経由で接続(nvidia-smi 上のリンク幅 x4)。PC は Core i5-13600KF、メモリー 128GB(DDR4-3200)、Windows 11 Pro(ビルド 26200)。E1/E1-J/E2/E2-Jは別プロジェクトのパッチ適用版llama-serverが常駐した状態で計測(`run.json` に記録)。E1b/E2b以降はRTX 3090に他プロセスなしを確認して計測 |
 | クライアント設定 | `max_edge=1024`、`temperature=0`、`top_logprobs=20`、`reasoning_effort="none"`(未指定だとthinkingが先に出て失敗する) |
 | 既定の変更(E1〜E5とE9/E7の条件差) | 2026-09-29に既定を2つ変えた。(1) 複数選択軸の候補ごとのyes/no確認は**既定オフ**(オフのときは順位付けの相対スコアに閾値0.5を当てて採用。`--confirm` でオン)。(2) 送信画像は**既定でJPEG(quality 90)**(`--image-format`、長辺は `--max-edge`)。**E1〜E5は確認オン・PNG・長辺1024**で測った(確認オンは当時の唯一の動作、PNGはJPEG対応前の唯一の形式)。E9a/E9b/E9b2/E9eは確認オン・PNG・長辺1024、E9cは確認オフ・PNG・長辺1024(E9の `run.json` に `image_format` の記録はないが、この時点の実装はPNGのみ)。E7a/E7bは確認オフ・PNG・長辺1024、E7cは確認オフ・JPEG・長辺1024、E7dは確認オフ・JPEG・長辺768(`run.json` の `image_format`/`max_edge` に記録)、E7eはE7cと同じ条件に `--bundled-multi yn` を足したもの(`run.json` の `bundled_multi` に記録) |
 | E9/E7の実行条件 | 改造版llama-server(E4と同じ起動引数、runtime-infoはE4と共通)、RTX 3090のみ、データセットv1.0.0、taxonomy 0.4.1、`--warmup 1`、`--prime`(各画像で判定前に準備リクエストを1回送る)。E9は `--modes choice,json`(交互)、E7は `--modes choice,json,bundled`(ケースごとに順序を回転)。条件ごとにサーバーを再起動した。E9eのみサーバーを `--no-cache-idle-slots` で起動(`run.json` の `note` に記載) |
@@ -414,6 +414,7 @@ E4(3.1秒)でも選択式は通常JSON(約2秒)より遅かった。1リクエ�
 - 元画像31枚の小標本。単一軸の候補には1〜3件しかないものがある(`comic`・`ui`・`pixel_art`・`grayscale`・`line_art`等)。候補別の成績は個別例として読み、強い結論にしない。
 - 自作データセット(Anima base v1.0 + 自作LoRA)であり、他のモデル・画風への一般化は確認していない。
 - taxonomyは評価セットの生成・正解付与後に0.4.0→0.4.1へ調整している(`none`選択肢の説明文追加)。正解ラベルは変えていないが、評価結果を見てからの文言調整である点は限界として明記する。
+- RTX 3090 は Thunderbolt 接続の外付け GPU で、PC 内のスロットに挿した GPU より CPU との転送帯域が狭い。モデルは GPU に常駐しているため判定時間への影響は小さいとみているが、測っていない。画像の送信・モデルの読み込み・準備の時間は、内蔵の GPU で測った場合と異なる可能性がある。
 - 処理時間は別プロセスの影響を受けうる。E1/E1-J/E2/E2-Jは、別プロジェクトのパッチ適用版llama-serverがGPUに常駐した状態で測定しており(`run.json`の`concurrent_processes`に記録)、E1b以降の測定(RTX 3090に他プロセスなし)と単純比較できない。
 - E9/E7は同じデータセット(元画像31枚)で、確認・軸の並列・準備・送信画像・モードを変えて何度も測っている。条件間の小さな差(1〜2件、ミリ秒単位の差)を選んで読む余地があり、強い結論にしない。E9/E7は各条件を1回ずつ測っただけで、繰り返しによるばらつきは見ていない(4.9の揺れが示すとおり、キャッシュの使われ方で際どいケースの判定は変わる)。
 - 束ね質問(E7)は、軸の並べ方を変えた測定をしていない。自己回帰のため後ろの軸は前の軸の答えを前提にするが、順序の影響は切り分けていない。「精度低下が目立たなかった」は、この並びとこのデータでの観察にとどまる。
