@@ -20,3 +20,10 @@
 
 - Gemma を llama-server で束ね質問(順位付け)にかけると、M01 で `Question 1: A` の形で答え、7軸目を飛ばした(キャラの軸が bundled_format_error)。条件をそろえるため、測定の途中でプロンプトは直さない。
 - 対策(作者判断、2026-09-29): 束ね質問の rank にも yn と同じ回答の雛形(`1: ?` 〜 `7: ?`)を付けた。M01・G03・G05 で Gemma・Qwen とも7軸すべてに答え、形式不正0件を確認してから本測定に入った。雛形なしの版で1回分だけ流した結果は `results/final_aborted_no_template/`(管理外)に退避し、本表には使わない。
+
+## 実行と集計(2026-09-29)
+
+- 実行: `LLAMACPP_DIR=<llama.cpp の置き場所> QWEN_DIR=<Qwen の GGUF のフォルダ> GEMMA_DIR=<Gemma の GGUF のフォルダ> bash scripts/run_final_matrix.sh`(リポジトリのルートで。Windows の Git Bash で確認。サーバーの停止は netstat と taskkill を使う)。
+- 集計: `python scripts/aggregate_final.py --input results/final --output doc/experiments/final`
+- 実施: 2026-09-29 04:36〜07:05 UTC(約2時間30分)、コミット `21589dd`(全36回 dirty=false)。36回すべて終了コード0。各回の起動時に RTX 3090 の計算プロセスはサーバー1つだけ(`doc/experiments/final/progress.log`)。
+- 結果: `doc/experiments/final/summary.md`(集計)、`doc/experiments/final/runs/<回>/`(各回の run.json・cases.csv・summary.md)。
