@@ -602,6 +602,9 @@ button, select, input {
         <option value="png">PNG</option>
       </select>
     </div>
+    <div class="field">
+      <button type="button" id="resetSettings">初期値に戻す</button>
+    </div>
   </div>
 </div>
 
@@ -774,9 +777,18 @@ async function streamClassify(payload, onEvent) {
 
 // ---- 軸(選択式)の描画 ----
 
+// HTTP 400/404 や接続失敗のときだけ、設定の見直しを促す一言を添える。
+const CONNECTION_HINT = '(接続先の URL とモデル ID を確認)';
+function withConnectionHint(text) {
+  const s = String(text);
+  return /HTTP Error (400|404)|URLError|urlopen error|ConnectionRefused|ConnectionError|Failed to fetch/i.test(s)
+    ? s + CONNECTION_HINT
+    : s;
+}
+
 function describeAxisError(error) {
   const sentence = AXIS_ERROR_SENTENCES[error.type] || `${error.type} が発生した。`;
-  return `${sentence}(${error.detail})`;
+  return withConnectionHint(`${sentence}(${error.detail})`);
 }
 
 // ---- 結果テーブル(上段: 7軸を1行ずつ、左右の列で同じ軸が同じ高さに並ぶ) ----
@@ -1001,7 +1013,7 @@ function renderJsonResult(container, event, track) {
   if (!event.tags) {
     const err = document.createElement('p');
     err.className = 'axis-error-text';
-    err.textContent = `応答をJSONとして解釈できなかった。${event.error || ''}`;
+    err.textContent = withConnectionHint(`応答をJSONとして解釈できなかった。${event.error || ''}`);
     wrap.appendChild(err);
   }
 
@@ -1026,7 +1038,7 @@ function renderTrackDone(container, event) {
 function renderTrackError(container, detail) {
   const p = document.createElement('p');
   p.className = 'track-error';
-  p.textContent = `判定できなかった: ${detail}`;
+  p.textContent = withConnectionHint(`判定できなかった: ${detail}`);
   container.appendChild(p);
 }
 
@@ -1282,6 +1294,65 @@ settingsToggle.addEventListener('click', () => {
 comparisonModeSelect.addEventListener('change', () => {
   baseUrl2Field.style.display = comparisonModeSelect.value === 'server_compare' ? 'block' : 'none';
 });
+
+// ---- 設定の保存と復元(localStorage。使えない環境では初期値のまま動く) ----
+
+const SETTINGS_KEY = 'vlmDecisionClassifier.settings.v1';
+const SETTING_INPUTS = {
+  comparisonMode: comparisonModeSelect,
+  askStyle: askStyleInput,
+  baseUrl1: baseUrl1Input,
+  baseUrl2: baseUrl2Input,
+  modelId: modelInput,
+  showMetadata: showMetadataInput,
+  primeFirst: primeFirstInput,
+  axisParallel: axisParallelInput,
+  confirmCandidates: confirmCandidatesInput,
+  rankThreshold: rankThresholdInput,
+  maxEdge: maxEdgeInput,
+  imageFormat: imageFormatInput,
+};
+const settingValue = (el) => (el.type === 'checkbox' ? el.checked : el.value);
+// HTML に書いてある値を初期値として、読み込み時に控えておく。
+const SETTING_DEFAULTS = {};
+for (const [key, el] of Object.entries(SETTING_INPUTS)) SETTING_DEFAULTS[key] = settingValue(el);
+
+function applySettings(values) {
+  for (const [key, el] of Object.entries(SETTING_INPUTS)) {
+    if (!(key in values)) continue;
+    if (el.type === 'checkbox') el.checked = Boolean(values[key]);
+    else el.value = String(values[key]); // select は選択肢にない値だと空になるので下で戻す
+    if (el.tagName === 'SELECT' && el.value !== String(values[key])) el.value = SETTING_DEFAULTS[key];
+  }
+  baseUrl2Field.style.display = comparisonModeSelect.value === 'server_compare' ? 'block' : 'none';
+}
+
+function saveSettings() {
+  try {
+    const values = {};
+    for (const [key, el] of Object.entries(SETTING_INPUTS)) values[key] = settingValue(el);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(values));
+  } catch (e) { /* 保存できなくても動作には影響しない */ }
+}
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) applySettings(JSON.parse(raw));
+  } catch (e) { /* 読めなければ初期値のまま */ }
+}
+
+for (const el of Object.values(SETTING_INPUTS)) {
+  el.addEventListener('change', saveSettings);
+  el.addEventListener('input', saveSettings);
+}
+
+document.getElementById('resetSettings').addEventListener('click', () => {
+  try { localStorage.removeItem(SETTINGS_KEY); } catch (e) { /* 無視 */ }
+  applySettings(SETTING_DEFAULTS);
+});
+
+loadSettings();
 
 function setFile(file) {
   currentFile = file;
