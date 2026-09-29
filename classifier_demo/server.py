@@ -11,6 +11,7 @@ import base64
 import json
 import os
 import queue
+import socket
 import tempfile
 import threading
 import time
@@ -263,10 +264,24 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
     return Handler
 
 
+class _ExclusiveHTTPServer(ThreadingHTTPServer):
+    """他プロセスが待ち受け中のポートに重ねて bind しない(Windowsでは allow_reuse_address=True だと重ねられる)。"""
+
+    allow_reuse_address = False
+
+    def server_bind(self):
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):  # Windowsのみ
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
 def serve(port: int, taxonomy: Taxonomy, backend_factory=ChatBackend) -> None:
     """待ち受け先は常に127.0.0.1固定(外部公開しない。動画収録用のループバック専用サーバー)。"""
     handler_cls = make_handler(taxonomy, backend_factory=backend_factory)
-    httpd = ThreadingHTTPServer(("127.0.0.1", port), handler_cls)
+    try:
+        httpd = _ExclusiveHTTPServer(("127.0.0.1", port), handler_cls)
+    except OSError as e:
+        raise SystemExit(f"ポート {port} は使用中です(または bind できません: {e})。--port で別の番号を指定してください。")
     print(f"serving demo UI on http://127.0.0.1:{port} (Ctrl+C to stop)")
     try:
         httpd.serve_forever()

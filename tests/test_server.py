@@ -360,3 +360,18 @@ def test_classify_rejects_invalid_content_length(running_server):
 
     status_line = response.split(b"\r\n", 1)[0].decode("ascii")
     assert " 400 " in status_line
+
+
+def test_serve_fails_when_port_in_use():
+    from classifier_demo.server import _ExclusiveHTTPServer
+
+    first = _ExclusiveHTTPServer(("127.0.0.1", 0), server.BaseHTTPRequestHandler)
+    try:
+        port = first.server_address[1]
+        try:
+            _ExclusiveHTTPServer(("127.0.0.1", port), server.BaseHTTPRequestHandler).server_close()
+            raise AssertionError("2つ目の bind が成功してしまった")
+        except OSError:
+            pass
+    finally:
+        first.server_close()

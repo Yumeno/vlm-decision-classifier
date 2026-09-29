@@ -836,7 +836,8 @@ function renderAxisEvent(container, event, track) {
   idSpan.textContent = event.axis_id;
   head.appendChild(name);
   head.appendChild(idSpan);
-  if (event.elapsed_ms != null) {
+  // 束ね質問はリクエスト全体の時間が全軸で同じ値になるため、軸ごとには表示しない(列の合計だけ)。
+  if (event.elapsed_ms != null && !event.bundled) {
     const t = document.createElement('span');
     t.className = 'axis-time';
     t.textContent = (event.elapsed_ms / 1000).toFixed(1) + '秒';
