@@ -56,7 +56,7 @@
 
 ## ライセンス(画像)
 
-著作権者: 資材部の懲りない面々(2026-09-29 作者決定)
+著作権者: 資材部の懲りない面々(公式: http://jmd.ickx.jp/fet 、2026-09-29 作者決定)
 
 | 対象 | ライセンス |
 |---|---|
@@ -64,4 +64,4 @@
 | それ以外の元画像22枚(第2のオリジナルキャラクターだけが写る画像、メタデータにだけ Alisa の記録がある C02 を含む) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 
 - 対象は `dataset/images/` の画像ファイル。manifest・正解ラベル・生成記録などのテキストの扱いは、コードのライセンス確定時に明記する(未確定)。
-- クレジット表記の例: 「画像: 資材部の懲りない面々(vlm-decision-classifier データセット、CC BY-NC-SA 4.0 / CC BY 4.0)」。
+- クレジット表記の例: 「画像: 資材部の懲りない面々 http://jmd.ickx.jp/fet (vlm-decision-classifier データセット、CC BY-NC-SA 4.0 / CC BY 4.0)」。
