@@ -152,3 +152,28 @@ def test_prime_shares_prefix_with_classify_json():
     assert prime_msgs[0] == cls_msgs[0]  # system
     assert prime_msgs[1]["content"][0] == cls_msgs[1]["content"][0]  # 画像
     assert prime_params["max_tokens"] == 1
+
+
+def test_build_json_schema_has_enum_for_all_axes():
+    schema = json_baseline.build_json_schema(_small_taxonomy())
+    assert schema["required"] == ["image_type", "character"]
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["image_type"]["enum"] == ["illustration", "comic"]
+    char = schema["properties"]["character"]
+    assert char["type"] == "array" and char["items"]["enum"] == ["alisa", "other_original"]
+
+
+def test_classify_json_constrained_sends_response_format():
+    text = '{"image_type": "comic", "character": []}'
+    tax = _small_taxonomy()
+    backend = FakeBackend([make_text_response(text)])
+    result = json_baseline.classify_json(backend, b"img", "image/png", tax, constrained=True)
+    assert result["tags"] == {"image_type": ["comic"], "character": []}
+    rf = backend.calls[0]["params"]["response_format"]
+    assert rf["type"] == "json_schema" and rf["json_schema"]["schema"]["required"] == ["image_type", "character"]
+
+
+def test_classify_json_unconstrained_has_no_response_format():
+    backend = FakeBackend([make_text_response('{"image_type": "comic", "character": []}')])
+    json_baseline.classify_json(backend, b"img", "image/png", _small_taxonomy())
+    assert "response_format" not in backend.calls[0]["params"]

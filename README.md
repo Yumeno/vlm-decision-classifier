@@ -128,7 +128,7 @@ LM Studio にモデルをロードした状態で、次の順に実行します�
    .venv\Scripts\python.exe -m classifier_demo classify dataset\images\M01.png --model <モデルID> --output results\demo.json
    ```
 
-   通常JSONで分類するなら `--mode json`、束ね質問なら `--mode bundled`。
+   通常JSONで分類するなら `--mode json`、束ね質問なら `--mode bundled`、通常JSONと同じ質問にllama-serverの制約付きデコード(JSONスキーマ)を掛けるなら `--mode json_schema`。
 
 3. **manifestの検証**（画像の存在・SHA256・正解ラベルの整合）:
 
@@ -236,7 +236,7 @@ LM Studio にモデルをロードした状態で、次の順に実行します�
 | オプション | 既定値 | 意味 |
 |---|---|---|
 | `--manifest` | `dataset/manifest.jsonl` | 評価するmanifest |
-| `--modes` | `choice,json` | カンマ区切りで `choice` / `json` / `bundled`（重複不可）。2モードはケースごとに順序を交互に、3モードは回転して実行 |
+| `--modes` | `choice,json` | カンマ区切りで `choice` / `json` / `bundled` / `json_schema`（制約付きデコードのJSON。E10）（重複不可）。2モードはケースごとに順序を交互に、3モード以上は回転して実行 |
 | `--taxonomy` | `taxonomy/default.yaml` | 分類体系 |
 | `--max-edge` | `1024` | 送信画像の長辺 |
 | `--image-format` | `jpeg` | `jpeg` / `png` |
@@ -449,6 +449,16 @@ PRIME=1 OUT=results/reprime/small_prime LLAMACPP_DIR=<llama.cpp の置き場所>
 ```
 
 結果は `doc/experiments/reprime/summary.md` と `small_noprime/`・`small_prime/`（`runs/`・`progress.log`・`S*_probe.log`）です。
+
+### E10（出力形式の頑健性ストレステスト。追加課題）
+
+白色ノイズ画像N枚（seed 0..N-1、1024x1024、決定的に生成）で、選択式・通常JSON・`json_schema`（制約付きデコード）・束ね質問（rank / yn）の形式不正率と時間を比べます。正解は使わず、実画像の失敗率ではなく方式間の頑健性の比較です（`evaluate --modes` にも `json_schema` を指定できます）。`--warmup 1 --prime` で方式ごとに自分の先頭の準備を送ります。
+
+```bash
+LLAMACPP_DIR=<llama.cpp の置き場所> LMSC_DIR=<lmstudio-community のモデルフォルダ> N=100 MODELS="S3 S4 S5 S6 S9 F1" bash scripts/run_e10.sh
+```
+
+結果は `results/e10/<モデル>/`（`cases.csv`・`run.json`・`summary.md`）。
 
 ### 実験の比較条件
 
