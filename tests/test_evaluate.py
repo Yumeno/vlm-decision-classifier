@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PIL import Image, PngImagePlugin
 
-from classifier_demo import evaluate
+from classifier_demo import evaluate, json_baseline
 from classifier_demo.__main__ import build_parser
 from classifier_demo.taxonomy import load as load_taxonomy
 from tests.fakes import FakeBackend, make_logprobs_response, make_text_response
@@ -1079,3 +1079,15 @@ def test_run_prime_parallel_records_error_when_one_fails(tmp_path, monkeypatch):
     backend = FakeBackend([make_logprobs_response({"A": 1.0})] * 3 + [RuntimeError("boom")])
     info = evaluate._run_prime(case, backend, 64, parallel=4)
     assert "boom" in info["error"]
+
+
+def test_run_prime_json_mode_uses_json_prime(tmp_path, monkeypatch):
+    # jsonモードの準備はJSON方式のsystem文で1本だけ送る(選択式の準備はJSONの先頭に一致しない)。
+    case = _prime_case(tmp_path, monkeypatch)
+    backend = FakeBackend([make_logprobs_response({"A": 1.0})] * 4)
+    sent = []
+    orig = backend.chat
+    backend.chat = lambda messages, **p: (sent.append(messages[0]["content"]), orig(messages, **p))[1]
+    info = evaluate._run_prime(case, backend, 64, parallel=4, mode="json")
+    assert info["parallel"] == 1 and info["error"] is None
+    assert sent == [json_baseline.SYSTEM_PROMPT]

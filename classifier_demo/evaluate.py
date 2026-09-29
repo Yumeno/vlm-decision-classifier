@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from . import decision, pipeline, report
+from . import decision, json_baseline, pipeline, report
 from .image import JPEG_QUALITY, prepare_image
 from .pipeline import _git_commit
 from .taxonomy import Taxonomy
@@ -313,24 +313,31 @@ def _run_warmup(cases: list[dict], taxonomy, backend, warmup: int, max_edge: int
     return info
 
 
-def _run_prime(case: dict, backend, max_edge: int, parallel: int = 1, image_format: str = "jpeg") -> dict:
+def _run_prime(
+    case: dict, backend, max_edge: int, parallel: int = 1, image_format: str = "jpeg", mode: str = "choice"
+) -> dict:
     """E9 ホットロード用: 1ケースにつき、画像をサーバーのキャッシュに載せる準備リクエストを
     parallel 本同時に送る(並列送信時に全スロットへ画像を載せるため。parallel=1 なら1本)。
+    mode が json のときは JSON方式と同じ system文の準備(json_baseline.prime)を1本だけ送る
+    (キャッシュは先頭一致なので、方式ごとに自分の先頭を載せる必要がある)。
 
     elapsed_ms は開始から全完了までの壁時計時間。prime自体の失敗(画像読み込み・通信の
     いずれも)はエラーとしてケースの記録に残し、以降の判定は通常どおり続ける。
     """
     parallel = max(1, parallel)
+    prime_fn = decision.prime
+    if mode == "json":
+        prime_fn, parallel = json_baseline.prime, 1
     start = time.perf_counter_ns()
     try:
         image_bytes, mime, _, _ = prepare_image(case["image_path"], max_edge=max_edge, image_format=image_format)
         if parallel == 1:
             # N=1 は従来どおり(prime自身の計測値をそのまま使う)
-            result = decision.prime(backend, image_bytes, mime)
+            result = prime_fn(backend, image_bytes, mime)
             return {"elapsed_ms": result["elapsed_ms"], "error": None, "parallel": 1}
         else:
             with ThreadPoolExecutor(max_workers=parallel) as executor:
-                futures = [executor.submit(decision.prime, backend, image_bytes, mime) for _ in range(parallel)]
+                futures = [executor.submit(prime_fn, backend, image_bytes, mime) for _ in range(parallel)]
                 errors = []
                 for f in futures:
                     try:
@@ -428,11 +435,16 @@ def run_evaluate(
 
     records: list[dict] = []
     for i, case in enumerate(evaluated_cases):
-        # prime はモードの交互順の前、ケースごとに1回(両モードとも画像キャッシュ済みの
-        # 状態から比べるため)。classification_wall_ms には含めない(別記録)。
-        prime_info = _run_prime(case, backend, max_edge, axis_concurrency if axis_concurrency >= 2 else 1, image_format) if prime else None
         order = case_mode_order(modes, i)
         for order_index, mode in enumerate(order):
+            # prime は各モードの計測の直前に、そのモード自身の先頭(system文+画像)で送る
+            # (キャッシュは先頭一致のため。選択式の準備ではJSONに効かない)。
+            # classification_wall_ms には含めない(別記録)。
+            prime_info = (
+                _run_prime(case, backend, max_edge, axis_concurrency if axis_concurrency >= 2 else 1, image_format, mode)
+                if prime
+                else None
+            )
             result = _classify_safe(
                 case["image_path"], taxonomy, backend, mode, max_edge, axis_concurrency, confirm, rank_threshold, image_format,
                 bundled_multi,
@@ -463,6 +475,7 @@ def run_evaluate(
         "jpeg_quality": JPEG_QUALITY if image_format == "jpeg" else None,
         "warmup": warmup_info,
         "prime": prime,
+        "prime_scope": "per_mode" if prime else None,  # prime=true で prime_scope が欠落している旧run.jsonは、選択式の準備を1回だけ送っていた(JSONに効かない)
         "prime_parallel": (axis_concurrency if axis_concurrency >= 2 else 1) if prime else None,
         "axis_concurrency": axis_concurrency,
         "confirm": confirm,

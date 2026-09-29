@@ -1432,16 +1432,9 @@ async function runClassification() {
     const askMode = askStyleInput.value; // 'choice' | 'bundled'(選択式の列をどちらで判定するか)
     const choiceTitle = askMode === 'bundled' ? '選択式(束ね質問)' : '選択式';
 
-    // 比較モードでは、両方の列が同じ条件になるよう prime は最初の列の呼び出しにだけ付ける
-    // (2列目は同じサーバー・同じ画像なら既にキャッシュ済みのため)。
-    let primeAssigned = false;
-    const nextPrimeFlag = () => {
-      if (primeEnabled && !primeAssigned) {
-        primeAssigned = true;
-        return true;
-      }
-      return false;
-    };
+    // 比較モードでも全列に prime を付ける。キャッシュは先頭(system文+画像)一致なので、
+    // 選択式とJSONは先頭が違い、サーバー1と2は別サーバーのため、各列が自分の先頭を載せる。
+    const nextPrimeFlag = () => primeEnabled;
 
     metaPanel.classList.toggle('hidden', !showMetadata);
     clearMetaPanel();
