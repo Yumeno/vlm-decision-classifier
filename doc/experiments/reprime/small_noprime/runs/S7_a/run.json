@@ -1,0 +1,124 @@
+{
+  "started": "2026-09-29T17:48:31.187513+00:00",
+  "finished": "2026-09-29T17:50:20.511315+00:00",
+  "tool_commit": {
+    "commit": "b7690853ae0ca752bff5e6659a151e06e4d5ab91",
+    "dirty": false
+  },
+  "manifest": {
+    "path": "dataset\\manifest.jsonl",
+    "sha256": "941faf84f0c1e3f027748766b6ce2ec4181cc8749b0c1ad70ec8113b528baab0"
+  },
+  "taxonomy": {
+    "version": "0.4.1",
+    "sha256": "6f7038cbd525af1552af1c95158090ebc38a1cd1303191af8cff8c7fdfb7564f"
+  },
+  "dataset_version": "v1.0.0",
+  "model": "gemma-4-e4b-q4",
+  "base_url": "http://127.0.0.1:1235/v1",
+  "modes": [
+    "choice",
+    "json",
+    "bundled"
+  ],
+  "max_edge": 1024,
+  "image_format": "jpeg",
+  "jpeg_quality": 90,
+  "warmup": {
+    "count": 1,
+    "case_id": "A01",
+    "axis_id": "image_type",
+    "elapsed_ms": [
+      380.5534
+    ],
+    "errors": 0
+  },
+  "prime": false,
+  "prime_scope": null,
+  "prime_parallel": null,
+  "axis_concurrency": 1,
+  "confirm": false,
+  "rank_threshold": 0.5,
+  "bundled_multi": "rank",
+  "runtime_label": "S7_a",
+  "runtime_info": {
+    "profile": "small-gemma-4-e4b-q4",
+    "experiments": [
+      "S7"
+    ],
+    "model": {
+      "id": "gemma-4-e4b-q4",
+      "official": "google/gemma-4-E4B-it",
+      "gguf": {
+        "repo": "lmstudio-community/gemma-4-E4B-it-GGUF",
+        "revision": "99210a71094c6aa8559f764e0cadedd7d89de94d",
+        "file": "gemma-4-E4B-it-Q4_K_M.gguf",
+        "sha256": "0ffb122c8b6921f13cbc34186e052524d0b5803b17f4867b7197a561400b3770"
+      },
+      "mmproj": {
+        "file": "mmproj-gemma-4-E4B-it-BF16.gguf",
+        "sha256": "bdfc4935857658dfdc8d1adebfa3897c2fec8b3323410f4f73ade36d6efa02be"
+      }
+    },
+    "server": {
+      "type": "llama-server",
+      "api": "OpenAI-compatible /v1/chat/completions",
+      "upstream": "https://github.com/ggml-org/llama.cpp",
+      "commit": "f95b0d95394d5e311ba8228689972843178c5e28",
+      "version": "0.4.1-dev (build 1, commit f95b0d9)",
+      "image_cache_patch": true,
+      "patch": "doc/patches/llamacpp-mtmd-checkpoint.patch(tools/server/server-context.cpp の do_checkpoint = do_checkpoint && !has_mtmd; を無効化)",
+      "build": "CUDA 12.8.93, MSVC 19.44.35228.0 (VS 2022 BuildTools), -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86;89 -DLLAMA_CURL=OFF, Release, target llama-server (doc/experiments/phase4-runbook.md)",
+      "launch": "llama-server -m gemma-4-E4B-it-Q4_K_M.gguf --mmproj mmproj-gemma-4-E4B-it-BF16.gguf --alias gemma-4-e4b-q4 -ngl 99 -c 8192 -np 4 --kv-unified -sm none -mg 0 --port 1235"
+    },
+    "hardware": {
+      "gpus": [
+        "CUDA0 (nvidia-smi 1): NVIDIA GeForce RTX 3090 24GB",
+        "CUDA1 (nvidia-smi 0): NVIDIA GeForce RTX 4060 Ti 16GB"
+      ],
+      "driver": "591.86",
+      "gpu_used": "RTX 3090 のみ(-sm none -mg 0)。起動後 nvidia-smi で bus 0D が 0 → 6794 MiB。4060 Ti は +約120 MiB(CUDA 初期化分とみられる)",
+      "concurrent_processes": "RTX 3090 に別プロセスなし(各回の起動前に nvidia-smi で 0 MiB を確認)。4060 Ti は別アプリが使用している場合がある。回ごとにサーバーを再起動。"
+    },
+    "client": {
+      "max_edge": 1024,
+      "temperature": 0,
+      "top_logprobs": 20,
+      "reasoning_effort": "none"
+    },
+    "notes": "小型モデルの比較(S1〜S9)。最終の取り直し F1 と同じ改造版 llama-server・同じ手順(JPEG q90・長辺1024・--prime・回 a/b)、繰り返し1回(F1〜F3 で判定が3回とも同一だったため)。"
+  },
+  "runtime_info_file": {
+    "name": "small-S7.json",
+    "sha256": "2851c07f45adba2c6bbb59ac4c92381170f93207c7b5e115f75d586f56625d82"
+  },
+  "note": "small-model comparison S7_a",
+  "platform": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]"
+  },
+  "case_counts": {
+    "total": 35,
+    "evaluated": 35,
+    "excluded": 0,
+    "manifest_by_scenario": {
+      "alisa_lora": 8,
+      "conflict": 2,
+      "general": 8,
+      "multi": 3,
+      "alisa_no_lora": 3,
+      "outfit_scene": 7,
+      "similar": 4
+    },
+    "evaluated_by_scenario": {
+      "alisa_lora": 8,
+      "conflict": 2,
+      "general": 8,
+      "multi": 3,
+      "alisa_no_lora": 3,
+      "outfit_scene": 7,
+      "similar": 4
+    }
+  },
+  "excluded_cases": []
+}
