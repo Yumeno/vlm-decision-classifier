@@ -205,13 +205,14 @@ def test_yn_prompt_lists_sub_questions_for_multi_axis_only():
         assert f"Question {key}:\nIs {name} ({crit}) present in the image?\n\nA. yes\nB. no" in prompt
     assert "Question 3:" not in prompt and "qc" not in prompt
     # 回答の雛形が欄の番号順に全行入る
-    template = decision.BUNDLED_YN_INSTRUCTION + "\n" + "\n".join(
+    template = decision.BUNDLED_TEMPLATE_INSTRUCTION + "\n" + "\n".join(
         f"{k}: ?" for k in ("1", "2", "3a", "3b", "3c")
     )
-    assert prompt.endswith(template) and decision.BUNDLED_INSTRUCTION not in prompt
-    # rank は従来どおり(サブ質問なし)
+    assert prompt.endswith(template)
+    # rank もサブ質問なし・軸数ぶんの雛形(1: ? 〜 3: ?)で終わる
     rank_prompt = decision._build_bundled_prompt(_tax().axes, "rank")
-    assert "3a" not in rank_prompt and rank_prompt.endswith(decision.BUNDLED_INSTRUCTION)
+    rank_template = decision.BUNDLED_TEMPLATE_INSTRUCTION + "\n" + "\n".join(f"{k}: ?" for k in ("1", "2", "3"))
+    assert "3a" not in rank_prompt and rank_prompt.endswith(rank_template)
 
 
 def test_yn_reads_p_yes_and_adopts_multiple():
