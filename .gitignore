@@ -63,3 +63,6 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# note 記事の下書き・作業報告(公開リポジトリに含めない)
+note/
