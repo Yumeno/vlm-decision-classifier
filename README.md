@@ -610,7 +610,7 @@ Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードす�
 - 正解ラベルをモデル出力を見る前に付け、元画像とメタデータ除去コピーを独立画像として水増ししない。
 - 秘密情報、個人パス、自家製アプリの画像やDB、モデル重みが履歴を含めて混入していないことを確認する。
 - 実際のモデル・量子化・環境、画像別の結果、失敗例、使用したコミットをREADMEと実験レポートで示す。
-- ライセンスは公開前に確定し、コードと画像データの扱いをそれぞれ明記する。
+- ライセンス: 確定済み(下記「ライセンス」)。
 - 公開に切り替えた直後に、privateの無料プランでは使えないGitHub設定を有効化する（下記）。
 
 ### 公開時のGitHub設定
@@ -639,3 +639,9 @@ gh api -X PATCH repos/Yumeno/vlm-decision-classifier -f "security_and_analysis[s
 - [Gemma 4 12B it（公式モデル）](https://huggingface.co/google/gemma-4-12B-it)
 - [vLLM PR #57250 — DiffusionGemmaの構造化読み出し](https://github.com/vllm-project/vllm/pull/57250)
 - [llama.cppの画像キャッシュに関するissue](https://github.com/ggml-org/llama.cpp/issues/26994)
+
+## ライセンス
+
+- コード・文書・データセットのテキスト(manifest・正解ラベル・生成記録など): [MIT](LICENSE)
+- データセットの画像(`dataset/images/`): 著作権者 資材部の懲りない面々(http://jmd.ickx.jp/fet)。Alisa を含む画像は [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)、それ以外は [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。対象の画像の一覧は [`dataset/DATASET_CARD.md`](dataset/DATASET_CARD.md)。
+- モデルの重み・LoRA は同梱していません。各モデルのライセンスに従ってください。

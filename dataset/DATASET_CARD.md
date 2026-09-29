@@ -63,5 +63,5 @@
 | 正解の character に Alisa を含む画像: A01〜A04、M01、M02、N01〜N03(元画像9枚)と派生 A01-strip〜A04-strip | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
 | それ以外の元画像22枚(第2のオリジナルキャラクターだけが写る画像、メタデータにだけ Alisa の記録がある C02 を含む) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 
-- 対象は `dataset/images/` の画像ファイル。manifest・正解ラベル・生成記録などのテキストの扱いは、コードのライセンス確定時に明記する(未確定)。
+- 対象は `dataset/images/` の画像ファイル。manifest・正解ラベル・生成記録などのテキストは、コードと同じ MIT(リポジトリの `LICENSE`)。
 - クレジット表記の例: 「画像: 資材部の懲りない面々 http://jmd.ickx.jp/fet (vlm-decision-classifier データセット、CC BY-NC-SA 4.0 / CC BY 4.0)」。
