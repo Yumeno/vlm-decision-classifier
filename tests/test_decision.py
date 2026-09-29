@@ -146,7 +146,7 @@ def test_decide_multi_axis_candidate_filter_and_threshold():
             make_logprobs_response({"A": 0.2, "B": 0.8}),  # second_original yes/no -> no
         ]
     )
-    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=True)
     assert set(result["candidates"]) == {"alisa", "second_original"}
     assert result["tags"] == ["alisa"]
 
@@ -160,7 +160,7 @@ def test_decide_multi_axis_floor_excludes_low_scoring_candidate():
             make_logprobs_response({"A": 0.9, "B": 0.1}),  # alisa yes/no -> yes
         ]
     )
-    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=True)
     assert result["candidates"] == ["alisa"]
     assert result["tags"] == ["alisa"]
 
@@ -174,7 +174,7 @@ def test_decide_multi_axis_catch_all_fallback():
             make_logprobs_response({"A": 0.1, "B": 0.9}),  # second_original yes/no -> no
         ]
     )
-    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=True)
     assert result["tags"] == ["other_original"]
 
 
@@ -187,7 +187,7 @@ def test_decide_multi_axis_none_top_no_fallback():
             make_logprobs_response({"A": 0.1, "B": 0.9}),  # second_original yes/no -> no
         ]
     )
-    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=True)
     assert result["tags"] == []
     assert result["relative_scores"][NONE_ID] == pytest.approx(0.8)
 
@@ -203,7 +203,7 @@ def test_decide_multi_axis_none_top_overrides_catch_all_among_non_none():
             make_logprobs_response({"A": 0.1, "B": 0.9}),  # second_original yes/no -> no
         ]
     )
-    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=True)
     assert result["tags"] == []
 
 
@@ -216,7 +216,7 @@ def test_decide_multi_axis_candidate_confirmation_error_recorded():
             make_logprobs_response({"A": 0.9, "B": 0.1}),  # second_original yes/no -> yes
         ]
     )
-    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=True)
     assert "alisa" not in result["confirmations"]
     assert "alisa" in result["confirmation_errors"]
     assert "URLError" in result["confirmation_errors"]["alisa"]
@@ -254,7 +254,7 @@ def test_decide_multi_axis_non_character_axis_follows_same_rules():
             make_logprobs_response({"A": 0.1, "B": 0.9}),  # maid yes/no -> no
         ]
     )
-    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=True)
     assert result["tags"] == []
     assert result["failed"] is False
 
@@ -266,7 +266,7 @@ def test_decide_multi_axis_non_character_axis_follows_same_rules():
             make_logprobs_response({"A": 0.1, "B": 0.9}),  # maid yes/no -> no
         ]
     )
-    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=True)
     assert result["tags"] == ["other"]
 
     # 確認(yes/no)が1件失敗 -> 軸は失敗扱いで、catch_all フォールバックもしない
@@ -277,8 +277,87 @@ def test_decide_multi_axis_non_character_axis_follows_same_rules():
             make_logprobs_response({"A": 0.1, "B": 0.9}),  # maid yes/no -> no
         ]
     )
-    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=True)
     assert result["failed"] is True
+    assert result["tags"] == []
+
+
+def test_pool_labels_case_insensitive_at_26_labels():
+    # 26以下は従来どおり strip+upper で大文字小文字を区別しない照合。
+    labels = decision.LABELS[:26]
+    top_logprobs = [
+        {"token": "a", "logprob": math.log(0.3)},
+        {"token": "B", "logprob": math.log(0.7)},
+    ]
+    scores = pool_labels(top_logprobs, labels)
+    assert scores["A"] == pytest.approx(0.3)
+    assert scores["B"] == pytest.approx(0.7)
+
+
+def test_pool_labels_case_sensitive_above_26_labels():
+    # 27以上(a-zを含む)は 'A' と 'a' を区別する(strip のみ、upper しない)。
+    labels = decision.LABELS[:27]  # A-Z + 'a'
+    top_logprobs = [
+        {"token": "A", "logprob": math.log(0.4)},
+        {"token": " a", "logprob": math.log(0.6)},  # 前後の空白はstripで吸収するが、大文字小文字は保持する
+    ]
+    scores = pool_labels(top_logprobs, labels)
+    assert scores["A"] == pytest.approx(0.4)
+    assert scores["a"] == pytest.approx(0.6)
+
+
+def test_decide_multi_axis_confirm_false_sends_no_yes_no():
+    # confirmオフ: ランキング1回のみ送り、yes/noは一切送らない(候補は閾値以上をそのまま採用)。
+    axis = _character_axis()
+    backend = FakeBackend(
+        [make_logprobs_response({"A": 0.7, "B": 0.2, "C": 0.05, "D": 0.05})]  # ranking のみ
+    )
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=False, rank_threshold=0.5)
+    assert backend.request_count == 1  # yes/noが送られていれば2以上になる
+    assert result["confirmations"] == {}
+    assert result["confirmation_errors"] == {}
+    assert result["candidates"] == ["alisa"]  # second_original(0.2)は閾値未満
+    assert result["tags"] == ["alisa"]
+    assert result["failed"] is False
+
+
+def test_decide_multi_axis_confirm_false_threshold_boundary_and_order():
+    # 採用は「閾値以上」(境界含む)で、スコア降順に並ぶ。
+    axis = _character_axis()
+    backend = FakeBackend(
+        [make_logprobs_response({"A": 0.5, "B": 0.3, "C": 0.1, "D": 0.1})]  # alisa=0.5, second=0.3
+    )
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=False, rank_threshold=0.3)
+    assert result["candidates"] == ["alisa", "second_original"]  # 両方とも0.3以上、スコア降順
+    assert result["tags"] == ["alisa", "second_original"]
+
+    backend2 = FakeBackend([make_logprobs_response({"A": 0.5, "B": 0.3, "C": 0.1, "D": 0.1})])
+    result2 = decide_multi_axis(backend2, b"img", "image/png", axis, confirm=False, rank_threshold=0.31)
+    assert result2["candidates"] == ["alisa"]  # second_original(0.3)は0.31未満で除外
+    assert result2["tags"] == ["alisa"]
+
+
+def test_decide_multi_axis_confirm_false_catch_all_fallback_when_no_candidate_clears_threshold():
+    # 採用がゼロのとき、__none__込みの全体最高がcatch_allならそれを採用する(confirmオンと同じ規則)。
+    axis = _character_axis()
+    backend = FakeBackend(
+        [make_logprobs_response({"A": 0.05, "B": 0.05, "C": 0.7, "D": 0.2})]  # other_original(catch_all)が全体最高
+    )
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=False, rank_threshold=0.5)
+    assert backend.request_count == 1
+    assert result["candidates"] == []  # 閾値以上の非catch_all候補はゼロ
+    assert result["tags"] == ["other_original"]
+    assert result["failed"] is False
+
+
+def test_decide_multi_axis_confirm_false_none_top_no_fallback():
+    # __none__自体が全体最高のときはタグなしのまま(catch_allへフォールバックしない)。
+    axis = _character_axis()
+    backend = FakeBackend(
+        [make_logprobs_response({"A": 0.05, "B": 0.05, "C": 0.1, "D": 0.8})]
+    )
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=False, rank_threshold=0.5)
+    assert result["candidates"] == []
     assert result["tags"] == []
 
 
@@ -292,6 +371,6 @@ def test_decide_multi_axis_confirmation_failure_skips_catch_all_fallback():
             make_logprobs_response({"A": 0.1, "B": 0.9}),  # second_original yes/no -> no
         ]
     )
-    result = decide_multi_axis(backend, b"img", "image/png", axis)
+    result = decide_multi_axis(backend, b"img", "image/png", axis, confirm=True)
     assert result["failed"] is True
     assert result["tags"] == []

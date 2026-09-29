@@ -33,7 +33,7 @@
 | `doc/phase0-sources-models.md` | 移植元の要点、使用モデルとSHA256、probe結果、画像生成の条件 | あり |
 | `doc/dataset-plan.md` | 正解付与規則、31枠の生成計画表、manifest仕様、検収と正解付与の経緯 | あり |
 | `doc/worklog.md` | 作業記録（新しい順） | あり |
-| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`） | あり（分類コア・評価器） |
+| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`/`serve`）、動画収録用デモUIサーバー（`server.py`、静的ファイルは`classifier_demo/web/index.html`） | あり（分類コア・評価器・デモUI） |
 | `taxonomy/default.yaml` | 分類体系 0.4.1（7軸）と自作キャラの定義 | あり |
 | `dataset/` | 評価用データセット v1.0.0(`images/` 35ケース、`manifest.jsonl`、`DATASET_CARD.md`、正解の一次記録 `labels/`、生成記録 `generation/`) | あり |
 | `scripts/` | データセットの生成（Forge/ComfyUI）、メタデータ除去、データセット組み立て、`benchmark_cache.py`（Phase 4 / E5: 画像キャッシュ改造の再現用ベンチマーク） | あり |
@@ -68,13 +68,43 @@ py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m classifier_demo check-manifest --manifest dataset\manifest.jsonl
 
 # データセット全件の評価(check-manifestを内部で先に実行し、エラーがあれば中断する)
-.venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --model <モデルID> --output-dir results\<名前>
+# 複数選択軸(character・outfit)の候補ごとのyes/no確認は既定オフ。E1〜E4等これまでの結果を
+# 再現するには --confirm を付ける(確認オンで従来と完全に同じ判定になる)。
+# モデルへ送る画像は既定でJPEG(quality 90、長辺1024)。E1〜E9はすべてPNG・長辺1024で測ったため、
+# 再現するには --image-format png を付ける(--max-edge 768 で長辺も変えられる)。
+.venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --model <モデルID> --confirm --image-format png --output-dir results\<名前>
 
 # 任意: 画像キャッシュ改造の再現用ベンチマーク(未改造版/改造版のllama-serverでそれぞれ実行して比較する。下記「画像キャッシュ改造(任意)」参照)
-.venv\Scripts\python.exe scripts\benchmark_cache.py --model <モデルID> --label vanilla --output results\cache\vanilla.json
+.venv\Scripts\python.exe scripts\benchmark_cache.py --model <モデルID> --label vanilla --image-format png --output results\cache\vanilla.json
 ```
 
-`evaluate` は選択式(`choice`)と通常JSON(`json`)を既定で両方実行し(`--modes choice,json`)、ケースごとに交互の順で実行して順序効果を抑える。出力先(`--output-dir`)には `run.json`（実行条件・除外ケース）、`cases.csv`（ケース別採点）、`summary.md`（集計）、`cases/<case_id>.<mode>.json`（生の分類結果）を書き出す。`rights_confirmed` が true でないケースは評価から除外され、`run.json` の `excluded_cases` に理由とともに記録される。`--runtime-info path\to\runtime.json` で、モデル/mmprojのSHA256・サーバー種別やcommit・パッチ有無・起動引数・GPUオフロードなど実行環境を記した任意のJSONファイルを渡すと、中身をそのまま（ファイル名とSHA256も添えて）`run.json` に記録する。
+`evaluate` は選択式(`choice`)と通常JSON(`json`)を既定で両方実行し(`--modes choice,json`)、ケースごとに交互の順で実行して順序効果を抑える。3方式(1軸ずつ・通常JSON・束ね質問)を比べるときは `--modes choice,json,bundled`(3モードはケースごとに実行順を回転する)。出力先(`--output-dir`)には `run.json`（実行条件・除外ケース）、`cases.csv`（ケース別採点）、`summary.md`（集計）、`cases/<case_id>.<mode>.json`（生の分類結果）を書き出す。`rights_confirmed` が true でないケースは評価から除外され、`run.json` の `excluded_cases` に理由とともに記録される。`--runtime-info path\to\runtime.json` で、モデル/mmprojのSHA256・サーバー種別やcommit・パッチ有無・起動引数・GPUオフロードなど実行環境を記した任意のJSONファイルを渡すと、中身をそのまま（ファイル名とSHA256も添えて）`run.json` に記録する。
+
+E9(ホットロード・軸の並列送信)用に2つのオプションがある。`--prime` を付けると、各ケースでモードの交互順の前に画像だけの準備リクエストを1回送り(サーバーの画像キャッシュに載せる)、その所要時間を `prime_ms` として `classification_wall_ms` とは別に記録する(`cases.csv`・ケース別結果JSON・`summary.md` の Latency)。`--axis-concurrency N`(既定1=逐次)は選択式(`choice`)の軸ごとの質問をN並列で送る(サーバー側が対応スロット数を用意している前提)。`--prime` と `--axis-concurrency N`(N≥2)を併用すると、準備リクエストを N 本同時に送って全スロットに画像を載せてから判定に入る(`prime_ms` は全完了までの壁時計時間、送った本数は `run.json` の `prime_parallel`)。両方とも `run.json` に記録される。
+
+複数選択軸(`character`・`outfit`)の判定方法は `--confirm`(既定オフ)と `--rank-threshold`(既定0.5)で切り替える。`--confirm` を付けると、候補の順位付け後に上位候補ごとへ独立したyes/noを送って確認する(リクエスト数が増える。E1〜E4等これまでの実験結果はこの方式)。付けない場合はyes/noを送らず、catch_allでない候補のうち相対スコアが `--rank-threshold` 以上のものをスコア降順で採用する(採用がゼロなら、`none`込みの全体最上位がcatch_allのときだけそれを採用する)。判定の速さと精度のトレードオフを比較する実験用のオプションで、`run.json` の `confirm`・`rank_threshold` と `summary.md` 冒頭の実行条件行に記録される。
+
+### デモUI(動画収録用)
+
+軸ごとにスコアが伸びる様子をライブで見せるための1画面UI。標準ライブラリのみのサーバー(`http.server`)が静的ファイルを配信し、判定はNDJSONでストリーム配信する。ブラウザで見るだけで、外部には公開しない(待ち受け先は`127.0.0.1`固定で、変更するオプションはない)。
+
+```powershell
+.venv\Scripts\python.exe -m classifier_demo serve --port 8765
+```
+
+起動前にLM Studio / llama-serverでモデルをロードしておく（`serve`自体はサーバーもモデルも起動しない）。ブラウザで `http://127.0.0.1:8765/` を開き、右上の「設定」でサーバーURL・モデルIDを指定してから画像をドロップして「判定する」を押す。接続先はこのPC上のサーバーだけ(ループバック)で、Host/Origin不一致やループバック以外の`base_url`は拒否する。
+
+- 既定(比較なし): 7軸が順に判定され、各軸のスコア帯（相対スコア、候補内で再正規化）が結果到着時に伸びる。複数選択軸(`outfit`・`character`)は、設定の「候補ごとに確認する(yes/no)」ONなら候補の順位付けのあとに候補ごとのyes/no確認(P(yes))を表示し、OFF(既定)ならyes/noの行を出さずスコア帯の上に「採用の閾値」の位置を細い縦線で示す。
+- 設定の「メタデータ証拠を表示」ON: PNG生成メタデータ由来のLoRA名・トリガーワード・キャラ一致と、画素からのキャラ判定を並べ、一致/不一致を表示する（`metadata_evidence`と`vision_tags`は統合せず別フィールドのまま）。
+- 設定の「比較」で「選択式 と 通常JSON」を選ぶと、同じ画像を選択式→通常JSONの順に実行し(同時実行はしない)、左右にスコア帯とJSON生テキスト・ラベル・所要時間を並べる。
+- 設定の「比較」で「サーバー1 と サーバー2」を選ぶと、未改造/改造のllama-serverなど2つのサーバーURLに選択式を順番に流し、時間を左右で比べる。
+- 設定の「先に画像を読み込む(ホットロード)」ONで、判定前に準備リクエストを1回送って画像をサーバーのキャッシュに載せる(比較モードでは両方の列が同じ条件になるよう最初の列の呼び出しにだけ付ける)。所要時間は画像欄の下に小さく表示し、列の経過時間には含めない。
+- 設定の「軸を並列に送る」ONで、選択式の軸ごとの質問を4並列で送る(サーバーが`-np 4`など対応スロット数を用意している前提)。
+- 設定の「候補ごとに確認する(yes/no)」(既定OFF)と「採用の閾値(confirmオフ時)」(既定0.5)で、複数選択軸の判定方法(`--confirm`/`--rank-threshold`と同じ)を切り替える。
+
+各結果列は「経過時間・リクエスト数 → 判定結果の表(7軸を1行ずつ) → 出力の中身(スコア帯・yes/no、またはJSON生テキスト)」の順に並ぶ。比較モードでは、両方の列がそろった時点で左右のラベルが異なる軸の行に印(左罫線+「不一致」表示)を付ける。
+
+失敗(選択肢トークンが出ない・thinkingが先に出る・logprobs欠損・通信エラー・JSON形式不正など)は例外で止めず、その場に理由を表示する。別方式へのフォールバックはしない。
 
 ### モデル/サーバー設定
 
@@ -138,7 +168,7 @@ Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードす�
 4. メタデータ抽出、分類体系、選択式判定、通常JSON分類、共通の評価器を実装。
 5. 固定データセットで全方式を評価し、Qwenのllama.cpp改造比較を実施(結果は [`doc/experiments/report.md`](doc/experiments/report.md))。
 
-詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)・E7(束ね質問)・E8(メタデータ補助の対照実験)は初版MVPの完了条件外の追加課題です(`AGENTS.md`参照)。
+詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)・E8(メタデータ補助の対照実験)は初版MVPの完了条件外の追加課題です(E7 束ね質問は2026-09-29 作者判断で初版に含める)(`AGENTS.md`参照)。
 
 ## 公開前の確認
 

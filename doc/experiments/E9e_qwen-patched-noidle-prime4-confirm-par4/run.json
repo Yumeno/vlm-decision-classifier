@@ -1,0 +1,121 @@
+{
+  "started": "2026-09-28T21:35:33.755175+00:00",
+  "finished": "2026-09-28T21:40:14.029838+00:00",
+  "tool_commit": {
+    "commit": "acfe504042ea7b0641a2ea506f5d57c5d8a52bcc",
+    "dirty": false
+  },
+  "manifest": {
+    "path": "dataset\\manifest.jsonl",
+    "sha256": "941faf84f0c1e3f027748766b6ce2ec4181cc8749b0c1ad70ec8113b528baab0"
+  },
+  "taxonomy": {
+    "version": "0.4.1",
+    "sha256": "6f7038cbd525af1552af1c95158090ebc38a1cd1303191af8cff8c7fdfb7564f"
+  },
+  "dataset_version": "v1.0.0",
+  "model": "qwen3.5-9b",
+  "base_url": "http://127.0.0.1:1235/v1",
+  "modes": [
+    "choice",
+    "json"
+  ],
+  "max_edge": 1024,
+  "warmup": {
+    "count": 1,
+    "case_id": "A01",
+    "axis_id": "image_type",
+    "elapsed_ms": [
+      1145.4173
+    ],
+    "errors": 0
+  },
+  "prime": true,
+  "prime_parallel": 4,
+  "axis_concurrency": 4,
+  "confirm": true,
+  "rank_threshold": 0.5,
+  "runtime_label": "qwen-llamaserver-patched-noidle-e9e",
+  "runtime_info": {
+    "profile": "qwen-llamaserver-patched",
+    "experiments": [
+      "E4",
+      "E5"
+    ],
+    "model": {
+      "id": "qwen3.5-9b",
+      "official": "Qwen/Qwen3.5-9B",
+      "gguf": {
+        "repo": "lmstudio-community/Qwen3.5-9B-GGUF",
+        "revision": "1379f25c6b505a3fc737bd7818cb09389cf807c1",
+        "file": "Qwen3.5-9B-Q4_K_M.gguf",
+        "sha256": "cd76ec205963b3b33350093e6904d9de16c4e666fd104e1f632d25c7f15f2a13"
+      },
+      "mmproj": {
+        "file": "mmproj-Qwen3.5-9B-BF16.gguf",
+        "sha256": "330d17547bfdbcd0e7a0cb3f4b06b4ceeac0aaa1e449122d9d66ef957aeb74b3"
+      }
+    },
+    "server": {
+      "type": "llama-server",
+      "api": "OpenAI-compatible /v1/chat/completions",
+      "upstream": "https://github.com/ggml-org/llama.cpp",
+      "commit": "f95b0d95394d5e311ba8228689972843178c5e28",
+      "version": "0.4.1-dev (build 1, commit f95b0d9)",
+      "image_cache_patch": true,
+      "patch": "doc/patches/llamacpp-mtmd-checkpoint.patch(tools/server/server-context.cpp の do_checkpoint = do_checkpoint && !has_mtmd; を無効化)",
+      "build": "CUDA 12.8.93, MSVC 19.44.35228.0 (VS 2022 BuildTools), -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86;89 -DLLAMA_CURL=OFF, Release, target llama-server (doc/experiments/phase4-runbook.md)",
+      "launch": "llama-server -m Qwen3.5-9B-Q4_K_M.gguf --mmproj mmproj-Qwen3.5-9B-BF16.gguf --alias qwen3.5-9b -ngl 99 -c 8192 -np 4 --kv-unified -sm none -mg 0 --port 1235",
+      "observed": "log: n_slots = 4, n_ctx_slot = 8192, kv_unified = 'true'"
+    },
+    "hardware": {
+      "gpus": [
+        "CUDA0 (nvidia-smi 1): NVIDIA GeForce RTX 3090 24GB",
+        "CUDA1 (nvidia-smi 0): NVIDIA GeForce RTX 4060 Ti 16GB"
+      ],
+      "driver": "591.86",
+      "gpu_used": "RTX 3090 のみ(-sm none -mg 0)。起動後 nvidia-smi で bus 0D が 0 → 6794 MiB。4060 Ti は +約120 MiB(CUDA 初期化分とみられる)",
+      "concurrent_processes": "RTX 3090 に別プロセスなし。4060 Ti は別アプリ(StabilityMatrix 系)が約 7.8GB を確保(推論は不明)。GPU 0 はデスクトップ表示にも使用"
+    },
+    "client": {
+      "max_edge": 1024,
+      "temperature": 0,
+      "top_logprobs": 20,
+      "reasoning_effort": "none"
+    },
+    "notes": "未改造版(qwen-llamaserver-vanilla)と同じコミット・同じビルド手順・同じ起動引数。差はパッチの1行だけ。E3 と E4 の差だけをパッチの効果として扱う。"
+  },
+  "runtime_info_file": {
+    "name": "qwen-llamaserver-patched.json",
+    "sha256": "a8449d8cffd01e1ee32f296f3b34a8b3a7db1429d18118cb155b90907ecdb030"
+  },
+  "note": "E9e: patched llama-server started with --no-cache-idle-slots (otherwise same launch args as runtime-info), prime x4 parallel, confirm on, axis concurrency 4",
+  "platform": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]"
+  },
+  "case_counts": {
+    "total": 35,
+    "evaluated": 35,
+    "excluded": 0,
+    "manifest_by_scenario": {
+      "alisa_lora": 8,
+      "conflict": 2,
+      "general": 8,
+      "multi": 3,
+      "alisa_no_lora": 3,
+      "outfit_scene": 7,
+      "similar": 4
+    },
+    "evaluated_by_scenario": {
+      "alisa_lora": 8,
+      "conflict": 2,
+      "general": 8,
+      "multi": 3,
+      "alisa_no_lora": 3,
+      "outfit_scene": 7,
+      "similar": 4
+    }
+  },
+  "excluded_cases": []
+}

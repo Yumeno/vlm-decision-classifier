@@ -6,6 +6,7 @@
   - E1b(LM Studio)と E3 の比較 = サーバーの違い。パッチの効果と混ぜない。
 - 速度比較は RTX 3090 だけで行い、測定中は 3090 でほかの推論を動かさない(作者と合意、2026-09-27)。
 - **GPU を使う前に作者に確認する**(CLAUDE.md)。
+- **`--confirm` が必須**: 複数選択軸(character)の確認(yes/no)は既定オフになった。E3・E4(本runbook記載の結果)は確認オンで測定したものなので、再現するコマンドには必ず `--confirm` を付ける。
 
 ## 1. ビルド(未改造版・改造版で同じ手順)
 
@@ -49,8 +50,8 @@ llama-server -m <models>/lmstudio-community/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gg
 ## 3. 測定(サーバーごとに)
 
 1. probe: `.venv/Scripts/python.exe -m classifier_demo probe --base-url http://127.0.0.1:1235/v1 --model <id>`(thinking が出ないこと、logprobs があること)
-2. E5(小ベンチマーク): `.venv/Scripts/python.exe scripts/benchmark_cache.py --base-url http://127.0.0.1:1235/v1 --model <id> --label vanilla --output results/E5/vanilla.json`(改造版は `--label patched`)
-3. E3/E4(全件、選択式のみ): `.venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model <id> --modes choice --warmup 1 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-llamaserver-vanilla.json --runtime-label qwen-llamaserver-vanilla --output-dir results/E3_qwen-llamaserver-vanilla`(改造版は `patched`、`results/E4_…`)
+2. E5(小ベンチマーク): `.venv/Scripts/python.exe scripts/benchmark_cache.py --base-url http://127.0.0.1:1235/v1 --model <id> --label vanilla --image-format png --output results/E5/vanilla.json`(改造版は `--label patched`)
+3. E3/E4(全件、選択式のみ): `.venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model <id> --modes choice --warmup 1 --confirm --image-format png --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-llamaserver-vanilla.json --runtime-label qwen-llamaserver-vanilla --output-dir results/E3_qwen-llamaserver-vanilla`(改造版は `patched`、`results/E4_…`)
 4. サーバーを終了し、3090 に残っているプロセスがないことを確認する。
 
 ## 4. 記録

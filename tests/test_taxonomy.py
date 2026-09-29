@@ -106,7 +106,7 @@ axes:
 
 
 def test_too_many_choices_raises(tmp_path):
-    choices = "\n".join(f"      - {{id: c{i}, name: c{i}, criteria: c}}" for i in range(20))
+    choices = "\n".join(f"      - {{id: c{i}, name: c{i}, criteria: c}}" for i in range(52))
     content = f"""
 version: "0.1.0"
 axes:
@@ -118,5 +118,5 @@ axes:
 {choices}
 """
     path = _write(tmp_path, content)
-    with pytest.raises(ValueError, match="max is 19"):
+    with pytest.raises(ValueError, match="max is 51"):
         taxonomy.load(path)

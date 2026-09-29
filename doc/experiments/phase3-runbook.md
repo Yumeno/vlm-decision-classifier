@@ -2,6 +2,7 @@
 
 - 対象: データセット v1.0.0(`dataset/manifest.jsonl`、SHA256 `941faf84…`)、taxonomy 0.4.0(SHA256 `ec7b2a2f…`)
 - 1回の `evaluate` で選択式(choice)と通常JSON(json)を両方実行する。モードの順はケースごとに反転する(順序効果の抑制)。これで E1 と E1-J(Gemma は E2 と E2-J)が同じモデル・同じ画素・同じ taxonomy で対応比較になる。
+- **`--confirm` が必須**: 複数選択軸(character・outfit)の確認(yes/no)は既定オフになった。E1・E2(本runbook記載の結果)は確認オンで測定したものなので、再現するコマンドには必ず `--confirm` を付ける(`--rank-threshold` は確認オフのときだけ使うので不要)。
 - 実行環境の記録: `doc/experiments/runtime/{qwen,gemma}-lmstudio.json` を `--runtime-info` で `run.json` に写す。`gpu_used` はロード後に記入する。
 - **GPU を使う操作(モデルのロード)の前に、必ず作者に確認する**(CLAUDE.md)。
 
@@ -15,11 +16,11 @@
 3. **probe**: `.venv/Scripts/python.exe -m classifier_demo probe --model qwen3.5-9b`
    - logprobs あり・thinking なし・reasoning_effort が落ちていないことを確認する。
 4. **1件の試打**(両モード)
-   - `.venv/Scripts/python.exe -m classifier_demo classify dataset/images/M01.png --model qwen3.5-9b --mode choice --output results/trial/qwen_M01_choice.json`
+   - `.venv/Scripts/python.exe -m classifier_demo classify dataset/images/M01.png --model qwen3.5-9b --mode choice --image-format png --output results/trial/qwen_M01_choice.json`
    - 同じく `--mode json`。エラーがないこと、7軸すべてに結果が出ることを確認する。
 5. **全件評価**
    ```
-   .venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model qwen3.5-9b --modes choice,json --warmup 1 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-lmstudio.json --runtime-label qwen-lmstudio --output-dir results/E1_qwen-lmstudio
+   .venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model qwen3.5-9b --modes choice,json --warmup 1 --confirm --image-format png --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/qwen-lmstudio.json --runtime-label qwen-lmstudio --output-dir results/E1_qwen-lmstudio
    ```
    - Gemma は `--model gemma-4-12b-it`、`--runtime-info doc/experiments/runtime/gemma-lmstudio.json`、`--runtime-label gemma-lmstudio`、`--output-dir results/E2_gemma-lmstudio`。
 6. **アンロード**: `lms unload qwen3.5-9b`(Gemma も同様)。作者に「使い終わった」と報告する。

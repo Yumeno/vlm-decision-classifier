@@ -538,6 +538,7 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
         output_dir=output_dir,
         runtime_info_path=str(runtime_info_path),
         dataset_version="dataset-v1.0.0",
+        confirm=True,
     )
     assert exit_code == 0
 
@@ -553,6 +554,8 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     assert run_data["case_counts"]["manifest_by_scenario"] == {"alisa_lora": 2, "similar": 1, "general": 2}
     assert run_data["case_counts"]["evaluated_by_scenario"] == {"alisa_lora": 2, "similar": 1, "general": 1}
     assert run_data["modes"] == modes
+    assert run_data["confirm"] is True
+    assert run_data["rank_threshold"] == 0.5
     assert run_data["runtime_label"] == "test-runtime"
     assert run_data["note"] == "test note"
     assert "sha256" in run_data["manifest"]
@@ -640,6 +643,8 @@ def test_run_evaluate_end_to_end(tmp_path, monkeypatch):
     # --- summary.md ---
     summary_path = Path(output_dir) / "summary.md"
     summary_text = summary_path.read_text(encoding="utf-8")
+    assert "実行条件: confirm=オン" in summary_text
+    assert "rank_threshold=0.5" in summary_text
     assert "N=4" in summary_text  # 全体件数(元画像3件+派生1件)
     assert "点推定を強い結論として扱わないこと" in summary_text
 
@@ -713,6 +718,7 @@ def test_run_evaluate_without_runtime_info_records_null(tmp_path, monkeypatch):
         runtime_label=None,
         note=None,
         output_dir=output_dir,
+        confirm=True,
     )
     assert exit_code == 0
 
@@ -861,6 +867,7 @@ def test_run_evaluate_records_warmup_details(tmp_path, monkeypatch):
         runtime_label=None,
         note=None,
         output_dir=output_dir,
+        confirm=True,
     )
     assert exit_code == 0
 
@@ -872,6 +879,129 @@ def test_run_evaluate_records_warmup_details(tmp_path, monkeypatch):
     assert len(warmup["elapsed_ms"]) == 2
     assert all(isinstance(v, (int, float)) for v in warmup["elapsed_ms"])
     assert warmup["errors"] == 0
+
+
+def test_run_evaluate_prime_records_separately_from_classification_wall_ms(tmp_path, monkeypatch):
+    # E9: --prime を有効にすると、各ケースでモードの交互順の前に decision.prime() が1回
+    # 呼ばれ、prime_ms が classification_wall_ms とは別に記録される。
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "images").mkdir()
+    img_path = Path("images/A01.png")
+    _make_plain_png(img_path)
+    case = _minimal_case("A01", "images/A01.png", _sha256(img_path))
+    manifest_path = tmp_path / "manifest.jsonl"
+    _write_manifest(manifest_path, [case])
+
+    # prime(1) + choice: image_type/art_style/subject(3) + outfit(ランキング+確認1回=2) +
+    # character(ランキング+alisa確認+second確認=3、noneが優勢だがfloor境界で両候補とも確認要) = 1+3+2+3 = 9
+    responses = [
+        make_logprobs_response({"A": 1.0}),  # prime
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # image_type
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),  # art_style
+        make_logprobs_response({"A": 0.8, "B": 0.05, "C": 0.05, "D": 0.05, "E": 0.03, "F": 0.02}),  # subject
+        make_logprobs_response({"A": 0.03, "B": 0.02, "C": 0.95}),  # outfit ranking (none優勢)
+        make_logprobs_response({"A": 0.1, "B": 0.9}),  # outfit confirm -> no
+        make_logprobs_response({"C": 0.05, "D": 0.95}),  # character ranking (none優勢)
+        make_logprobs_response({"A": 0.1, "B": 0.9}),  # confirm alisa -> no
+        make_logprobs_response({"A": 0.1, "B": 0.9}),  # confirm second_original -> no
+    ]
+    backend = FakeBackend(responses)
+    taxonomy_path = _write_test_taxonomy(tmp_path)
+    output_dir = str(tmp_path / "results")
+
+    exit_code = evaluate.run_evaluate(
+        manifest_path=str(manifest_path),
+        taxonomy_path=taxonomy_path,
+        backend=backend,
+        modes=["choice"],
+        max_edge=64,
+        warmup=0,
+        runtime_label=None,
+        note=None,
+        output_dir=output_dir,
+        prime=True,
+        confirm=True,
+    )
+    assert exit_code == 0
+    assert backend.request_count == 9
+
+    # --- ケース別結果JSON: prime_ms が付き、classification_wall_ms には影響しない ---
+    case_json = json.loads((Path(output_dir) / "cases" / "A01.choice.json").read_text(encoding="utf-8"))
+    assert case_json["prime_ms"] == 1.0
+    assert case_json["prime_error"] is None
+    assert case_json["timing_ms"]["classification_wall_ms"] > 0
+
+    # --- cases.csv に prime_ms 列がある ---
+    csv_path = Path(output_dir) / "cases.csv"
+    with open(csv_path, encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == 1
+    assert float(rows[0]["prime_ms"]) == 1.0
+
+    # --- run.json に prime/axis_concurrency フラグが残る ---
+    run_data = json.loads((Path(output_dir) / "run.json").read_text(encoding="utf-8"))
+    assert run_data["prime"] is True
+    assert run_data["axis_concurrency"] == 1
+
+    # --- summary.md の Latency に prime の行が出る(prime有効時のみ) ---
+    summary_text = (Path(output_dir) / "summary.md").read_text(encoding="utf-8")
+    assert "prime(画像の読み込み" in summary_text
+    assert "prime + 判定" in summary_text
+
+
+def test_run_evaluate_without_prime_summary_has_no_prime_lines(tmp_path, monkeypatch):
+    # prime を使わない通常の評価では、summary.md に prime の行が出ない。
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "images").mkdir()
+    img_path = Path("images/A01.png")
+    _make_plain_png(img_path)
+    case = _minimal_case("A01", "images/A01.png", _sha256(img_path))
+    manifest_path = tmp_path / "manifest.jsonl"
+    _write_manifest(manifest_path, [case])
+
+    responses = [
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),
+        make_logprobs_response({"A": 0.9, "B": 0.05, "C": 0.03, "D": 0.02}),
+        make_logprobs_response({"A": 0.8, "B": 0.05, "C": 0.05, "D": 0.05, "E": 0.03, "F": 0.02}),
+        make_logprobs_response({"A": 0.03, "B": 0.02, "C": 0.95}),
+        make_logprobs_response({"A": 0.1, "B": 0.9}),
+        make_logprobs_response({"C": 0.05, "D": 0.95}),
+        make_logprobs_response({"A": 0.1, "B": 0.9}),
+        make_logprobs_response({"A": 0.1, "B": 0.9}),
+    ]
+    backend = FakeBackend(responses)
+    taxonomy_path = _write_test_taxonomy(tmp_path)
+    output_dir = str(tmp_path / "results")
+
+    exit_code = evaluate.run_evaluate(
+        manifest_path=str(manifest_path),
+        taxonomy_path=taxonomy_path,
+        backend=backend,
+        modes=["choice"],
+        max_edge=64,
+        warmup=0,
+        runtime_label=None,
+        note=None,
+        output_dir=output_dir,
+    )
+    assert exit_code == 0
+
+    run_data = json.loads((Path(output_dir) / "run.json").read_text(encoding="utf-8"))
+    assert run_data["prime"] is False
+    assert run_data["axis_concurrency"] == 1
+    # confirm/rank_thresholdを明示しなかった場合の既定値(作者指定): confirmオフ、閾値0.5
+    assert run_data["confirm"] is False
+    assert run_data["rank_threshold"] == 0.5
+
+    summary_text = (Path(output_dir) / "summary.md").read_text(encoding="utf-8")
+    assert "実行条件: confirm=オフ" in summary_text
+    assert "prime(画像の読み込み" not in summary_text
+    assert "prime + 判定" not in summary_text
+
+    csv_path = Path(output_dir) / "cases.csv"
+    with open(csv_path, encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert rows[0]["prime_ms"] == ""
 
 
 def test_run_evaluate_excludes_derived_case_when_source_excluded(tmp_path, monkeypatch):
@@ -914,3 +1044,38 @@ def test_run_evaluate_excludes_derived_case_when_source_excluded(tmp_path, monke
     assert run_data["case_counts"]["excluded"] == 2
     excluded = {e["case_id"]: e["reason"] for e in run_data["excluded_cases"]}
     assert excluded == {"A01": "rights_not_confirmed", "A01-strip": "source excluded"}
+
+
+def _prime_case(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "images").mkdir()
+    img_path = Path("images/A01.png")
+    _make_plain_png(img_path)
+    return _minimal_case("A01", "images/A01.png", _sha256(img_path))
+
+
+def test_run_prime_sends_n_requests_when_parallel(tmp_path, monkeypatch):
+    # E9b: 並列送信時は準備リクエストを N 本送り、prime_parallel=N・elapsed_ms(壁時計)を返す。
+    case = _prime_case(tmp_path, monkeypatch)
+    backend = FakeBackend([make_logprobs_response({"A": 1.0})] * 4)
+    info = evaluate._run_prime(case, backend, 64, parallel=4)
+    assert backend.request_count == 4
+    assert info["parallel"] == 4
+    assert info["error"] is None
+    assert info["elapsed_ms"] is not None
+
+
+def test_run_prime_single_request_when_parallel_is_one(tmp_path, monkeypatch):
+    case = _prime_case(tmp_path, monkeypatch)
+    backend = FakeBackend([make_logprobs_response({"A": 1.0})])
+    info = evaluate._run_prime(case, backend, 64, parallel=1)
+    assert backend.request_count == 1
+    assert info["parallel"] == 1
+    assert info["elapsed_ms"] == 1.0
+
+
+def test_run_prime_parallel_records_error_when_one_fails(tmp_path, monkeypatch):
+    case = _prime_case(tmp_path, monkeypatch)
+    backend = FakeBackend([make_logprobs_response({"A": 1.0})] * 3 + [RuntimeError("boom")])
+    info = evaluate._run_prime(case, backend, 64, parallel=4)
+    assert "boom" in info["error"]

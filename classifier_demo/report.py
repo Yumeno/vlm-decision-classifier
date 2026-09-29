@@ -12,11 +12,13 @@ micro/macro)を受ける。character 固有なのはメタデータ照合(LoRA�
 from __future__ import annotations
 
 import csv
+import itertools
 import math
 import re
 import statistics
 from collections import Counter
 
+from .image import JPEG_QUALITY
 from .taxonomy import Taxonomy
 
 _WS_RE = re.compile(r"\s+")
@@ -40,6 +42,7 @@ METADATA_CSV_FIELDS = [
 
 TIMING_CSV_FIELDS = [
     "classification_wall_ms",
+    "prime_ms",
     "request_count",
     "error_types",
     "json_attempts",
@@ -232,6 +235,8 @@ def build_case_row(case: dict, mode: str, order_index: int, result: dict, taxono
 
     timing = result.get("timing_ms") or {}
     row["classification_wall_ms"] = timing.get("classification_wall_ms", "")
+    # E9: --prime 有効時のみ result に付く(評価器側で付加。pipeline.classify自体は関知しない)。
+    row["prime_ms"] = result.get("prime_ms", "")
     row["request_count"] = result.get("request_count", "")
     error_types = [e.get("type", "") for e in result.get("errors") or []]
     row["error_types"] = ";".join(dict.fromkeys(error_types))
@@ -365,6 +370,29 @@ def _latency_block(recs: list[dict], mode: str) -> list[str]:
     req_counts = [r["result"].get("request_count", 0) for r in recs if r["result"].get("request_count") is not None]
     if req_counts:
         lines.append(f"  - 平均リクエスト数: {statistics.mean(req_counts):.2f}")
+
+    # E9 --prime: prime_ms が result に付いているケースのみ(prime有効時のみ)。
+    prime_ms_values = [
+        r["result"]["prime_ms"] for r in recs if isinstance(r["result"].get("prime_ms"), (int, float))
+    ]
+    if prime_ms_values:
+        pp = max((r["result"].get("prime_parallel") or 1) for r in recs)
+        par = f"、{pp}本同時" if pp >= 2 else ""
+        lines.append(
+            f"  - prime(画像の読み込み{par}、N={len(prime_ms_values)}): "
+            f"mean={statistics.mean(prime_ms_values):.1f}ms "
+            f"p50={nearest_rank_percentile(prime_ms_values, 50):.1f}ms "
+            f"p90={nearest_rank_percentile(prime_ms_values, 90):.1f}ms"
+        )
+        combined_ms = []
+        for r in recs:
+            p = r["result"].get("prime_ms")
+            c = (r["result"].get("timing_ms") or {}).get("classification_wall_ms")
+            if isinstance(p, (int, float)) and isinstance(c, (int, float)):
+                combined_ms.append(p + c)
+        if combined_ms:
+            lines.append(f"  - prime + 判定(N={len(combined_ms)}): mean={statistics.mean(combined_ms):.1f}ms")
+
     if mode == "json" and recs:
         fmt_errors = sum(1 for r in recs if (r["result"].get("json_baseline") or {}).get("tags") is None)
         attempts = [len((r["result"].get("json_baseline") or {}).get("attempts") or []) for r in recs]
@@ -400,7 +428,17 @@ def _pair_compare(
     return char_base_wins, char_other_wins, all_base_wins, all_other_wins, len(common_ids)
 
 
-def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[str], taxonomy: Taxonomy) -> str:
+def build_summary(
+    evaluated_cases: list[dict],
+    records: list[dict],
+    modes: list[str],
+    taxonomy: Taxonomy,
+    confirm: bool = False,
+    rank_threshold: float = 0.5,
+    max_edge: int | None = None,
+    image_format: str | None = None,
+    bundled_multi: str = "rank",
+) -> str:
     """summary.md の本文を組み立てる。records は
     {"case", "mode", "order_index", "result"} の dict のリスト(実行順)。
 
@@ -427,6 +465,17 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
 
     lines: list[str] = []
     lines.append("# 評価サマリー")
+    lines.append("")
+    condition = (
+        f"実行条件: confirm={'オン' if confirm else 'オフ'}(複数選択軸の候補ごとのyes/no確認)"
+        f", rank_threshold={rank_threshold}(confirmオフ時の採用閾値)"
+    )
+    if "bundled" in modes:
+        condition += f", 束ね質問の複数選択: {bundled_multi}(rank=相対スコアと閾値 / yn=候補ごとのYes/No欄)"
+    if image_format is not None:
+        condition += f", 送信画像: {image_format}(quality={JPEG_QUALITY})" if image_format == "jpeg" else f", 送信画像: {image_format}"
+        condition += f"・長辺{max_edge}"
+    lines.append(condition)
     lines.append("")
     lines.append(
         f"評価ケース数(全体): N={len(evaluated_cases)}"
@@ -643,29 +692,28 @@ def build_summary(evaluated_cases: list[dict], records: list[dict], modes: list[
     if len(modes) >= 2:
         lines.append(f"## モード間のペア比較(元画像 N={n_source} 件。全ケース分母も併記)")
         lines.append("")
-        base, other = modes[0], modes[1]
+        for base, other in itertools.combinations(modes, 2):
+            base_by_case_src = {r["case"]["case_id"]: r for r in by_mode_source[base]}
+            other_by_case_src = {r["case"]["case_id"]: r for r in by_mode_source[other]}
+            cb_wins_src, co_wins_src, ab_wins_src, ao_wins_src, n_common_src = _pair_compare(
+                base_by_case_src, other_by_case_src, taxonomy
+            )
+            lines.append(f"### 元画像({base} vs {other}、N={n_common_src})")
+            lines.append("")
+            lines.append(f"- キャラ完全一致: {base}のみ正解 {cb_wins_src} 件 / {other}のみ正解 {co_wins_src} 件")
+            lines.append(f"- 全軸正解: {base}のみ正解 {ab_wins_src} 件 / {other}のみ正解 {ao_wins_src} 件")
+            lines.append("")
 
-        base_by_case_src = {r["case"]["case_id"]: r for r in by_mode_source[base]}
-        other_by_case_src = {r["case"]["case_id"]: r for r in by_mode_source[other]}
-        cb_wins_src, co_wins_src, ab_wins_src, ao_wins_src, n_common_src = _pair_compare(
-            base_by_case_src, other_by_case_src, taxonomy
-        )
-        lines.append(f"### 元画像({base} vs {other}、N={n_common_src})")
-        lines.append("")
-        lines.append(f"- キャラ完全一致: {base}のみ正解 {cb_wins_src} 件 / {other}のみ正解 {co_wins_src} 件")
-        lines.append(f"- 全軸正解: {base}のみ正解 {ab_wins_src} 件 / {other}のみ正解 {ao_wins_src} 件")
-        lines.append("")
-
-        base_by_case_all = {r["case"]["case_id"]: r for r in by_mode_all[base]}
-        other_by_case_all = {r["case"]["case_id"]: r for r in by_mode_all[other]}
-        cb_wins_all, co_wins_all, ab_wins_all, ao_wins_all, n_common_all = _pair_compare(
-            base_by_case_all, other_by_case_all, taxonomy
-        )
-        lines.append(f"### 全ケース({base} vs {other}、N={n_common_all})")
-        lines.append("")
-        lines.append(f"- キャラ完全一致: {base}のみ正解 {cb_wins_all} 件 / {other}のみ正解 {co_wins_all} 件")
-        lines.append(f"- 全軸正解: {base}のみ正解 {ab_wins_all} 件 / {other}のみ正解 {ao_wins_all} 件")
-        lines.append("")
+            base_by_case_all = {r["case"]["case_id"]: r for r in by_mode_all[base]}
+            other_by_case_all = {r["case"]["case_id"]: r for r in by_mode_all[other]}
+            cb_wins_all, co_wins_all, ab_wins_all, ao_wins_all, n_common_all = _pair_compare(
+                base_by_case_all, other_by_case_all, taxonomy
+            )
+            lines.append(f"### 全ケース({base} vs {other}、N={n_common_all})")
+            lines.append("")
+            lines.append(f"- キャラ完全一致: {base}のみ正解 {cb_wins_all} 件 / {other}のみ正解 {co_wins_all} 件")
+            lines.append(f"- 全軸正解: {base}のみ正解 {ab_wins_all} 件 / {other}のみ正解 {ao_wins_all} 件")
+            lines.append("")
 
     lines.append("## 注記")
     lines.append("")

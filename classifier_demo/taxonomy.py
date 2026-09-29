@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 import yaml
 
-MAX_CHOICES = 19  # + none で最大20ラベル
+MAX_CHOICES = 51  # + none で最大52ラベル(A-Z・a-z。各ラベルは使用モデルで1トークン、1トークン目が互いに異なること)
 
 
 @dataclass

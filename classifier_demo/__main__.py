@@ -10,7 +10,7 @@ import sys
 
 from PIL import Image
 
-from . import evaluate, pipeline
+from . import evaluate, pipeline, server
 from .backend import ChatBackend
 from .decision import Choice, DecisionError, choose
 from .taxonomy import load as load_taxonomy
@@ -83,7 +83,15 @@ def cmd_classify(args: argparse.Namespace) -> int:
     taxonomy = load_taxonomy(args.taxonomy)
     backend = ChatBackend(base_url=args.base_url, model=args.model)
     result = pipeline.classify(
-        args.image, taxonomy, backend, mode=args.mode, max_edge=args.max_edge
+        args.image,
+        taxonomy,
+        backend,
+        mode=args.mode,
+        max_edge=args.max_edge,
+        image_format=args.image_format,
+        confirm=args.confirm,
+        rank_threshold=args.rank_threshold,
+        bundled_multi=args.bundled_multi,
     )
 
     print(f"image: {result['image']['name']}  mode: {result['mode']}")
@@ -142,13 +150,25 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         backend=backend,
         modes=args.modes,
         max_edge=args.max_edge,
+        image_format=args.image_format,
         warmup=args.warmup,
         runtime_label=args.runtime_label,
         note=args.note,
         output_dir=args.output_dir,
         runtime_info_path=args.runtime_info,
         dataset_version=args.dataset_version,
+        prime=args.prime,
+        axis_concurrency=args.axis_concurrency,
+        confirm=args.confirm,
+        rank_threshold=args.rank_threshold,
+        bundled_multi=args.bundled_multi,
     )
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    taxonomy = load_taxonomy(args.taxonomy)
+    server.serve(args.port, taxonomy)
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -166,9 +186,33 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("image")
     classify_parser.add_argument("--base-url", default="http://127.0.0.1:1234/v1")
     classify_parser.add_argument("--model", required=True)
-    classify_parser.add_argument("--mode", choices=["choice", "json"], default="choice")
+    classify_parser.add_argument("--mode", choices=["choice", "json", "bundled"], default="choice")
     classify_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     classify_parser.add_argument("--max-edge", type=int, default=1024)
+    classify_parser.add_argument(
+        "--image-format",
+        choices=["jpeg", "png"],
+        default="jpeg",
+        help="モデルへ送る画像の形式(既定jpeg、quality 90)。E1〜E9の再現には png を指定する",
+    )
+    classify_parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="複数選択軸(character・outfit等)で上位候補ごとにyes/noを確認する(既定オフ)。"
+        "指定するとE1〜E4等これまでの実験と同じ判定になる",
+    )
+    classify_parser.add_argument(
+        "--rank-threshold",
+        type=float,
+        default=0.5,
+        help="--confirm を指定しないとき、複数選択軸で採用する相対スコアの閾値(既定0.5)",
+    )
+    classify_parser.add_argument(
+        "--bundled-multi",
+        choices=["rank", "yn"],
+        default="rank",
+        help="束ね質問(bundled)での複数選択軸の扱い。rank=相対スコアと閾値(既定)、yn=候補ごとのYes/No欄(E7e)",
+    )
     classify_parser.add_argument("--output")
     classify_parser.set_defaults(func=cmd_classify)
 
@@ -189,10 +233,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--modes",
         default="choice,json",
         type=_modes_type,
-        help="comma-separated, choice and/or json only, no duplicates (default: choice,json)",
+        help="comma-separated choice/json/bundled, no duplicates (default: choice,json). 3モード指定時はケースごとに実行順を回転する",
     )
     evaluate_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     evaluate_parser.add_argument("--max-edge", type=int, default=1024)
+    evaluate_parser.add_argument(
+        "--image-format",
+        choices=["jpeg", "png"],
+        default="jpeg",
+        help="モデルへ送る画像の形式(既定jpeg、quality 90)。E1〜E9の再現には png を指定する",
+    )
     evaluate_parser.add_argument("--warmup", type=int, default=1)
     evaluate_parser.add_argument("--runtime-label", default=None)
     evaluate_parser.add_argument(
@@ -209,7 +259,44 @@ def build_parser() -> argparse.ArgumentParser:
     )
     evaluate_parser.add_argument("--note", default=None)
     evaluate_parser.add_argument("--output-dir", required=True)
+    evaluate_parser.add_argument(
+        "--prime",
+        action="store_true",
+        help="E9: 各ケースの判定前に画像だけの準備リクエストを1回送り(ホットロード)、"
+        "prime_ms を別記録する(classification_wall_msには含めない)",
+    )
+    evaluate_parser.add_argument(
+        "--axis-concurrency",
+        type=int,
+        default=1,
+        help="E9: choiceモードで軸ごとの質問を同時に送る数(既定1=逐次)",
+    )
+    evaluate_parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="複数選択軸(character・outfit等)で上位候補ごとにyes/noを確認する(既定オフ)。"
+        "指定するとE1〜E4等これまでの実験と同じ判定になる(再現には本フラグが必要)",
+    )
+    evaluate_parser.add_argument(
+        "--rank-threshold",
+        type=float,
+        default=0.5,
+        help="--confirm を指定しないとき、複数選択軸で採用する相対スコアの閾値(既定0.5)",
+    )
+    evaluate_parser.add_argument(
+        "--bundled-multi",
+        choices=["rank", "yn"],
+        default="rank",
+        help="束ね質問(bundled)での複数選択軸の扱い。rank=相対スコアと閾値(既定)、yn=候補ごとのYes/No欄(E7e)",
+    )
     evaluate_parser.set_defaults(func=cmd_evaluate)
+
+    serve_parser = sub.add_parser(
+        "serve", help="run the recording demo UI server (loopback only, no auto model load)"
+    )
+    serve_parser.add_argument("--port", type=int, default=8765)
+    serve_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
+    serve_parser.set_defaults(func=cmd_serve)
 
     return parser
 

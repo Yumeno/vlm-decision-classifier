@@ -7,6 +7,7 @@ LM Studio / llama-server に接続するだけ。
 from __future__ import annotations
 
 import json
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -24,6 +25,12 @@ class ChatBackend:
         self.timeout = timeout
         self.request_count = 0
         self.dropped_reasoning_effort = False
+        # E9: 軸を並列送信すると複数スレッドから同時に加算されうるため、カウンタをロックで保護する。
+        self._count_lock = threading.Lock()
+
+    def _increment_request_count(self) -> None:
+        with self._count_lock:
+            self.request_count += 1
 
     def _post(self, path: str, payload: dict) -> dict:
         data = json.dumps(payload).encode("utf-8")
@@ -33,7 +40,7 @@ class ChatBackend:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        self.request_count += 1
+        self._increment_request_count()
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
@@ -55,6 +62,6 @@ class ChatBackend:
 
     def list_models(self) -> dict:
         req = urllib.request.Request(self.base_url + "/models", method="GET")
-        self.request_count += 1
+        self._increment_request_count()
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
