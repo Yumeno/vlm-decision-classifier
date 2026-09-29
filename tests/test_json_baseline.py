@@ -130,3 +130,25 @@ def test_build_prompt_notes_none_criteria_for_multi_axis_with_none_criteria():
     assert "(use an empty list only if: no character appears in the image)" in prompt
     # none_criteria が無い軸には注記を付けない
     assert prompt.count("use an empty list only if") == 1
+
+
+class _CapturingBackend:
+    def __init__(self, response):
+        self.payloads = []
+        self._response = response
+
+    def chat(self, messages, **params):
+        self.payloads.append((messages, params))
+        return self._response, 1.0
+
+
+def test_prime_shares_prefix_with_classify_json():
+    # キャッシュは先頭一致。system文と画像部分(text より前)が classify_json と同一であること。
+    text = '{"image_type": "illustration", "character": []}'
+    backend = _CapturingBackend(make_text_response(text))
+    json_baseline.classify_json(backend, b"img", "image/png", _small_taxonomy())
+    json_baseline.prime(backend, b"img", "image/png")
+    (cls_msgs, _), (prime_msgs, prime_params) = backend.payloads
+    assert prime_msgs[0] == cls_msgs[0]  # system
+    assert prime_msgs[1]["content"][0] == cls_msgs[1]["content"][0]  # 画像
+    assert prime_params["max_tokens"] == 1

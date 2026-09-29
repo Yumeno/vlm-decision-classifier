@@ -10,7 +10,7 @@ import re
 import time
 import urllib.error
 
-from .decision import _data_url
+from .decision import PRIME_PARAMS, PRIME_TEXT, _data_url
 from .taxonomy import Taxonomy
 
 # backend.chat 自体の通信失敗(サーバー応答の形式・接続エラー)。再試行はしない。
@@ -88,18 +88,30 @@ def _extract_text(response: dict) -> str:
     return message.get("content") or ""
 
 
-def classify_json(backend, image_bytes: bytes, mime: str, taxonomy: Taxonomy) -> dict:
-    prompt = _build_prompt(taxonomy)
-    messages = [
+def _messages(image_bytes: bytes, mime: str, user_text: str) -> list[dict]:
+    # system文 → 画像 → テキストの順。classify_json と prime で共有し、画像までの先頭を一致させる。
+    return [
         {"role": "system", "content": SYSTEM_PROMPT},
         {
             "role": "user",
             "content": [
                 {"type": "image_url", "image_url": {"url": _data_url(image_bytes, mime)}},
-                {"type": "text", "text": prompt},
+                {"type": "text", "text": user_text},
             ],
         },
     ]
+
+
+def prime(backend, image_bytes: bytes, mime: str) -> dict:
+    """ホットロード用: JSON方式のsystem文+画像を、サーバーのキャッシュに載せるだけの準備リクエスト。
+    選択式の decision.prime は system文が違い先頭一致しないため、JSON専用に用意する。"""
+    _response, elapsed_ms = backend.chat(_messages(image_bytes, mime, PRIME_TEXT), **PRIME_PARAMS)
+    return {"elapsed_ms": elapsed_ms}
+
+
+def classify_json(backend, image_bytes: bytes, mime: str, taxonomy: Taxonomy) -> dict:
+    prompt = _build_prompt(taxonomy)
+    messages = _messages(image_bytes, mime, prompt)
 
     attempts: list[dict] = []
     first_attempt_ms: float | None = None

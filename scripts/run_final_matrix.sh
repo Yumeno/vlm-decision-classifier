@@ -4,9 +4,16 @@ REPO=${REPO:-$(pwd)}  # リポジトリのルートで実行する
 LB=${LLAMACPP_DIR:?llama.cpp の vanilla/ と patched/ を置いたフォルダを LLAMACPP_DIR に}
 QM=${QWEN_DIR:?Qwen3.5-9B-GGUF のフォルダを QWEN_DIR に}
 GM=${GEMMA_DIR:?gemma-4-12B-it-GGUF のフォルダを GEMMA_DIR に}
-OUT=$REPO/results/final
+OUT=${OUT:-$REPO/results/final}
+# 再測定用の絞り込み(既定は従来どおり)。例: PRIME=0 CONDITIONS=F1 EDGES=1024 REPS=1 OUT=results/final_reprime
+PRIME=${PRIME:-1}  # 0 なら --prime を付けない
+PRIME_FLAG=""; [ "$PRIME" = 1 ] && PRIME_FLAG="--prime"
+CONDITIONS=${CONDITIONS:-"F1 F2 F3"}
+EDGES=${EDGES:-"1024 768"}
+REPS=${REPS:-"1 2 3"}
 mkdir -p $OUT
 LOG=$OUT/progress.log
+echo "$(date -u +%FT%TZ) START PRIME=$PRIME CONDITIONS=$CONDITIONS EDGES=$EDGES REPS=$REPS" >> $LOG
 cd $REPO
 stop_server() {
   P=$(netstat -ano | grep ':1235 ' | grep LISTENING | awk '{print $5}' | head -1)
@@ -23,10 +30,10 @@ start_server() { # $1=cond
   for i in $(seq 1 60); do curl -s http://127.0.0.1:1235/health | grep -q ok && return 0; sleep 2; done
   return 1
 }
-for rep in 1 2 3; do
- for cond in F1 F2 F3; do
+for rep in $REPS; do
+ for cond in $CONDITIONS; do
   case $cond in F1) RT=final-qwen-patched; MID=qwen3.5-9b;; F2) RT=final-qwen-vanilla; MID=qwen3.5-9b;; F3) RT=final-gemma-patched; MID=gemma-4-12b-it;; esac
-  for edge in 1024 768; do
+  for edge in $EDGES; do
    for v in a b; do
     name=${cond}_e${edge}_${v}_r${rep}
     if [ -f $OUT/$name/summary.md ]; then echo "$(date -u +%FT%TZ) skip $name (done)" >> $LOG; continue; fi
@@ -35,7 +42,7 @@ for rep in 1 2 3; do
     if ! start_server $cond $name; then echo "$(date -u +%FT%TZ) SERVER FAIL $name" >> $LOG; continue; fi
     echo "$(date -u +%FT%TZ) loaded $name gpu: $(nvidia-smi --query-gpu=index,memory.used --format=csv,noheader | tr '\n' ' ') apps3090: $(nvidia-smi --query-compute-apps=pid,process_name,gpu_bus_id --format=csv,noheader | grep -c 0D:00)" >> $LOG
     if [ $v = a ]; then VA="--modes choice,json,bundled --rank-threshold 0.5 --bundled-multi rank"; else VA="--modes choice,bundled --confirm --bundled-multi yn"; fi
-    .venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model $MID $VA --warmup 1 --prime --axis-concurrency 1 --image-format jpeg --max-edge $edge --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/$RT.json --runtime-label $name --note "final re-run $name (doc/experiments/final-runbook.md)" --output-dir $OUT/$name > $OUT/$name.stdout.log 2>&1
+    .venv/Scripts/python.exe -m classifier_demo evaluate --manifest dataset/manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model $MID $VA --warmup 1 $PRIME_FLAG --axis-concurrency 1 --image-format jpeg --max-edge $edge --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/$RT.json --runtime-label $name --note "final re-run $name (doc/experiments/final-runbook.md)" --output-dir $OUT/$name > $OUT/$name.stdout.log 2>&1
     echo "$(date -u +%FT%TZ) done $name exit=$?" >> $LOG
    done
   done

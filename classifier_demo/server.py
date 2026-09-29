@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import decision, pipeline
+from . import decision, json_baseline, pipeline
 from .backend import ChatBackend
 from .image import prepare_image
 from .taxonomy import Taxonomy
@@ -204,19 +204,21 @@ def make_handler(taxonomy: Taxonomy, backend_factory=ChatBackend):
                 writer_thread.start()
 
                 if prime:
-                    prime_n = axis_concurrency if axis_concurrency >= 2 else 1
+                    # 方式ごとに先頭(system文+画像)が違うので、JSONはJSON用の準備を1本だけ送る
+                    prime_fn = json_baseline.prime if mode == "json" else decision.prime
+                    prime_n = 1 if mode == "json" else (axis_concurrency if axis_concurrency >= 2 else 1)
                     prime_start = time.perf_counter_ns()
                     try:
                         prime_image_bytes, prime_mime, _, _ = prepare_image(
                             tmp_path, max_edge=max_edge, image_format=image_format
                         )
                         if prime_n == 1:
-                            prime_result = decision.prime(backend, prime_image_bytes, prime_mime)
+                            prime_result = prime_fn(backend, prime_image_bytes, prime_mime)
                             prime_ms = prime_result["elapsed_ms"]
                         else:
                             with ThreadPoolExecutor(max_workers=prime_n) as prime_executor:
                                 prime_futures = [
-                                    prime_executor.submit(decision.prime, backend, prime_image_bytes, prime_mime)
+                                    prime_executor.submit(prime_fn, backend, prime_image_bytes, prime_mime)
                                     for _ in range(prime_n)
                                 ]
                                 for pf in prime_futures:
