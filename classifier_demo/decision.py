@@ -302,6 +302,12 @@ BUNDLED_INSTRUCTION = (
 )
 
 
+BUNDLED_YN_INSTRUCTION = (
+    "Answer with exactly the following lines, in this order, "
+    "replacing each ? with the letter of your answer. Write nothing else."
+)
+
+
 def _axis_labels(axis: Axis) -> list[str]:
     return LABELS[: len(axis.choices) + (1 if axis.allow_none else 0)]
 
@@ -316,9 +322,11 @@ def _build_bundled_prompt(axes: list[Axis], multi_mode: str = "rank") -> str:
     (末尾の "Answer with the single letter only." だけ除き、束ね用の指示を最後に1回置く)。
     multi_mode="yn" の複数選択軸は、選択肢ごとの yes/no サブ質問(yes_no と同じ文面)を並べる。"""
     blocks = []
+    keys = []
     for i, axis in enumerate(axes, start=1):
         if multi_mode == "yn" and axis.multi:
             for j, c in enumerate(axis.choices):
+                keys.append(_sub_key(i, j))
                 blocks.append(
                     f"Question {_sub_key(i, j)}:\n"
                     f"Is {c.name} ({c.criteria}) present in the image?\n\nA. yes\nB. no"
@@ -328,8 +336,14 @@ def _build_bundled_prompt(axes: list[Axis], multi_mode: str = "rank") -> str:
             axis.question, axis.choices, _axis_labels(axis), axis.allow_none, axis.none_criteria
         )
         body = body.removesuffix(CHOICE_ANSWER_SUFFIX)
+        keys.append(str(i))
         blocks.append(f"Question {i}:\n" + body)
-    return "\n\n".join(blocks) + "\n\n" + BUNDLED_INSTRUCTION
+    if multi_mode == "yn":
+        # 欄が多く番号に小文字が混ざるので、回答の雛形を明示する
+        instruction = BUNDLED_YN_INSTRUCTION + "\n" + "\n".join(f"{k}: ?" for k in keys)
+    else:
+        instruction = BUNDLED_INSTRUCTION
+    return "\n\n".join(blocks) + "\n\n" + instruction
 
 
 def _normalize_label_token(token: str, labels: list[str]) -> str:
