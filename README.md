@@ -1,149 +1,401 @@
 # VLM Decision Classifier
 
-ローカルの視覚言語モデル（VLM）を使い、生成画像を**選択式の質問**で分類する実験用リポジトリです。分類軸ごとの選択肢と判定基準をモデルへ渡し、回答ラベルの `logprobs` から候補間の相対スコアを得ます。画像の生成メタデータから得たLoRA指定は、画素からの判定とは別の根拠として表示します。
+ローカルの視覚言語モデル（VLM）に画像と**選択式の質問**を渡し、回答ラベルの `logprobs` から候補間の相対スコアを読んで生成画像を分類する実験用リポジトリです。画像の生成メタデータから得たLoRA指定は、画素からの判定とは別の根拠として並べて表示します。
 
-本デモの狙いは、Jev的な選択式判定（回答ラベルの`logprobs`から候補間の相対スコアを読む方式）を、マルチモーダル入力・任意のローカルVLMに適用したときの挙動を確かめる**技術検証**です。分類の精度そのものを追い込むことや、メタデータ補助による精度向上は目的にしていません。以下の「Qwen/Gemmaの結果」に載せる数値も、方式がどう振る舞うかを見るための材料として読んでください。
+- [1. 概要と位置づけ](#1-概要と位置づけ)
+- [2. 必要なもの](#2-必要なもの)
+- [3. 導入](#3-導入)
+- [4. モデルの用意](#4-モデルの用意)
+- [5. まず動かす](#5-まず動かす)
+- [6. おすすめの設定(速い構成)](#6-おすすめの設定速い構成)
+- [7. オプション一覧](#7-オプション一覧)
+- [8. デモUI](#8-デモui)
+- [9. 実験の再現](#9-実験の再現)
+- [10. 自分の画像・分類体系で試す](#10-自分の画像分類体系で試す)
+- [11. 困ったとき](#11-困ったとき)
+- [12. 結果の要約](#12-結果の要約)
+- [13. リポジトリの構成とリンク](#13-リポジトリの構成とリンク)
 
-**Phase 4(分類コア・データセットv1.0.0・評価・Qwen/Gemmaの全実験・キャッシュ改造比較)まで完了し、Phase 5(レポート・公開準備)を進めています。** クイックスタートは下記、実測結果は [`doc/experiments/report.md`](doc/experiments/report.md) を参照してください。設計の詳細は [`doc/requirements.md`](doc/requirements.md)、[`doc/basic-design.md`](doc/basic-design.md)、[`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) にあります。
+## 1. 概要と位置づけ
 
-## 何を実演するか
+本デモの狙いは、Jev的な選択式判定（回答ラベルの`logprobs`から候補間の相対スコアを読む方式）を、マルチモーダル入力・任意のローカルVLMに適用したときの挙動を確かめる**技術検証**です。分類の精度そのものを追い込むことや、メタデータ補助による精度向上は目的にしていません。数値は、方式がどう振る舞うかを見るための材料として読んでください。
 
-1. `image_type`、`art_style`、`subject`、`character` などの独立した軸で画像を分類します。複数人の画像ではキャラクターを複数選べるようにします。
+発想の起点はJevと、[Google Gemmaが紹介した「DiffusionGemma as Jev」の投稿](https://x.com/googlegemma/status/2101069861598482817)です。紹介された[vLLMのPR #57250](https://github.com/vllm-project/vllm/pull/57250)は、DiffusionGemmaの出力キャンバスに回答スロットを設け、選択肢の分布を読み出す仕組みを示しています。このデモはJevやそのPRの実装を移植するものではありません。Qwen/Gemmaの**自己回帰VLM**へ画像と選択肢を送り、chat completionsの `logprobs`（先頭の回答トークン）を読む独立した実演です。「logprobsによる分類そのものが新発明」とは主張しません。
+
+**議論の大前提**: 既存のVLMをJevのように使うと、画像を扱うための処理（画像の最初の読み込み、リクエストごとの画像の送り直しとキャッシュからの復元）が必ず乗ります。テキストだけのJevほどは速くなりません（Jevは同じ環境で測っていないので、速度の比較ではなく構造の話です）。詳しくは [`doc/experiments/report.md`](doc/experiments/report.md) §1.1 を参照してください。
+
+**現状**: Phase 5（レポート・公開準備）まで進み、E1〜E5（Qwen/Gemma、通常JSONとの比較、llama.cpp画像キャッシュ改造の比較）、E9（ホットロード・確認のオン・オフ・軸の並列）、E7（束ね質問、送信画像の形式と長辺）、E7e（束ね質問の複数選択）の実験が済んでいます。実測結果は [`doc/experiments/report.md`](doc/experiments/report.md) にあります。
+
+何を実演するか:
+
+1. `image_type`、`art_style`、`color`、`subject`、`situation`、`outfit`、`character` の7軸で画像を分類します。複数人の画像では、服装とキャラクターを複数選べます。
 2. 自作キャラクター「Alisa」を、画像上の容姿と、PNG生成情報に記録されたAlisa用LoRA名（例: `fet-alisa-uniform-anima-v4u`）の二経路で調べます。LoRA名の記録は**生成時の指定の証拠**であり、実際にLoRAが効いたことや、そのキャラクターが画面に写っていることの証明ではありません。
-3. 同じ専用画像データセットで、通常の**分類JSONを生成させる方式**と、回答ラベルの確率分布を読む**選択式方式**の正答率、所要時間、形式不正、再試行を比較します。
-4. 通常版 **Qwen3.5 9B GGUF** と **Gemma 4 12B** の対応GGUFを評価します。GemmaはSFW画像での実用性を中心に確認します。Qwenではさらに、同じllama.cppコミットからビルドした未改造版と画像キャッシュ改造版を比較します。
+3. 同じ専用画像データセットで、通常の**分類JSONを生成させる方式**と、回答ラベルの確率分布を読む**選択式方式**（1軸ずつ、または全軸を1リクエストに束ねる方式）の正答率・所要時間・形式不正を比較します。
+4. 通常版 **Qwen3.5 9B GGUF** と **Gemma 4 12B GGUF** を評価します。Qwenでは、llama.cppの画像キャッシュ改造の有無も比較します。
 
-実験用画像は、このリポジトリのために新規生成します。元の画像管理プロジェクトの画像や既存の評価画像は含めません。公開可能な画像、正解ラベル、生成条件、権利確認記録をセットにした固定データセットを準備します。
+実験用画像は、このリポジトリのために新規生成したものです（元の画像管理プロジェクトの画像や既存の評価画像は含みません）。
 
-## 着想と技術上の位置付け
+## 2. 必要なもの
 
-発想の起点はJevと、[Google Gemmaが紹介した「DiffusionGemma as Jev」の投稿](https://x.com/googlegemma/status/2101069861598482817)です。紹介された[vLLMのPR #57250](https://github.com/vllm-project/vllm/pull/57250)は、DiffusionGemmaの出力キャンバスに回答スロットを設け、選択肢の分布を読み出す仕組みを示しています。
+| 項目 | 内容 |
+|---|---|
+| OS | Windows 11 で確認。Linux / macOS は可搬性の対象（未検証） |
+| Python | 3.11 以上（依存は `pillow`・`pyyaml`。開発用に `pytest`） |
+| git | リポジトリの取得に使う |
+| 推論サーバー | LM Studio、または llama-server（llama.cpp）。OpenAI互換の chat completions に接続する。**このツールはサーバーの起動・モデルのダウンロードをしない** |
+| GPU / VRAM | RTX 3090 24GB で確認。Qwen3.5 9B（Q4_K_M、コンテキスト8192、並列4）を llama-server で載せたときの使用量は約6.8GB（RTX 3090で観測）、Gemma 4 12B は LM Studio の `lms ps` で7.56GB。8GB以上の空きがあれば載る見込みだが、それ未満のGPUでは確認していない |
 
-このデモはJevやそのPRの実装を移植するものではありません。作者が製作中の自家製の画像分類アプリでこの着想を試しており、そこから分類部分の考え方を切り出して、Qwen/Gemmaの**自己回帰VLM**へ画像と選択肢を送り、chat completionsの `logprobs` を使う独立した実演にします。DiffusionGemmaのキャンバス読み出しと、ここでの先頭回答トークンの読み出しは仕組みが異なります。「logprobsによる分類そのものが新発明」とは主張しません。
+実験の再現（§9）には、GPUに他のプロセスがいない状態が望ましいです（速度が揺れるため）。
 
-## 計画している構成
+## 3. 導入
 
-| パス | 役割 | 現在 |
-|---|---|---|
-| `README.md` | 概要・開発の入口 | あり |
-| `AGENTS.md`、`CLAUDE.md` | AIコーディングエージェント向けの作業規約 | あり |
-| `doc/requirements.md` | 要件、対象範囲、公開条件 | あり |
-| `doc/basic-design.md` | 分類・データ・アダプタ設計 | あり |
-| `doc/implementation-experiment-plan.md` | 実装順と実験行列 | あり |
-| `doc/phase0-sources-models.md` | 移植元の要点、使用モデルとSHA256、probe結果、画像生成の条件 | あり |
-| `doc/dataset-plan.md` | 正解付与規則、31枠の生成計画表、manifest仕様、検収と正解付与の経緯 | あり |
-| `doc/worklog.md` | 作業記録（新しい順） | あり |
-| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`/`serve`）、動画収録用デモUIサーバー（`server.py`、静的ファイルは`classifier_demo/web/index.html`） | あり（分類コア・評価器・デモUI） |
-| `taxonomy/default.yaml` | 分類体系 0.4.1（7軸）と自作キャラの定義 | あり |
-| `dataset/` | 評価用データセット v1.0.0(`images/` 35ケース、`manifest.jsonl`、`DATASET_CARD.md`、正解の一次記録 `labels/`、生成記録 `generation/`) | あり |
-| `scripts/` | データセットの生成（Forge/ComfyUI）、メタデータ除去、データセット組み立て、`benchmark_cache.py`（Phase 4 / E5: 画像キャッシュ改造の再現用ベンチマーク） | あり |
-| `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・pipeline・評価器・生成スクリプト） | あり |
-| `doc/patches/` | llama.cpp画像キャッシュ改造の固定差分(`llamacpp-mtmd-checkpoint.patch`、上流 `f95b0d9` に当てる1行) | あり |
-| `doc/experiments/` | 実験レポート(`report.md`)、実験ごとの`run.json`/`cases.csv`/`summary.md`、実行手順書(`phase3-runbook.md`/`phase4-runbook.md`)、実行環境記録(`runtime/`) | あり |
+リポジトリを取得して、Python 3.11 以上の仮想環境を作り、パッケージを入れます。
 
-設計文書中のディレクトリ案は実装時の指針です。コードを追加した時点で、この表と起動方法を実態に合わせて更新してください。
-
-## クイックスタート
-
-Python 3.11以上。この開発機では `python`（3.14）/ `python3`（3.10）ではなく `py -3.12` で venv を作ります。
+Windows（PowerShell）:
 
 ```powershell
+git clone https://github.com/Yumeno/vlm-decision-classifier.git
+cd vlm-decision-classifier
 py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
-推論サーバー（LM Studio / llama-server の OpenAI互換 chat completions）はユーザーが別途起動しておきます。このツールはサーバーの自動起動・モデルの自動ダウンロードを行いません。LM Studioで通常版Qwen3.5 9BまたはGemma 4 12Bの対応GGUFをロードしてから、以下の順（probe → classify → evaluate）で実行します。
+Linux / macOS（bash）:
 
-```powershell
-# 接続・vision・logprobs の疎通確認（実画像1枚で回答ラベルとlogprobsを試す）
-.venv\Scripts\python.exe -m classifier_demo probe --base-url http://127.0.0.1:1234/v1 --model <モデルID>
-
-# 1枚を分類（選択式）。結果JSONは --output 省略時は標準出力
-.venv\Scripts\python.exe -m classifier_demo classify path\to\image.png --model <モデルID> --output results\demo.json
-
-# 通常JSON分類ベースラインとの比較
-.venv\Scripts\python.exe -m classifier_demo classify path\to\image.png --model <モデルID> --mode json
-
-# manifestの検証(リポジトリルートから実行する。画像パスはカレントディレクトリ基準で解決する)
-.venv\Scripts\python.exe -m classifier_demo check-manifest --manifest dataset\manifest.jsonl
-
-# データセット全件の評価(check-manifestを内部で先に実行し、エラーがあれば中断する)
-# 複数選択軸(character・outfit)の候補ごとのyes/no確認は既定オフ。E1〜E4等これまでの結果を
-# 再現するには --confirm を付ける(確認オンで従来と完全に同じ判定になる)。
-# モデルへ送る画像は既定でJPEG(quality 90、長辺1024)。E1〜E9はすべてPNG・長辺1024で測ったため、
-# 再現するには --image-format png を付ける(--max-edge 768 で長辺も変えられる)。
-.venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --model <モデルID> --confirm --image-format png --output-dir results\<名前>
-
-# 任意: 画像キャッシュ改造の再現用ベンチマーク(未改造版/改造版のllama-serverでそれぞれ実行して比較する。下記「画像キャッシュ改造(任意)」参照)
-.venv\Scripts\python.exe scripts\benchmark_cache.py --model <モデルID> --label vanilla --image-format png --output results\cache\vanilla.json
+```bash
+git clone https://github.com/Yumeno/vlm-decision-classifier.git
+cd vlm-decision-classifier
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
 ```
 
-`evaluate` は選択式(`choice`)と通常JSON(`json`)を既定で両方実行し(`--modes choice,json`)、ケースごとに交互の順で実行して順序効果を抑える。3方式(1軸ずつ・通常JSON・束ね質問)を比べるときは `--modes choice,json,bundled`(3モードはケースごとに実行順を回転する)。出力先(`--output-dir`)には `run.json`（実行条件・除外ケース）、`cases.csv`（ケース別採点）、`summary.md`（集計）、`cases/<case_id>.<mode>.json`（生の分類結果）を書き出す。`rights_confirmed` が true でないケースは評価から除外され、`run.json` の `excluded_cases` に理由とともに記録される。`--runtime-info path\to\runtime.json` で、モデル/mmprojのSHA256・サーバー種別やcommit・パッチ有無・起動引数・GPUオフロードなど実行環境を記した任意のJSONファイルを渡すと、中身をそのまま（ファイル名とSHA256も添えて）`run.json` に記録する。
+- `py -3.12` は、既定の `python` が新しすぎる/古い開発機の事情による指定です。3.11 以上の `python` があればそれで構いません。
+- 以降のコマンドは、リポジトリのルートで実行します（`check-manifest` と `evaluate` は、画像パスをカレントディレクトリ基準で解決します）。Windowsの例は `.venv\Scripts\python.exe`、Linux / macOS では `.venv/bin/python` に読み替えてください。パスの区切りも `\` → `/` です。
+- 動作確認（サーバー不要。偽バックエンドのみ使用）: `.venv\Scripts\python.exe -m pytest -q`
 
-E9(ホットロード・軸の並列送信)用に2つのオプションがある。`--prime` を付けると、各ケースでモードの交互順の前に画像だけの準備リクエストを1回送り(サーバーの画像キャッシュに載せる)、その所要時間を `prime_ms` として `classification_wall_ms` とは別に記録する(`cases.csv`・ケース別結果JSON・`summary.md` の Latency)。`--axis-concurrency N`(既定1=逐次)は選択式(`choice`)の軸ごとの質問をN並列で送る(サーバー側が対応スロット数を用意している前提)。`--prime` と `--axis-concurrency N`(N≥2)を併用すると、準備リクエストを N 本同時に送って全スロットに画像を載せてから判定に入る(`prime_ms` は全完了までの壁時計時間、送った本数は `run.json` の `prime_parallel`)。両方とも `run.json` に記録される。
+## 4. モデルの用意
 
-複数選択軸(`character`・`outfit`)の判定方法は `--confirm`(既定オフ)と `--rank-threshold`(既定0.5)で切り替える。`--confirm` を付けると、候補の順位付け後に上位候補ごとへ独立したyes/noを送って確認する(リクエスト数が増える。E1〜E4等これまでの実験結果はこの方式)。付けない場合はyes/noを送らず、catch_allでない候補のうち相対スコアが `--rank-threshold` 以上のものをスコア降順で採用する(採用がゼロなら、`none`込みの全体最上位がcatch_allのときだけそれを採用する)。判定の速さと精度のトレードオフを比較する実験用のオプションで、`run.json` の `confirm`・`rank_threshold` と `summary.md` 冒頭の実行条件行に記録される。
+モデル重み・視覚プロジェクタ（mmproj）はリポジトリに同梱しません。Hugging Face から取得します。SHA256・リビジョンは [`doc/experiments/report.md`](doc/experiments/report.md) §2 と [`doc/experiments/runtime/`](doc/experiments/runtime/) の JSON に記録しています（ダウンロード後に照合してください）。
 
-### デモUI(動画収録用)
+| モデル | Hugging Face リポジトリ | GGUF | mmproj |
+|---|---|---|---|
+| Qwen3.5 9B（公式 `Qwen/Qwen3.5-9B`） | `lmstudio-community/Qwen3.5-9B-GGUF` | `Qwen3.5-9B-Q4_K_M.gguf` | `mmproj-Qwen3.5-9B-BF16.gguf` |
+| Gemma 4 12B（公式 `google/gemma-4-12B-it`） | `lmstudio-community/gemma-4-12B-it-GGUF` | `gemma-4-12B-it-Q4_K_M.gguf` | `mmproj-gemma-4-12B-it-BF16.gguf` |
 
-軸ごとにスコアが伸びる様子をライブで見せるための1画面UI。標準ライブラリのみのサーバー(`http.server`)が静的ファイルを配信し、判定はNDJSONでストリーム配信する。ブラウザで見るだけで、外部には公開しない(待ち受け先は`127.0.0.1`固定で、変更するオプションはない)。
+### LM Studio で使う
+
+1. LM Studio のモデル検索で上のリポジトリを探して取得する（同じリポジトリの mmproj も一緒に取得される）。GGUFはLM Studioのモデルフォルダに置かれる。
+2. 何かをロードしていないか確認する（他のプロジェクトのモデルが載っていると押し出しや VRAM 不足の原因になる）。
+
+   ```powershell
+   lms ps
+   ```
+
+3. ロードする。実験では次のコマンドで、LM Studioの既定の GPU オフロード（最大）・コンテキスト 8192・並列 4 になっていた（`lms ps` で確認できる）。
+
+   ```powershell
+   lms load qwen3.5-9b --identifier qwen3.5-9b -y
+   lms load gemma-4-12b-it --identifier gemma-4-12b-it -y
+   ```
+
+4. **モデルID**は `--identifier` の値（上の例では `qwen3.5-9b`、`gemma-4-12b-it`）で、`lms ps` の表示、または `GET http://127.0.0.1:1234/v1/models` で確かめる。以降の `--model` にこの値を渡す。
+
+   コンテキスト長や並列数が違っていたら、LM Studio のモデルのロード設定で 8192 / 4 にそろえる。
+
+### llama-server で使う（任意）
+
+LM Studio の代わりに llama-server を使うこともできます。`--base-url http://127.0.0.1:1235/v1` のようにサーバーの場所を渡すだけです。画像キャッシュ改造版のビルドと起動引数は §6 と [`doc/experiments/phase4-runbook.md`](doc/experiments/phase4-runbook.md) にあります。
+
+### `reasoning_effort: "none"` が必要な理由
+
+`probe`/`classify`/`evaluate`/`serve` は、既定でリクエストに `reasoning_effort: "none"` を含めます。これを外すと、Qwen/Gemmaともthinking（考える出力）が先に出て、1トークン目で回答ラベルの logprobs が取れません（2026-09-24のprobeで確認）。サーバーが `reasoning_effort` を拒否して400を返したときは、外して再送し、その事実を記録します（別方式へのフォールバックはしません）。
+
+## 5. まず動かす
+
+LM Studio にモデルをロードした状態で、次の順に実行します。`<モデルID>` は §4 で確かめた値です。接続先の既定は `http://127.0.0.1:1234/v1`（LM Studio）で、変えるときは `--base-url` を付けます。
+
+1. **probe**: 接続・vision・logprobs の疎通確認（赤い64x64の画像で回答ラベルと logprobs を試す）。
+
+   ```powershell
+   .venv\Scripts\python.exe -m classifier_demo probe --model <モデルID>
+   ```
+
+   `answer:` と `relative_scores:` が出て、`logprobs present: yes`、`thinking detected: no`、`reasoning_effort dropped: False` なら準備完了です。
+
+2. **1枚を分類**（既定は1軸ずつの選択式）。`--output` を省略すると結果JSONを標準出力に出します。
+
+   ```powershell
+   .venv\Scripts\python.exe -m classifier_demo classify dataset\images\M01.png --model <モデルID> --output results\demo.json
+   ```
+
+   通常JSONで分類するなら `--mode json`、束ね質問なら `--mode bundled`。
+
+3. **manifestの検証**（画像の存在・SHA256・正解ラベルの整合）:
+
+   ```powershell
+   .venv\Scripts\python.exe -m classifier_demo check-manifest --manifest dataset\manifest.jsonl
+   ```
+
+   最後に `OK` が出ます。
+
+4. **データセット全件の評価**（内部で `check-manifest` を先に実行し、エラーがあれば中断）。これは選択式と通常JSONの対応比較で、確認オフ・JPEGの既定のままの最小の形です。
+
+   ```powershell
+   .venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --model <モデルID> --output-dir results\my_first_run
+   ```
+
+`--output-dir` には次のファイルが書き出されます。
+
+| ファイル | 内容 |
+|---|---|
+| `run.json` | 実行条件（モデル、モード、画像の形式・長辺、確認の有無、manifest・taxonomyのSHA256、ツールのコミット、OS・Pythonなど）、除外ケース（`excluded_cases`）。`--runtime-info` を渡すとその中身も記録 |
+| `cases.csv` | ケース別の予測と採点、時間、リクエスト数 |
+| `summary.md` | 軸別の精度、候補別のTP/FP/FN、メタデータの一致率、処理時間、失敗の一覧 |
+| `cases/<case_id>.<mode>.json` | 生の分類結果 |
+
+- `rights_confirmed` が true でないケースは評価から除外され、理由とともに `run.json` に記録されます。
+- 推論失敗・形式不正のケースも評価の分母に残ります。1件の失敗で全件は止まりません。
+- 評価前に、ウォームアップ1回（`--warmup 1`）を別記録で行います（分類時間には含めません）。
+- `results/` はGit管理外です。公開するときは個人のパスを除いて `doc/experiments/` に写します。
+
+## 6. おすすめの設定(速い構成)
+
+小標本での実測に基づく、速い構成です（Qwen3.5 9B、改造版 llama-server、RTX 3090。根拠は [`report.md`](doc/experiments/report.md) §4.6〜§4.10）。
+
+- **サーバー**: llama.cpp の画像キャッシュ改造版 llama-server（`doc/patches/llamacpp-mtmd-checkpoint.patch`、上流 `f95b0d9` に当てる1行）。ビルド手順は [`doc/experiments/phase4-runbook.md`](doc/experiments/phase4-runbook.md) §1。起動引数（`doc/experiments/runtime/qwen-llamaserver-patched.json` の記録）:
+
+  ```
+  llama-server -m Qwen3.5-9B-Q4_K_M.gguf --mmproj mmproj-Qwen3.5-9B-BF16.gguf --alias qwen3.5-9b -ngl 99 -c 8192 -np 4 --kv-unified -sm none -mg 0 --port 1235
+  ```
+
+  `--alias` が `--model` に渡すモデルIDになります。`-sm none -mg 0` は1枚のGPUに載せる指定で、番号はCUDAの並び順です（§11）。改造版でなくても動きますが、選択式（1軸ずつ）は遅くなります（未改造版8.7秒 → 改造版3.1秒、E3/E4。判定は変わらない）。
+- **質問方式**: `--modes bundled`（全軸を1リクエストで答えさせる束ね質問）。方式を比べるなら `--modes choice,json,bundled`（ケースごとに実行順を回転します）。
+- **`--prime`**: 各画像で判定の前に画像だけの準備リクエストを1回送り、画像をサーバーのキャッシュに載せます。準備の時間は `prime_ms` として、判定時間（`classification_wall_ms`）とは別に記録されます。
+- **送信画像**: JPEG（quality 90、長辺1024）が既定です。長辺は `--max-edge 768` で下げられます（画像の読み込みが0.80秒 → 0.55秒）。
+- **複数選択の軸（服装・キャラ）**: 順位付けの相対スコアは候補どうしで合計1を取り合うので、2つ以上写る画像を取りこぼします。拾いたいときは `--bundled-multi yn`（束ね質問の中で候補ごとのY/N欄にします）。
+
+```powershell
+.venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model qwen3.5-9b --modes choice,json,bundled --prime --bundled-multi yn --output-dir results\fast
+```
+
+実測の目安（E7c・E7e。Qwen3.5 9B、改造版llama-server、JPEG 1024、元画像31件の平均。画像は読み込み済みの状態での判定時間。各条件1回の測定）:
+
+| 方式 | 判定時間 | 備考 |
+|---|---:|---|
+| 束ね質問（順位付け、`--bundled-multi rank`） | 0.80秒 | リクエスト1回。E7c |
+| 束ね質問（Y/N欄、`--bundled-multi yn`） | 1.36秒 | リクエスト1回。E7e |
+| 通常JSON | 1.60秒 | 平均約55トークンの生成時間が大半。E7e |
+| 1軸ずつ（確認オフ） | 1.36秒 | リクエスト7回。E7e |
+
+画像を最初に読み込む費用（準備）は別に0.80秒（長辺1024）です。小標本の1回ずつの測定なので、差は目安として読んでください。
+
+## 7. オプション一覧
+
+既定値は `classifier_demo/__main__.py` と `scripts/benchmark_cache.py` の実装のとおりです。
+
+**既定が変わったもの**: (1) 複数選択軸の候補ごとのyes/no確認は**既定オフ**（`--confirm` でオン）。(2) 送信画像は**既定でJPEG**（quality 90）。E1〜E5・E9・E7a/b はPNG・長辺1024で測りました（E7c/d はJPEG）。E1〜E5、E9a/b/b2/e は確認オン、E9c と E7a/b は確認オフです。そのため **E1〜E5・E9・E7a/b の再現には `--image-format png` が必要で、E1〜E5・E9a/b/b2/e ではさらに `--confirm` が必要**です（§9）。
+
+### 共通（`probe` / `classify` / `evaluate`）
+
+| オプション | 既定値 | 意味 |
+|---|---|---|
+| `--base-url` | `http://127.0.0.1:1234/v1` | OpenAI互換サーバーのURL（LM Studioの既定ポート） |
+| `--model` | （必須） | モデルID |
+
+### `probe`
+
+`--base-url`、`--model` のみ。
+
+### `classify <image>`
+
+| オプション | 既定値 | 意味 |
+|---|---|---|
+| `image`（位置引数） | （必須） | 分類する画像のパス |
+| `--mode` | `choice` | `choice`（1軸ずつの選択式）/ `json`（通常JSON）/ `bundled`（束ね質問） |
+| `--taxonomy` | `taxonomy/default.yaml` | 分類体系のYAML |
+| `--max-edge` | `1024` | モデルへ送る画像の長辺（px） |
+| `--image-format` | `jpeg` | `jpeg`（quality 90）/ `png`。E1〜E9の再現には `png` |
+| `--confirm` | オフ | 複数選択軸で上位候補ごとにyes/noを確認する（リクエストが増える）。E1〜E4等はこの方式 |
+| `--rank-threshold` | `0.5` | `--confirm` なしのとき、複数選択軸で採用する相対スコアの閾値 |
+| `--bundled-multi` | `rank` | 束ね質問での複数選択軸の扱い。`rank`=相対スコアと閾値、`yn`=候補ごとのYes/No欄（E7e） |
+| `--output` | （標準出力） | 結果JSONの書き出し先（親フォルダがなければ作る） |
+
+### `check-manifest`
+
+| オプション | 既定値 | 意味 |
+|---|---|---|
+| `--manifest` | `dataset/manifest.jsonl` | 検証するmanifest |
+| `--taxonomy` | `taxonomy/default.yaml` | 正解ラベルの照合に使う分類体系 |
+
+### `evaluate`
+
+`--base-url`、`--model`（必須）に加えて:
+
+| オプション | 既定値 | 意味 |
+|---|---|---|
+| `--manifest` | `dataset/manifest.jsonl` | 評価するmanifest |
+| `--modes` | `choice,json` | カンマ区切りで `choice` / `json` / `bundled`（重複不可）。2モードはケースごとに順序を交互に、3モードは回転して実行 |
+| `--taxonomy` | `taxonomy/default.yaml` | 分類体系 |
+| `--max-edge` | `1024` | 送信画像の長辺 |
+| `--image-format` | `jpeg` | `jpeg` / `png` |
+| `--warmup` | `1` | 評価前のウォームアップ回数（分類時間に含めず別記録） |
+| `--runtime-label` | なし | 実行環境のラベル（`run.json`に記録） |
+| `--runtime-info` | なし | 実行環境を記したJSON（モデル/mmprojのSHA256、サーバーのcommit、パッチ、起動引数、GPUなど）。ファイル名とSHA256を添えて `run.json` にそのまま記録。例は `doc/experiments/runtime/*.json` |
+| `--dataset-version` | なし | データセット版（例 `v1.0.0`）。`DATASET_CARD.md` と照合し `run.json` に記録 |
+| `--note` | なし | 任意のメモ（`run.json`に記録） |
+| `--output-dir` | （必須） | 出力先フォルダ |
+| `--prime` | オフ | 各ケースの判定前に画像だけの準備リクエストを1回送る（ホットロード）。`prime_ms` を別記録 |
+| `--axis-concurrency` | `1` | `choice` で軸ごとの質問を同時に送る数（1=逐次）。サーバーの対応スロット数が前提。`--prime` と併用（N≥2）すると準備をN本同時に送る |
+| `--confirm` | オフ | `classify` と同じ |
+| `--rank-threshold` | `0.5` | `classify` と同じ |
+| `--bundled-multi` | `rank` | `classify` と同じ |
+
+### `serve`
+
+| オプション | 既定値 | 意味 |
+|---|---|---|
+| `--port` | `8765` | デモUIの待ち受けポート（`127.0.0.1` 固定。使用中ならエラー） |
+| `--taxonomy` | `taxonomy/default.yaml` | 分類体系 |
+
+### `scripts/benchmark_cache.py`（E5: 画像キャッシュ改造の再現用ベンチマーク）
+
+未改造版・改造版のllama-serverを別々に起動して、それぞれで実行します（サーバーの起動・切り替えは利用者が行います）。
+
+| オプション | 既定値 | 意味 |
+|---|---|---|
+| `--base-url` | `http://127.0.0.1:1234/v1` | サーバーURL |
+| `--model` | （必須） | モデルID |
+| `--images IMAGE_A IMAGE_B` | `dataset/images/M01.png dataset/images/G05.png` | 1枚目がA、2枚目がB |
+| `--repeats` | `3` | 繰り返し回数 |
+| `--taxonomy` | `taxonomy/default.yaml` | 分類体系 |
+| `--max-edge` | `1024` | 送信画像の長辺 |
+| `--image-format` | `jpeg` | `jpeg` / `png`。E5の再現には `png` |
+| `--label` | なし | 実行の識別ラベル（例 `vanilla` / `patched`） |
+| `--output` | （必須） | 出力JSONのパス |
+
+## 8. デモUI
+
+軸ごとにスコアが伸びる様子をライブで見せるための1画面UIです（動画収録用）。標準ライブラリのみのサーバー（`http.server`）が静的ファイルを配信し、判定はNDJSONでストリーム配信します。待ち受けは `127.0.0.1` 固定で、外部には公開しません。
 
 ```powershell
 .venv\Scripts\python.exe -m classifier_demo serve --port 8765
 ```
 
-起動前にLM Studio / llama-serverでモデルをロードしておく（`serve`自体はサーバーもモデルも起動しない）。ブラウザで `http://127.0.0.1:8765/` を開き、右上の「設定」でサーバーURL・モデルIDを指定してから画像をドロップして「判定する」を押す。接続先はこのPC上のサーバーだけ(ループバック)で、Host/Origin不一致やループバック以外の`base_url`は拒否する。
+- 起動前に、LM Studio / llama-server でモデルをロードしておきます（`serve` 自体はサーバーもモデルも起動しません）。
+- ブラウザで `http://127.0.0.1:8765/` を開き、右上の「設定」でサーバーURL・モデルIDを指定してから、画像をドロップして「判定する」を押します。
+- 使用中のポートを指定すると、エラーで終了します（`--port` で別の番号を指定してください。§11）。
+- 接続先はこのPC上のサーバーだけ（ループバック）で、Host/Origin不一致やループバック以外の `base_url` は拒否します。
 
-- 既定(比較なし): 7軸が順に判定され、各軸のスコア帯（相対スコア、候補内で再正規化）が結果到着時に伸びる。複数選択軸(`outfit`・`character`)は、設定の「候補ごとに確認する(yes/no)」ONなら候補の順位付けのあとに候補ごとのyes/no確認(P(yes))を表示し、OFF(既定)ならyes/noの行を出さずスコア帯の上に「採用の閾値」の位置を細い縦線で示す。
-- 設定の「メタデータ証拠を表示」ON: PNG生成メタデータ由来のLoRA名・トリガーワード・キャラ一致と、画素からのキャラ判定を並べ、一致/不一致を表示する（`metadata_evidence`と`vision_tags`は統合せず別フィールドのまま）。
-- 設定の「比較」で「選択式 と 通常JSON」を選ぶと、同じ画像を選択式→通常JSONの順に実行し(同時実行はしない)、左右にスコア帯とJSON生テキスト・ラベル・所要時間を並べる。
-- 設定の「比較」で「サーバー1 と サーバー2」を選ぶと、未改造/改造のllama-serverなど2つのサーバーURLに選択式を順番に流し、時間を左右で比べる。
-- 設定の「先に画像を読み込む(ホットロード)」ONで、判定前に準備リクエストを1回送って画像をサーバーのキャッシュに載せる(比較モードでは両方の列が同じ条件になるよう最初の列の呼び出しにだけ付ける)。所要時間は画像欄の下に小さく表示し、列の経過時間には含めない。
-- 設定の「軸を並列に送る」ONで、選択式の軸ごとの質問を4並列で送る(サーバーが`-np 4`など対応スロット数を用意している前提)。
-- 設定の「候補ごとに確認する(yes/no)」(既定OFF)と「採用の閾値(confirmオフ時)」(既定0.5)で、複数選択軸の判定方法(`--confirm`/`--rank-threshold`と同じ)を切り替える。
+<!-- スクリーンショットは撮影予定(画像はあとで doc/images/ に追加する) -->
+![束ね質問と通常JSONの比較](doc/images/demo-bundled-vs-json.png)
 
-各結果列は「経過時間・リクエスト数 → 判定結果の表(7軸を1行ずつ) → 出力の中身(スコア帯・yes/no、またはJSON生テキスト)」の順に並ぶ。比較モードでは、両方の列がそろった時点で左右のラベルが異なる軸の行に印(左罫線+「不一致」表示)を付ける。
+<!-- 撮影予定 -->
+![1軸ずつのスコア帯とY/N](doc/images/demo-choice-axes.png)
 
-失敗(選択肢トークンが出ない・thinkingが先に出る・logprobs欠損・通信エラー・JSON形式不正など)は例外で止めず、その場に理由を表示する。別方式へのフォールバックはしない。
+### 設定項目
 
-### モデル/サーバー設定
+| 項目 | 内容 |
+|---|---|
+| 比較 | 「比較なし」（既定）/「選択式 と 通常JSON」（同じ画像を選択式→通常JSONの順に実行し、左右にスコア帯とJSON生テキスト・ラベル・所要時間を並べる。同時実行はしない）/「サーバー1 と サーバー2」（未改造/改造のllama-serverなど2つのサーバーURLに選択式を順に流して時間を比べる） |
+| 選択式の聞き方 | 「1軸ずつ」（既定）/「束ね質問（1リクエストで全軸）」 |
+| 束ね質問の複数選択 | 「相対スコアで判定」（既定）/「候補ごとに Y/N」（`--bundled-multi yn`と同じ） |
+| サーバーURL 1・2 / モデルID | 接続先とモデルID（サーバーURL 2は比較で「サーバー1 と サーバー2」を選んだときだけ使う） |
+| メタデータ証拠を表示 | ON: PNG生成メタデータ由来のLoRA名・トリガーワード・キャラ一致と、画素からのキャラ判定を並べ、一致/不一致を表示（`metadata_evidence`と`vision_tags`は統合せず別フィールドのまま） |
+| 先に画像を読み込む（ホットロード） | ON: 判定前に準備リクエストを1回送り、画像をサーバーのキャッシュに載せる（比較では最初の列にだけ付ける）。所要時間は画像欄の下に小さく表示し、列の経過時間には含めない |
+| 軸を並列に送る | ON: 1軸ずつの質問を4並列で送る（サーバーが`-np 4`など対応スロット数を用意している前提。E9では得にならなかった） |
+| 候補ごとに確認する（yes/no） | 既定OFF。ONなら複数選択軸で候補の順位付けのあとに候補ごとのyes/no確認（P(yes)）を表示。OFFなら、スコア帯の上に「採用の閾値」の位置を縦線で示す |
+| 採用の閾値（confirmオフ時） | 既定0.5。`--rank-threshold`と同じ |
+| 画像の長辺 | 1024（既定）/ 768 |
+| 送信形式 | JPEG（既定）/ PNG |
 
-- LM Studioで通常版Qwen3.5 9BまたはGemma 4 12Bの対応GGUFをロードします。使用したGGUF・mmprojのSHA256、サーバー版・commitは [`doc/experiments/report.md`](doc/experiments/report.md) §2に記録している。
-- `probe`/`classify`/`evaluate`は既定で `reasoning_effort: "none"` をリクエストに含める。これを外すと、Qwen/Gemmaともthinkingが先に出て、1トークン目で回答ラベルのlogprobsが取れない(2026-09-24のprobeで確認)。
-- llama-serverを使う場合も同じOpenAI互換chat completionsに接続するだけで動作する(`--base-url` を変えるだけ)。
+設定はブラウザに保存され、次回開いたときに復元されます。設定パネルの「初期値に戻す」で初期値に戻せます。
 
-### データセット
+<!-- 撮影予定 -->
+![設定パネル](doc/images/demo-settings.png)
 
-専用データセット v1.0.0(元画像31枚 + メタデータ除去コピー4件 = 35ケース、全件SFW)。生成経緯・正解の分布・権利確認は [`dataset/DATASET_CARD.md`](dataset/DATASET_CARD.md) を参照。
+各結果列は「経過時間・リクエスト数 → 判定結果の表（7軸を1行ずつ） → 出力の中身（スコア帯・yes/no、またはJSON生テキスト）」の順に並びます。比較では、両方の列がそろった時点で、左右のラベルが異なる軸の行に印（左罫線+「不一致」表示）を付けます。失敗（選択肢トークンが出ない・thinkingが先に出る・logprobs欠損・通信エラー・JSON形式不正など）は、例外で止めずにその場に理由を表示し、別方式へのフォールバックはしません。
 
-### 判定構造
+## 9. 実験の再現
 
-軸ごとに短い選択式質問を送り、回答ラベルの`logprobs`から候補間の相対スコアを計算する(単一選択の軸は1回の質問、複数選択の軸(`outfit`・`character`)は候補ランキング後に各候補へyes/no確認を追加で送る)。候補間の相対スコアは、列挙した候補内で再正規化した値であり、実世界の正答確率ではない。
+- 前提は、データセット v1.0.0（`dataset/manifest.jsonl`）、taxonomy 0.4.1（現在の `taxonomy/default.yaml`）、リポジトリのルートから実行、`--dataset-version v1.0.0`。結果は `results/<名前>/` に出し、公開用のものを `doc/experiments/` に写しています。
+- **E1/E1-J/E2/E2-J は taxonomy 0.4.0** で測ったので、再現には当時の `taxonomy/default.yaml`（git履歴。SHA256 `ec7b2a2f…` で確認）を `--taxonomy` に渡す必要があります。現在の `default.yaml` は 0.4.1 です（E1b/E2b と同じ）。
+- E1b以降は、RTX 3090に他のプロセスがない状態で測りました（E1/E1-J/E2/E2-Jは別プロジェクトのllama-serverが常駐した状態。report §2）。
 
-### Qwen/Gemmaの結果
+| 実験ID | 何を測ったか | コマンドまたは手順書 | 結果フォルダ |
+|---|---|---|---|
+| E1 / E1-J | Qwen3.5 9B（LM Studio）の選択式と通常JSON。taxonomy 0.4.0 | [`phase3-runbook.md`](doc/experiments/phase3-runbook.md) | `E1_qwen-lmstudio/` |
+| E2 / E2-J | Gemma 4 12B（LM Studio）の選択式と通常JSON。taxonomy 0.4.0 | 同上（Gemmaの引数はrunbook） | `E2_gemma-lmstudio/` |
+| E1b / E2b | E1/E2の再評価（taxonomy 0.4.1）。`--runtime-label qwen-lmstudio-tax041`（Gemmaは `gemma-lmstudio-tax041`）、`--output-dir results/E1b_qwen-lmstudio`（`E2b_gemma-lmstudio`） | 同上（`--taxonomy` は既定の0.4.1） | `E1b_qwen-lmstudio/`、`E2b_gemma-lmstudio/` |
+| E3 / E4 | llama-server（未改造/改造）でQwenの選択式（全件）。パッチの効果 | [`phase4-runbook.md`](doc/experiments/phase4-runbook.md) §3 | `E3_qwen-llamaserver-vanilla/`、`E4_qwen-llamaserver-patched/` |
+| E5 | 同じ画像で質問だけ変える／画像切替A→B→Aの小ベンチマーク | 下記 | `E5_qwen-llamaserver/`（`vanilla.json`/`patched.json`） |
+| E9a〜E9e | ホットロード、確認のオン・オフ、軸の並列（改造版llama-server） | 下記 | `E9a_…`〜`E9e_…` |
+| E7a〜E7e | 束ね質問、送信画像の形式・長辺、束ね質問の複数選択（Y/N欄） | 下記 | `E7a_…`〜`E7e_…` |
 
-Qwen3.5 9B GGUF・Gemma 4 12B GGUFの選択式/通常JSON比較、taxonomy文言修正前後の再評価、Qwenのllama.cpp画像キャッシュ改造比較の実測値は [`doc/experiments/report.md`](doc/experiments/report.md) にまとめている。数値は方式の挙動を見るための材料であり、精度そのものの追い込みは行っていない。
+### E1 / E1-J / E2 / E2-J（Phase 3。LM Studio）
 
-### 画像キャッシュ改造(任意)
-
-Qwenの連続質問では、llama.cppが同じ画像を再エンコードする問題があり(上流 [issue #26994](https://github.com/ggml-org/llama.cpp/issues/26994))、`doc/patches/llamacpp-mtmd-checkpoint.patch` を当てた改造版llama-serverで速度が改善する(判定結果は変わらない。[`doc/experiments/report.md`](doc/experiments/report.md) §4.5)。再現手順は [`doc/experiments/phase4-runbook.md`](doc/experiments/phase4-runbook.md)。未改造環境に戻すには、パッチを当てずに同じコミットからビルドした`llama-server`を使う(または未改造版のバイナリに差し替える)だけでよい。この改造は速度比較用の任意条件であり、初回の分類実行には不要。
-
-### 既知の失敗
-
-- 選択式の`outfit`で、Alisaの制服(`office_wear`)に`school_uniform`が誤って追加されるケースが残る(複数選択の確認段階で近い候補も「はい」になりやすい)。
-- `reasoning_effort: "none"` を指定しないと、thinkingが先に出て回答ラベルのlogprobsが取れない(明示的なエラーとして記録し、別方式へフォールバックしない)。
-- 通常JSON方式では、単一選択の軸をリストで返す形式不正が起こることがある。
-- E2(Gemma)で、LM Studioサーバー側のChannel Errorによりyes/no確認が2件失敗した(失敗として分母に残した。E2bでは再発せず)。
-
-詳細は [`doc/experiments/report.md`](doc/experiments/report.md) §5・§6 を参照。
-
-テスト実行（ネットワーク・実サーバー不要、偽バックエンドのみ使用）:
+コマンドは [`phase3-runbook.md`](doc/experiments/phase3-runbook.md) §手順5 のとおりです。Qwenの例（`--confirm --image-format png` が必要）:
 
 ```powershell
-.venv\Scripts\python.exe -m pytest -q
+.venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --model qwen3.5-9b --modes choice,json --warmup 1 --confirm --image-format png --dataset-version v1.0.0 --runtime-info doc\experiments\runtime\qwen-lmstudio.json --runtime-label qwen-lmstudio --output-dir results\E1_qwen-lmstudio
 ```
 
-## 実験の比較条件
+Gemmaは `--model gemma-4-12b-it --runtime-info doc\experiments\runtime\gemma-lmstudio.json --runtime-label gemma-lmstudio --output-dir results\E2_gemma-lmstudio`。E1b/E2b は同じコマンドで、上表の `--runtime-label` と `--output-dir` にします。
+
+### E3 / E4（Phase 4。llama-server 未改造/改造）
+
+未改造版と改造版を同じコミット・同じビルド手順で作り（[`phase4-runbook.md`](doc/experiments/phase4-runbook.md) §1）、1台ずつ起動して測ります（§2〜§3）。`--confirm --image-format png` が必要:
+
+```powershell
+.venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model qwen3.5-9b --modes choice --warmup 1 --confirm --image-format png --dataset-version v1.0.0 --runtime-info doc\experiments\runtime\qwen-llamaserver-vanilla.json --runtime-label qwen-llamaserver-vanilla --output-dir results\E3_qwen-llamaserver-vanilla
+```
+
+改造版（E4）は `--runtime-info doc\experiments\runtime\qwen-llamaserver-patched.json --runtime-label qwen-llamaserver-patched --output-dir results\E4_qwen-llamaserver-patched`。
+
+### E5（画像キャッシュ改造の小ベンチマーク）
+
+サーバーごとに1回ずつ（PNGで測りました）:
+
+```powershell
+.venv\Scripts\python.exe scripts\benchmark_cache.py --base-url http://127.0.0.1:1235/v1 --model qwen3.5-9b --label vanilla --image-format png --output results\E5\vanilla.json
+```
+
+改造版は `--label patched --output results\E5\patched.json`。
+
+### E9a〜E9e（ホットロード・確認・軸の並列。改造版llama-server）
+
+サーバーは §6 の起動引数（E9eだけ `--no-cache-idle-slots` を追加）で、**条件ごとに再起動**します。共通部分（**`--image-format png` が必要**）:
+
+```powershell
+.venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model qwen3.5-9b --modes choice,json --warmup 1 --prime --image-format png --dataset-version v1.0.0 --runtime-info doc\experiments\runtime\qwen-llamaserver-patched.json <条件> --output-dir results\<名前>
+```
+
+| 実験 | `<条件>` |
+|---|---|
+| E9a（確認オン・逐次） | `--confirm --axis-concurrency 1` |
+| E9b（確認オン・並列4、準備1本）、E9b2（同・準備4本同時）、E9e（同・準備4本同時。サーバーを `--no-cache-idle-slots` で起動） | `--confirm --axis-concurrency 4` |
+| E9c（確認オフ・逐次） | `--axis-concurrency 1 --rank-threshold 0.5` |
+
+（E9b と E9b2 は、後者だけ並列準備の修正後のコミット `acfe504` で測っています。準備の本数は `--prime` と `--axis-concurrency N` の併用で N 本になります。）
+
+### E7a〜E7e（束ね質問・送信画像・Y/N欄。改造版llama-server）
+
+確認オフ（閾値0.5）。サーバーは条件ごとに再起動。共通部分:
+
+```powershell
+.venv\Scripts\python.exe -m classifier_demo evaluate --manifest dataset\manifest.jsonl --base-url http://127.0.0.1:1235/v1 --model qwen3.5-9b --modes choice,json,bundled --warmup 1 --prime --axis-concurrency 1 --rank-threshold 0.5 --dataset-version v1.0.0 --runtime-info doc\experiments\runtime\qwen-llamaserver-patched.json <条件> --output-dir results\<名前>
+```
+
+| 実験 | `<条件>` | 備考 |
+|---|---|---|
+| E7b（番号付き・PNG1024） | `--image-format png --max-edge 1024` | |
+| E7c（JPEG1024） | `--image-format jpeg --max-edge 1024` | |
+| E7d（JPEG768） | `--image-format jpeg --max-edge 768` | |
+| E7e（束ね質問の複数選択をY/N欄に） | `--image-format jpeg --max-edge 1024 --bundled-multi yn` | |
+| E7a（記号のみ・空白区切り、PNG1024） | コミット `cc427e6` をチェックアウトして実行 | 束ね質問の回答形式を、のちに番号付きへ変えた（形式のずれが起きたため）ので、現在のコードでは再現できない。結果は比較には使っていない（report §4.7） |
+
+測定時のコミット・時刻・条件は、各フォルダの `run.json`（`tool_commit`、`started`、`note` など）と [`report.md`](doc/experiments/report.md) §2、[`doc/worklog.md`](doc/worklog.md) にあります。
+
+### 実験の比較条件
 
 | 主比較 | 条件 | 測定値 |
 |---|---|---|
@@ -152,21 +404,151 @@ Qwenの連続質問では、llama.cppが同じ画像を再エンコードする�
 | Qwenのllama.cpp未改造 vs 改造 | 同じ上流コミット、GGUF、mmproj、画像、質問 | 時間、判定結果の差、画像切替時の混線 |
 | メタデータあり vs なし | 同じ元画像の派生ケース | 生成情報の寄与と、容姿判定との食い違い |
 
-JSONベースラインの主比較は**分類フィールドだけ**を生成します。要約文も書かせる条件は出力トークン数が増えるため別に測ります。モデルロード時間とウォームアップは画像当たりの分類時間から分け、推論が失敗したケースも分母に残します。候補間の相対スコアは、実世界の正答確率を意味しません。
+JSONベースラインの主比較は**分類フィールドだけ**を生成します。モデルロード時間とウォームアップは画像当たりの分類時間から分け、推論が失敗したケースも分母に残します。候補間の相対スコアは、実世界の正答確率を意味しません。
 
-## モデルと実行環境
+## 10. 自分の画像・分類体系で試す
+
+### 1枚を自分の分類体系で分類する
+
+`classify` と `serve` は `--taxonomy` でYAMLを渡せます（`evaluate` / `check-manifest` にも同じ `--taxonomy` があります）。
+
+```powershell
+.venv\Scripts\python.exe -m classifier_demo classify path\to\image.png --model <モデルID> --taxonomy path\to\my_taxonomy.yaml
+```
+
+### taxonomy YAML の書式（[`taxonomy/default.yaml`](taxonomy/default.yaml) を参照）
+
+```yaml
+version: "1.0"            # 版。結果に記録される(SHA256も記録)
+axes:
+  - id: color              # 軸のID
+    question: "How is color used in this image?"   # モデルに見せる質問文
+    multi: false            # true なら複数選択(その軸で複数の候補を選べる)
+    allow_none: false       # true なら「どれでもない(none)」を選べる
+    choices:
+      - {id: full_color, name: full color, criteria: "an image in full color"}
+      - {id: other, name: other, criteria: "none of the above"}
+  - id: character
+    question: "Which character appears in this image? Ignore tiny background figures."
+    multi: true
+    allow_none: true
+    none_criteria: "no character appears in the image"   # noneの説明文(allow_none時)
+    choices:
+      - id: alisa
+        name: Alisa
+        criteria: "girl with straight brown bob-cut hair ..."
+        lora_names: [fet-alisa-uniform-anima-v4u]       # 生成メタデータのLoRA名と規定正規化後の完全一致で照合する
+        trigger_words: [fet_alisa_uniform]
+      - id: other_original
+        name: other character
+        criteria: "any person or humanoid character who is neither Alisa nor the second original character"
+        catch_all: true    # 「その他」の受け皿。複数選択で確認を省くときの扱いに使う
+```
+
+- **軸**: `id`、`question`、`multi`、`allow_none`、`none_criteria`（任意）、`choices`。
+- **選択肢**: `id`、`name`、`criteria`（判定基準の文）が必須。`catch_all`（受け皿の候補）、`lora_names`・`trigger_words`（生成メタデータとの照合用。キャラ用）は任意。
+- 質問文・選択肢の文言に正解（LoRA名など）を漏らさないこと。`lora_names` はモデルには渡さず、メタデータとの照合にだけ使います。
+- **ラベル上限**: 1軸あたり選択肢は `none` 込みで最大52（A〜Z・a〜z）。各ラベルは使用モデルで1トークンで、1トークン目が互いに異なる必要があります。超過は明示エラーです（黙って切り捨てません）。26以下は大文字小文字を区別しない照合、27以上は区別する照合です。`top_logprobs` の上位20に現れない候補は相対スコア0として扱います。
+- 評価器（`evaluate`）はtaxonomyに合わせた正解ラベルを持つmanifestが必要です。**書式は [`doc/dataset-plan.md`](doc/dataset-plan.md) §4** と [`dataset/DATASET_CARD.md`](dataset/DATASET_CARD.md)、実物の [`dataset/manifest.jsonl`](dataset/manifest.jsonl) を参照してください（`check-manifest` が整合を検証します）。正解ラベルは、モデルの出力を見る前に付けてください。
+- taxonomy を変えたら新しい版として扱い、結果を見てから文言を調整しないこと（調整するなら版を上げ、旧結果を残す）。
+
+## 11. 困ったとき
+
+| 症状 | 原因と対処 |
+|---|---|
+| `probe` や `classify` が HTTP 400 で失敗する | LM Studio にそのモデルがロードされていない、またはモデルIDの誤り。`lms ps` でロード中のモデルとIDを確認し、`--base-url`（LM Studio は既定 `http://127.0.0.1:1234/v1`）と `--model` を合わせる |
+| `thinking_before_answer` | thinking（考える出力）が先に出て、回答ラベルのlogprobsが取れない。`reasoning_effort: "none"` が効いていない。サーバーが拒否して外された場合は `probe` の `reasoning_effort dropped` が `True`。サーバー/モデルのテンプレートを確認する |
+| `no_label_tokens` | 回答に選択肢のラベルが出ていない。任意の選択肢へ強制せず、失敗として記録される。モデルが対応しているか、`probe` で確認する |
+| JSON の形式不正（`json_format_error`） | 通常JSON方式では、単一選択の軸をリストで返すなどの形式不正が起こる（E1: 6.5%）。失敗として分母に残り、`summary.md` に出る |
+| 束ね質問の `bundled_format_error` | 回答が番号付き1行ずつの形式にならなかった。途中の軸の飛ばしなどは検出して失敗にする。Y/N欄（`--bundled-multi yn`）では回答の雛形を指示文に示している |
+| LM Studio で bulk 実行が500/Channel Errorになる | クライアントを直す前に、LM Studio のサーバーログを確認する（E2ではサーバー側の Channel Error でyes/no確認が2件失敗した。失敗として分母に残り、再実行では再発しなかった） |
+| デモUIが起動しない（ポート使用中） | `serve` は使用中のポートにはbindせずエラーで終了する。`--port` で別の番号を指定する |
+| デモUIで別アプリの画面が出る | Windowsは、以前は使用中のポートにも重ねてbindできた（別アプリが同じポートで待ち受けており、ブラウザにそちらの画面が返った）。現在は重ねて待ち受けない実装にしてあるが、ブラウザのURLと `--port` を確認する |
+| llama-server の `-mg` で意図と違うGPUに載る | `-mg` は**CUDAの並び順**で、`nvidia-smi` の番号とは違う場合がある（この開発機では CUDA0 = RTX 3090、`nvidia-smi` 1）。`llama-server --list-devices` で確認する |
+| llama-server で `n_ctx_slot = 2048` になる | `-np 4` でスロットごとに分割された。`--kv-unified` を付けて共有KVにする（LM Studioと同じ条件になる）。ログの `n_ctx_slot = 8192`、`kv_unified = 'true'` で確認する |
+| llama-server の停止 | イメージ名で止めると別プロジェクトの llama-server も止まるので、PID を指定して止める（Windowsは `taskkill /F /PID <PID>`） |
+| 速度が思ったより出ない | 他のプロセスがGPUを使っていないか、サーバーが画像キャッシュ改造版か（未改造だと1軸ずつが遅い）、`--prime` の有無を確認する。§6・report §4.6 |
+
+失敗は失敗として記録されます。別方式への黙ったフォールバックはありません。
+
+## 12. 結果の要約
+
+元画像31件の小標本です。数値は方式の挙動を見るための材料で、1〜2件の差は誤差の範囲です。一次資料は [`doc/experiments/report.md`](doc/experiments/report.md) と各フォルダの `summary.md`・`run.json` です。
+
+**精度**（E1b/E2b。taxonomy 0.4.1、確認オン・PNG1024、選択式 / 通常JSON、%。服装・キャラは完全一致）:
+
+| 軸 | Qwen3.5 9B | Gemma 4 12B |
+|---|---|---|
+| image_type | 96.8 / 96.8 | 100.0 / 90.3 |
+| art_style | 77.4 / 77.4 | 83.9 / 80.6 |
+| color | 100.0 / 93.5 | 100.0 / 93.5 |
+| subject | 96.8 / 93.5 | 96.8 / 90.3 |
+| situation | 80.6 / 83.9 | 80.6 / 67.7 |
+| outfit | 74.2 / 90.3 | 71.0 / 83.9 |
+| character | 93.5 / 87.1 | 93.5 / 93.5 |
+
+**処理時間**（Qwen、選択式1画像あたり。E4以外はPNG1024、確認オン）: LM Studio 9.3秒（E1b）→ llama-server 未改造 8.7秒（E3）→ 改造 3.1秒（E4）。判定はE3とE4で全件一致。通常JSONは約2秒（E1b: 1.96秒）。
+
+**方式ごとの速度**（E7c/E7e、改造版、JPEG1024、画像読み込み済みの判定時間）: 束ね質問 0.80秒、束ね質問のY/N欄 1.36秒、1軸ずつ（確認オフ）1.36秒、通常JSON 1.60秒（§6の表）。束ね質問は通常JSONの約2倍速。
+
+**主な観察**:
+- 単一選択の軸では、選択式は通常JSONと同等以上でした。characterは taxonomy 0.4.1 の `none` の説明文で、選択式が両モデルとも93.5%に上がりました（選択肢の文言設計の影響であり、方式の限界ではない）。
+- outfit は、選択式で `school_uniform` の誤検出が残ります（確認オンの段階で近い候補にも「はい」が付きやすい）。確認オフ（E9c）では90.3%、ただしキャラは複数写る画像を取りこぼします。
+- 束ね質問のY/N欄（E7e）はキャラ31/31で、2人写る画像も拾えました。服装は87.1%（27/31）。
+- 軸の並列送信は、この組み合わせでは得になりませんでした（E9b/b2/e）。
+- 同じ判定ロジックでも、キャッシュの使われ方で際どいケースの予測が揺れました（report §4.9）。
+- メタデータの読み取りは全35ケースで正解（LoRA名・トリガーワード・形式）。メタデータ除去コピーでも画素からのキャラ判定は変わりませんでした。
+
+**既知の失敗**:
+- 選択式の`outfit`で、Alisaの制服(`office_wear`)に`school_uniform`が誤って追加されるケースが残る（作者の判断で taxonomy は変えずに報告）。
+- `reasoning_effort: "none"` を指定しないと、thinkingが先に出て logprobs が取れない。
+- 通常JSON方式では、単一選択の軸をリストで返す形式不正が起こることがある。
+- E2（Gemma）で、LM Studioサーバー側のChannel Errorによりyes/no確認が2件失敗した（失敗として分母に残した。E2bでは再発せず）。
+
+詳細は [`doc/experiments/report.md`](doc/experiments/report.md) §4〜§6 を参照。
+
+## 13. リポジトリの構成とリンク
+
+| パス | 役割 |
+|---|---|
+| `README.md` | 概要・導入・再現の入口(このファイル) |
+| `AGENTS.md`、`CLAUDE.md` | AIコーディングエージェント向けの作業規約 |
+| `doc/requirements.md` | 要件、対象範囲、公開条件 |
+| `doc/basic-design.md` | 分類・データ・アダプタ設計 |
+| `doc/implementation-experiment-plan.md` | 実装順と実験行列 |
+| `doc/phase0-sources-models.md` | 移植元の要点、使用モデルとSHA256、probe結果、画像生成の条件 |
+| `doc/dataset-plan.md` | 正解付与規則、31枠の生成計画表、manifest仕様、検収と正解付与の経緯 |
+| `doc/worklog.md` | 作業記録（新しい順） |
+| `doc/experiments/` | 実験レポート(`report.md`)、実験ごとの`run.json`/`cases.csv`/`summary.md`、実行手順書(`phase3-runbook.md`/`phase4-runbook.md`)、実行環境記録(`runtime/`) |
+| `doc/patches/` | llama.cpp画像キャッシュ改造の固定差分(`llamacpp-mtmd-checkpoint.patch`、上流 `f95b0d9` に当てる1行) |
+| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、束ね質問、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`/`serve`）、デモUIサーバー（`server.py`、静的ファイルは`web/index.html`） |
+| `taxonomy/default.yaml` | 分類体系 0.4.1（7軸）と自作キャラの定義 |
+| `dataset/` | 評価用データセット v1.0.0(`images/` 35ケース、`manifest.jsonl`、`DATASET_CARD.md`、正解の一次記録 `labels/`、生成記録 `generation/`) |
+| `scripts/` | データセットの生成（`generate_forge.py`/`generate_comfy.py`）、メタデータ除去、データセット組み立て（`build_dataset.py`）、`benchmark_cache.py`（E5） |
+| `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・束ね質問・pipeline・評価器・サーバー・生成スクリプト） |
+
+### データセット
+
+専用データセット v1.0.0(元画像31枚 + メタデータ除去コピー4件 = 35ケース、全件SFW)。生成経緯・正解の分布・権利確認は [`dataset/DATASET_CARD.md`](dataset/DATASET_CARD.md) を参照。
+
+### 判定構造
+
+軸ごとに短い選択式質問を送り、回答ラベルの`logprobs`から候補間の相対スコアを計算します（単一選択の軸は1回の質問。複数選択の軸は既定で相対スコアに閾値を当てて採用し、`--confirm` なら候補ごとのyes/no確認を追加で送る。束ね質問は全軸を1リクエストにまとめる）。候補間の相対スコアは、列挙した候補内で再正規化した値であり、実世界の正答確率ではありません。
+
+### モデルと実行環境
 
 モデル重み、視覚プロジェクタ、LoRA重みはこのリポジトリに同梱しません。使用したGGUFの配布元・リビジョン・量子化・SHA256、対応するmmproj、LM Studio/llama-serverの版、GPUオフロード、画像縮小設定は [`doc/experiments/report.md`](doc/experiments/report.md) §2に固定して記録しています。自家製アプリの製作中に無検閲派生モデルで測った値は、このデモの結果として扱いません。
 
-Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードする問題があります(上流 [issue #26994](https://github.com/ggml-org/llama.cpp/issues/26994)。自家製アプリの製作中にこの問題に行き当たった)。そのキャッシュ挙動を変える改造は**速度比較用の任意条件**で、初回の分類実行には不要です。手順は上記「画像キャッシュ改造(任意)」を参照してください。
+Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードする問題があります（上流 [issue #26994](https://github.com/ggml-org/llama.cpp/issues/26994)）。そのキャッシュ挙動を変える改造（`doc/patches/llamacpp-mtmd-checkpoint.patch`）は**速度比較用の任意条件**で、判定結果は変わりません（report §4.5）。初回の分類実行には不要で、未改造環境に戻すには、パッチを当てずに同じコミットからビルドした `llama-server` を使います。
 
-## 開発の経緯
+### 開発の経緯
 
 1. [`doc/requirements.md`](doc/requirements.md) に沿って、公開する自作キャラの外見基準と画像生成条件を確定。
 2. シナリオ表と正解付与規則を作り、専用データセット(v1.0.0)を生成・検収して版を固定。
 3. QwenとGemmaで、画像入力・`logprobs`・回答書式が成立するか接続試験を実施。
 4. メタデータ抽出、分類体系、選択式判定、通常JSON分類、共通の評価器を実装。
-5. 固定データセットで全方式を評価し、Qwenのllama.cpp改造比較を実施(結果は [`doc/experiments/report.md`](doc/experiments/report.md))。
+5. 固定データセットで全方式を評価し、Qwenのllama.cpp改造比較を実施（E1〜E5）。
+6. ホットロード・確認のオン・オフ・軸の並列（E9）、束ね質問と送信画像（E7）、束ね質問の複数選択（E7e）を追加。デモUIを作成。
 
 詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)・E8(メタデータ補助の対照実験)は初版MVPの完了条件外の追加課題です(E7 束ね質問は2026-09-29 作者判断で初版に含める)(`AGENTS.md`参照)。
 
