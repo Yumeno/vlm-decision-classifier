@@ -475,7 +475,7 @@ def run_evaluate(
         "jpeg_quality": JPEG_QUALITY if image_format == "jpeg" else None,
         "warmup": warmup_info,
         "prime": prime,
-        "prime_scope": "per_mode" if prime else None,  # 旧run.json(欠落)は選択式の準備を1回だけ送っていた
+        "prime_scope": "per_mode" if prime else None,  # prime=true で prime_scope が欠落している旧run.jsonは、選択式の準備を1回だけ送っていた(JSONに効かない)
         "prime_parallel": (axis_concurrency if axis_concurrency >= 2 else 1) if prime else None,
         "axis_concurrency": axis_concurrency,
         "confirm": confirm,
