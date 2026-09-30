@@ -261,6 +261,45 @@ LM Studio にモデルをロードした状態で、次の順に実行します�
 | `--port` | `8765` | デモUIの待ち受けポート（`127.0.0.1` 固定。使用中ならエラー） |
 | `--taxonomy` | `taxonomy/default.yaml` | 分類体系 |
 
+### Jev 風の呼び出し(System One 形式、実験的)
+
+TypeSafe の Jev SDK(`typesafe-sdk`)と同じ呼び出しの形で、手元の VLM を呼べる最小クライアント(`classifier_demo/systemone.py`)。SDK には依存せず、名前とフィールドを写しただけで、TypeSafe 社とは無関係。
+
+```python
+from classifier_demo.systemone import SystemOneClient
+
+client = SystemOneClient(base_url="http://127.0.0.1:1234/v1", model="<モデル名>")
+r = client.system_one(
+    state="顧客からの問い合わせ文...",
+    questions={
+        "dept": {"type": "choice", "instructions": "担当部署は?", "criteria": {"returns": "返品", "billing": "請求"}},
+        "urgent": {"type": "noul", "instructions": "緊急か?"},
+        "tone": {"type": "score", "instructions": "怒りの強さは?", "criteria": ["平静", "不満", "激怒"]},
+    },
+    images=["photo.png"],  # 本実装の拡張(暫定: 画像の渡し方は #4 の調査後に確定する)
+)
+r.choices["dept"].choice, r.choices["dept"].probabilities, r.nouls["urgent"].noul, r.scores["tone"].score
+```
+
+CLI(手動確認用): `python -m classifier_demo systemone --base-url ... --model ... --questions q.json [--state TEXT | --state-file F] [--image PATH ...] [--prime]`。`q.json` は `{質問名: {type, instructions, criteria}}`。
+
+| Jev の質問 | 本実装 | 返すもの |
+|---|---|---|
+| `choice` | ラベル `A`〜`Z`,`a`〜`z` を順に割り当て、1質問1リクエスト(`max_tokens=1`, `top_logprobs=20`) | `choice`、`probabilities` |
+| `noul` | yes/no(`A`/`B`)の2択 | `noul`(yes の相対スコア) |
+| `score`(2〜10段階) | ラベル `0`〜`9` | `score`(相対スコアで重み付けした期待値)、`legend`、`probabilities` |
+
+先頭(system → 画像 → state)を全質問で共有し、質問は互いに見えない(束ねない)。`prime=True` で先頭だけのリクエストを先に送れる(時間は `usage.prime_elapsed_ms` に別記録)。
+
+限界:
+
+- `probabilities` / `noul` / `score` は候補内で割り直した**相対スコア**で、較正されていない(正答確率ではない)。較正(正解付きデータで温度などを合わせる)は提供しない。
+- 全候補を観測できるのは20候補以内(`top_logprobs` が上位20件。`A` と ` A` のような表記ゆれも枠を使う)。
+- choice は最大52ラベル(Jev は255)。超過は明示エラー。ラベルトークンが出ない・thinking が先に出る・logprobs 欠損も `SystemOneError`(任意の選択肢には強制しない)。
+- `confidence` は返さない(公式文書で算出式を確認できないため。`probabilities` から計算する)。
+- `images` は本実装の拡張で、Jev は画像を受け付けない。現状はファイルパスのみの暫定仕様。
+- 複数選択は Jev にない。本リポジトリの `classify` / 確認(yes/no)を使う。
+
 ### `scripts/benchmark_cache.py`（E5: 画像キャッシュ改造の再現用ベンチマーク）
 
 未改造版・改造版のllama-serverを別々に起動して、それぞれで実行します（サーバーの起動・切り替えは利用者が行います）。
@@ -628,11 +667,11 @@ E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はP
 | `doc/experiments/small/` | 旧・小型モデルの比較(S1〜S9)の表(`summary.md`)、各回の生データ(`runs/`)、`progress.log`、probeログ |
 | `doc/experiments/final-runbook.md` | 最終の取り直しの手順書(条件・回・実行と集計) |
 | `doc/patches/` | llama.cpp画像キャッシュ改造の固定差分(`llamacpp-mtmd-checkpoint.patch`、上流 `f95b0d9` に当てる1行) |
-| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、束ね質問、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`/`serve`）、デモUIサーバー（`server.py`、静的ファイルは`web/index.html`） |
+| `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、束ね質問、評価器、Jev 風クライアント（`systemone.py`、実験的）、CLI（`probe`/`classify`/`check-manifest`/`evaluate`/`serve`/`systemone`）、デモUIサーバー（`server.py`、静的ファイルは`web/index.html`） |
 | `taxonomy/default.yaml` | 分類体系 0.4.1（7軸）と自作キャラの定義 |
 | `dataset/` | 評価用データセット v1.0.0(`images/` 35ケース、`manifest.jsonl`、`DATASET_CARD.md`、正解の一次記録 `labels/`、生成記録 `generation/`) |
 | `scripts/` | データセットの生成（`generate_forge.py`/`generate_comfy.py`）、メタデータ除去、データセット組み立て（`build_dataset.py`）、`benchmark_cache.py`（E5）、`run_final_matrix.sh`（最終の取り直しF1〜F3の実行ループ）、`aggregate_final.py`（F1〜F3の集計）、`run_small_matrix.sh`（小型モデルS1〜S9の実行ループ）、`format_stress.py`・`run_e10.sh`（E10）、`run_e10b.sh`（E10b） |
-| `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・束ね質問・pipeline・評価器・サーバー・生成スクリプト） |
+| `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・束ね質問・pipeline・評価器・サーバー・生成スクリプト・Jev 風クライアント） |
 
 ### データセット
 
