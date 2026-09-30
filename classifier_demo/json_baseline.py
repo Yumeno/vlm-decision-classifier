@@ -45,6 +45,26 @@ def _build_prompt(taxonomy: Taxonomy) -> str:
     )
 
 
+def build_json_schema(taxonomy: Taxonomy) -> dict:
+    """E10: llama-server の制約付きデコード用スキーマ。全軸必須、選択肢idの enum に限定する
+    (multi軸は enum の配列。uniqueItems は llama.cpp の変換器が未対応のため付けない)。"""
+    props = {}
+    for axis in taxonomy.axes:
+        enum = {"type": "string", "enum": [c.id for c in axis.choices]}
+        props[axis.id] = {"type": "array", "items": enum} if axis.multi else enum
+    return {
+        "type": "object",
+        "properties": props,
+        "required": [a.id for a in taxonomy.axes],
+        "additionalProperties": False,
+    }
+
+
+def build_response_format(taxonomy: Taxonomy) -> dict:
+    # OpenAI互換形式。llama-server は response_format.json_schema.schema を読む(server-common.cpp)。
+    return {"type": "json_schema", "json_schema": {"name": "classification", "schema": build_json_schema(taxonomy)}}
+
+
 def _extract_json_block(text: str) -> str:
     cleaned = _FENCE_RE.sub("", text)
     first = cleaned.find("{")
@@ -109,9 +129,13 @@ def prime(backend, image_bytes: bytes, mime: str) -> dict:
     return {"elapsed_ms": elapsed_ms}
 
 
-def classify_json(backend, image_bytes: bytes, mime: str, taxonomy: Taxonomy) -> dict:
+def classify_json(backend, image_bytes: bytes, mime: str, taxonomy: Taxonomy, constrained: bool = False) -> dict:
+    """constrained=True(モード json_schema)なら response_format を付ける。プロンプトは通常JSONと同一。"""
     prompt = _build_prompt(taxonomy)
     messages = _messages(image_bytes, mime, prompt)
+    params = dict(JSON_PARAMS)
+    if constrained:
+        params["response_format"] = build_response_format(taxonomy)
 
     attempts: list[dict] = []
     first_attempt_ms: float | None = None
@@ -122,7 +146,7 @@ def classify_json(backend, image_bytes: bytes, mime: str, taxonomy: Taxonomy) ->
 
     for _ in range(MAX_RETRIES + 1):
         try:
-            response, elapsed_ms = backend.chat(messages, **JSON_PARAMS)
+            response, elapsed_ms = backend.chat(messages, **params)
         except REQUEST_EXCEPTIONS as e:
             error = f"{type(e).__name__}: {e}"
             attempts.append({"elapsed_ms": None, "raw_text": "", "error": error})

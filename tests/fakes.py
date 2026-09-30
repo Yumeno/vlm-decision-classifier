@@ -59,9 +59,11 @@ class FakeBackend:
         self.request_count = 0
         self.dropped_reasoning_effort = False
         self._responses = list(responses)
+        self.calls: list[dict] = []
 
     def chat(self, messages, **params):
         self.request_count += 1
+        self.calls.append({"messages": messages, "params": params})
         response = self._responses.pop(0)
         if isinstance(response, Exception):
             raise response

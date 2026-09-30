@@ -128,7 +128,7 @@ LM Studio にモデルをロードした状態で、次の順に実行します�
    .venv\Scripts\python.exe -m classifier_demo classify dataset\images\M01.png --model <モデルID> --output results\demo.json
    ```
 
-   通常JSONで分類するなら `--mode json`、束ね質問なら `--mode bundled`。
+   通常JSONで分類するなら `--mode json`、束ね質問なら `--mode bundled`、通常JSONと同じ質問にllama-serverの制約付きデコード(JSONスキーマ)を掛けるなら `--mode json_schema`。
 
 3. **manifestの検証**（画像の存在・SHA256・正解ラベルの整合）:
 
@@ -236,7 +236,7 @@ LM Studio にモデルをロードした状態で、次の順に実行します�
 | オプション | 既定値 | 意味 |
 |---|---|---|
 | `--manifest` | `dataset/manifest.jsonl` | 評価するmanifest |
-| `--modes` | `choice,json` | カンマ区切りで `choice` / `json` / `bundled`（重複不可）。2モードはケースごとに順序を交互に、3モードは回転して実行 |
+| `--modes` | `choice,json` | カンマ区切りで `choice` / `json` / `bundled` / `json_schema`（制約付きデコードのJSON。E10）（重複不可）。2モードはケースごとに順序を交互に、3モード以上は回転して実行 |
 | `--taxonomy` | `taxonomy/default.yaml` | 分類体系 |
 | `--max-edge` | `1024` | 送信画像の長辺 |
 | `--image-format` | `jpeg` | `jpeg` / `png` |
@@ -450,6 +450,24 @@ PRIME=1 OUT=results/reprime/small_prime LLAMACPP_DIR=<llama.cpp の置き場所>
 
 結果は `doc/experiments/reprime/summary.md` と `small_noprime/`・`small_prime/`（`runs/`・`progress.log`・`S*_probe.log`）です。
 
+### E10（出力形式の頑健性ストレステスト。追加課題）
+
+白色ノイズ画像N枚（seed 0..N-1、1024x1024、決定的に生成）で、選択式・通常JSON・`json_schema`（制約付きデコード）・束ね質問（rank / yn）の形式不正率と時間を比べます。正解は使わず、実画像の失敗率ではなく方式間の頑健性の比較です（`evaluate --modes` にも `json_schema` を指定できます）。`--warmup 1 --prime` で方式ごとに自分の先頭の準備を送ります。
+
+```bash
+LLAMACPP_DIR=<llama.cpp の置き場所> LMSC_DIR=<lmstudio-community のモデルフォルダ> N=100 MODELS="S3 S4 S5 S6 S9 F1" bash scripts/run_e10.sh
+```
+
+結果は `results/e10/<モデル>/`（`cases.csv`・`run.json`・`summary.md`）。記録した結果は [`doc/experiments/e10/`](doc/experiments/e10/summary.md)（`noise/`）にあります。
+
+**E10b（実データ31枚で通常JSONと `json_schema` を比較）**:
+
+```bash
+LLAMACPP_DIR=<llama.cpp の置き場所> LMSC_DIR=<lmstudio-community のモデルフォルダ> bash scripts/run_e10b.sh
+```
+
+結果は `results/e10b/<モデル>/`。記録した結果は `doc/experiments/e10/dataset/`。記録した実行は、同じコマンドを個人パス直書きにした使い捨て版で回しました（コマンドの中身は同じ。`run.json` の `tool_commit` を参照）。
+
 ### 実験の比較条件
 
 | 主比較 | 条件 | 測定値 |
@@ -571,6 +589,8 @@ E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はP
 - 単一選択の軸では、選択式は通常JSONと同等以上でした。characterは taxonomy 0.4.1 の `none` の説明文で、選択式が両モデルとも93.5%に上がりました（E1b/E2b。選択肢の文言設計の影響であり、方式の限界ではない）。
 - outfit は、確認オン（1軸ずつ）で `school_uniform` の誤検出が残ります（近い候補にも「はい」が付きやすい）。確認オフでは90.3%（F1）、ただし複数写る画像のキャラは順位付けだと取りこぼします。
 - 軸の並列送信は、この組み合わせでは得になりませんでした（E9b/b2/e）。
+- 出力形式の崩れやすさ（E10・E10b、追加課題）: 白色ノイズ100枚では通常JSONは6モデルとも失敗0でしたが、束ね質問は小型モデルで大きく崩れました（例: Qwen 2B Q8 は 100/100）。実画像31枚では、通常JSONの形式不正（S3 9、S5 10、S7 7、S9 6、F1 1件）が `json_schema`（制約付きデコード）で全モデル0になり、単一項目の正答率も選択式の水準に上がりました（S3 63.2→89.7%）。
+- 含意: 形式を文法で縛れば、通常JSONと選択式の形式の崩れやすさの差は、この小標本では埋まります。選択式に残る固有の価値は、候補ごとの相対スコア（閾値・不確かさ・Y/Nによる複数選択）と、形式を守れるモデルでの束ね質問の速さです。`json_schema` は値の集合（enum）も縛るので、構文だけの効果ではありません。ノイズは実画像とかけ離れ、実データは31枚・各1回です。
 - 同じ回の中でのキャッシュの使われ方（準備の有無・並列）で、際どいケースの予測が揺れました（report §4.9）。旧の最終の取り直し（3回）では、サーバーを再起動して同じ条件で測れば判定は完全に再現しました。測り直し（各1回）では、準備の有無や旧測定とのあいだで数件の違いがありました。
 - メタデータの読み取りは全35ケースで正解（LoRA名・トリガーワード・形式）。メタデータ除去コピーでも画素からのキャラ判定は変わりませんでした。
 
@@ -580,7 +600,7 @@ E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はP
 - 通常JSON方式では、単一選択の軸をリストで返す形式不正が起こることがある。
 - E2（Gemma）で、LM Studioサーバー側のChannel Errorによりyes/no確認が2件失敗した（失敗として分母に残した。E2bでは再発せず）。
 
-詳細は [`doc/experiments/report.md`](doc/experiments/report.md) §1.2〜§1.3（本表・小型モデル）、§4〜§6（経緯・限界）を参照。
+詳細は [`doc/experiments/report.md`](doc/experiments/report.md) §1.2〜§1.4（本表・小型モデル・形式の崩れやすさ）、§4〜§6（経緯・限界）を参照。
 
 ## 13. リポジトリの構成とリンク
 
@@ -596,6 +616,7 @@ E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はP
 | `doc/worklog.md` | 作業記録（新しい順） |
 | `doc/experiments/` | 実験レポート(`report.md`)、実験ごとの`run.json`/`cases.csv`/`summary.md`、実行手順書(`phase3-runbook.md`/`phase4-runbook.md`)、実行環境記録(`runtime/`) |
 | `doc/experiments/reprime/` | 準備の不公平を直したあとの測り直し(F1〜F3、S1〜S9。準備なし・準備ありの2条件)。集計(`summary.md`)、`final_noprime/`・`final_prime/`・`small_noprime/`・`small_prime/`(各 `runs/`・`progress.log`、小型はprobeログも) |
+| `doc/experiments/e10/` | 出力形式の頑健性（E10 ノイズ100枚 `noise/`、E10b 実データ `dataset/`）。集計（`summary.md`）、各モデルの `run.json`・`cases.csv`・`summary.md`、`progress.log`（ノイズ画像は `scripts/format_stress.py` の seed から再生成できるので含めない） |
 | `doc/experiments/final/` | 旧・最終の取り直し(F1〜F3。`--prime` がJSONだけに効いていなかった測定)の集計(`summary.md`)、各回の生データ(`runs/`)、`progress.log` |
 | `doc/experiments/small/` | 旧・小型モデルの比較(S1〜S9)の表(`summary.md`)、各回の生データ(`runs/`)、`progress.log`、probeログ |
 | `doc/experiments/final-runbook.md` | 最終の取り直しの手順書(条件・回・実行と集計) |
@@ -603,7 +624,7 @@ E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はP
 | `classifier_demo/` | メタデータ抽出、選択式判定、JSONベースライン、束ね質問、評価器、CLI（`probe`/`classify`/`check-manifest`/`evaluate`/`serve`）、デモUIサーバー（`server.py`、静的ファイルは`web/index.html`） |
 | `taxonomy/default.yaml` | 分類体系 0.4.1（7軸）と自作キャラの定義 |
 | `dataset/` | 評価用データセット v1.0.0(`images/` 35ケース、`manifest.jsonl`、`DATASET_CARD.md`、正解の一次記録 `labels/`、生成記録 `generation/`) |
-| `scripts/` | データセットの生成（`generate_forge.py`/`generate_comfy.py`）、メタデータ除去、データセット組み立て（`build_dataset.py`）、`benchmark_cache.py`（E5）、`run_final_matrix.sh`（最終の取り直しF1〜F3の実行ループ）、`aggregate_final.py`（F1〜F3の集計）、`run_small_matrix.sh`（小型モデルS1〜S9の実行ループ） |
+| `scripts/` | データセットの生成（`generate_forge.py`/`generate_comfy.py`）、メタデータ除去、データセット組み立て（`build_dataset.py`）、`benchmark_cache.py`（E5）、`run_final_matrix.sh`（最終の取り直しF1〜F3の実行ループ）、`aggregate_final.py`（F1〜F3の集計）、`run_small_matrix.sh`（小型モデルS1〜S9の実行ループ）、`format_stress.py`・`run_e10.sh`（E10）、`run_e10b.sh`（E10b） |
 | `tests/` | pytest（pooling・taxonomy検証・メタデータ照合・JSON解析・束ね質問・pipeline・評価器・サーバー・生成スクリプト） |
 
 ### データセット

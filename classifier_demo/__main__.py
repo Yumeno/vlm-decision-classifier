@@ -186,7 +186,7 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("image")
     classify_parser.add_argument("--base-url", default="http://127.0.0.1:1234/v1")
     classify_parser.add_argument("--model", required=True)
-    classify_parser.add_argument("--mode", choices=["choice", "json", "bundled"], default="choice")
+    classify_parser.add_argument("--mode", choices=["choice", "json", "bundled", "json_schema"], default="choice")
     classify_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     classify_parser.add_argument("--max-edge", type=int, default=1024)
     classify_parser.add_argument(
@@ -233,7 +233,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--modes",
         default="choice,json",
         type=_modes_type,
-        help="comma-separated choice/json/bundled, no duplicates (default: choice,json). 3モード指定時はケースごとに実行順を回転する",
+        help="comma-separated choice/json/bundled/json_schema, no duplicates (default: choice,json). 3モード指定時はケースごとに実行順を回転する",
     )
     evaluate_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     evaluate_parser.add_argument("--max-edge", type=int, default=1024)

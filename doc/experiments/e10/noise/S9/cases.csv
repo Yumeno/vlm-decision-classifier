@@ -1,0 +1,501 @@
+image_seed,mode,order_index,ok,error_types,error_detail,classification_wall_ms,prime_ms,prime_error,request_count,json_attempts,completion_tokens
+0,choice,0,True,,,919.7116,283.7631,,7,,
+0,json,1,True,,,518.6795,279.5504,,1,1,45
+0,json_schema,2,True,,,566.9099,126.6366,,1,1,50
+0,bundled,3,True,,,457.3743,132.467,,1,,
+0,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',840.7254,126.3326,,1,,
+1,json,0,True,,,503.2345,296.8439,,1,1,45
+1,json_schema,1,True,,,546.3614,118.9606,,1,1,50
+1,bundled,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',484.8423,305.5913,,1,,
+1,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',846.3399,126.8665,,1,,
+1,choice,4,True,,,876.9349,147.7544,,7,,
+2,json_schema,0,True,,,549.5538,278.49,,1,1,50
+2,bundled,1,True,,,458.4034,319.5425,,1,,
+2,bundled_yn,2,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",506.2602,159.5909,,1,,
+2,choice,3,True,,,954.6584,126.8745,,7,,
+2,json,4,True,,,537.5515,127.592,,1,1,45
+3,bundled,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',457.9543,287.7954,,1,,
+3,bundled_yn,1,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",538.845,121.411,,1,,
+3,choice,2,True,,,882.0943,136.5208,,7,,
+3,json,3,True,,,516.3772,277.261,,1,1,45
+3,json_schema,4,True,,,562.2528,134.8777,,1,1,50
+4,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',868.5991,280.3405,,1,,
+4,choice,1,True,,,944.8267,123.3806,,7,,
+4,json,2,True,,,501.317,279.7723,,1,1,45
+4,json_schema,3,True,,,556.1034,127.951,,1,1,50
+4,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',459.4048,142.4328,,1,,
+5,choice,0,True,,,898.1819,292.0864,,7,,
+5,json,1,True,,,516.5275,292.9561,,1,1,47
+5,json_schema,2,True,,,579.7321,125.1269,,1,1,52
+5,bundled,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',461.9101,152.0308,,1,,
+5,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',856.695,124.6405,,1,,
+6,json,0,True,,,506.1481,281.3153,,1,1,45
+6,json_schema,1,True,,,555.5398,123.2427,,1,1,50
+6,bundled,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',460.4495,282.2978,,1,,
+6,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',845.8187,128.747,,1,,
+6,choice,4,True,,,917.5293,147.8602,,7,,
+7,json_schema,0,True,,,555.5227,297.237,,1,1,50
+7,bundled,1,True,,,474.8314,287.6347,,1,,
+7,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',846.7697,126.8115,,1,,
+7,choice,3,True,,,902.8334,126.5924,,7,,
+7,json,4,True,,,499.9231,134.513,,1,1,45
+8,bundled,0,True,,,477.5599,281.1417,,1,,
+8,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',854.6721,124.0188,,1,,
+8,choice,2,True,,,914.209,135.1592,,7,,
+8,json,3,True,,,509.5896,288.2649,,1,1,45
+8,json_schema,4,True,,,547.2815,126.3765,,1,1,50
+9,bundled_yn,0,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nB\nB' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nB\nB' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nB\nB' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nB\nB' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nB\nB' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nB\nB'",501.1357,279.7204,,1,,
+9,choice,1,True,,,856.008,120.7327,,7,,
+9,json,2,True,,,507.2959,285.8,,1,1,45
+9,json_schema,3,True,,,545.8158,127.1215,,1,1,50
+9,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',457.0058,136.3628,,1,,
+10,choice,0,True,,,940.8563,291.9288,,7,,
+10,json,1,True,,,511.6132,302.5581,,1,1,45
+10,json_schema,2,True,,,551.5053,143.0745,,1,1,50
+10,bundled,3,True,,,459.2332,127.4771,,1,,
+10,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',850.3492,134.0478,,1,,
+11,json,0,True,,,520.3392,283.0096,,1,1,45
+11,json_schema,1,True,,,573.1231,122.705,,1,1,50
+11,bundled,2,True,,,464.0989,326.242,,1,,
+11,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',866.9903,122.4198,,1,,
+11,choice,4,True,,,886.0053,125.0108,,7,,
+12,json_schema,0,True,,,548.2938,285.7602,,1,1,50
+12,bundled,1,True,,,481.6046,282.1932,,1,,
+12,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',856.5124,131.2902,,1,,
+12,choice,3,True,,,956.7636,141.208,,7,,
+12,json,4,True,,,495.2674,128.4562,,1,1,45
+13,bundled,0,True,,,482.7447,312.0822,,1,,
+13,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',850.6472,125.9118,,1,,
+13,choice,2,True,,,877.167,122.0593,,7,,
+13,json,3,True,,,501.4107,300.4996,,1,1,45
+13,json_schema,4,True,,,550.4975,168.1413,,1,1,50
+14,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',855.1939,299.5025,,1,,
+14,choice,1,True,,,895.3576,122.564,,7,,
+14,json,2,True,,,498.7897,290.8614,,1,1,45
+14,json_schema,3,True,,,550.1273,121.9404,,1,1,50
+14,bundled,4,True,,,455.3204,146.1508,,1,,
+15,choice,0,True,,,944.428,283.9214,,7,,
+15,json,1,True,,,498.7466,283.2623,,1,1,45
+15,json_schema,2,True,,,573.3274,122.5316,,1,1,50
+15,bundled,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',458.2873,131.9081,,1,,
+15,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',869.4403,134.1605,,1,,
+16,json,0,True,,,518.5616,307.8281,,1,1,45
+16,json_schema,1,True,,,544.603,121.7863,,1,1,50
+16,bundled,2,True,,,467.5493,281.6491,,1,,
+16,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',840.7925,123.6662,,1,,
+16,choice,4,True,,,910.1964,123.2874,,7,,
+17,json_schema,0,True,,,577.5769,278.6761,,1,1,52
+17,bundled,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',458.1112,282.3627,,1,,
+17,bundled_yn,2,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",510.1205,138.1506,,1,,
+17,choice,3,True,,,892.5422,141.642,,7,,
+17,json,4,True,,,537.5045,131.7032,,1,1,47
+18,bundled,0,True,,,485.4455,280.0688,,1,,
+18,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',867.6693,129.0965,,1,,
+18,choice,2,True,,,868.7219,129.0128,,7,,
+18,json,3,True,,,511.6127,280.4468,,1,1,45
+18,json_schema,4,True,,,565.528,123.8644,,1,1,50
+19,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',854.5204,296.8862,,1,,
+19,choice,1,True,,,908.4307,123.692,,7,,
+19,json,2,True,,,514.035,275.8758,,1,1,45
+19,json_schema,3,True,,,552.2974,144.9128,,1,1,50
+19,bundled,4,True,,,462.5664,134.5144,,1,,
+20,choice,0,True,,,904.4514,319.094,,7,,
+20,json,1,True,,,522.0062,280.8135,,1,1,47
+20,json_schema,2,True,,,566.1949,123.1036,,1,1,52
+20,bundled,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',460.7423,128.2978,,1,,
+20,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',852.3236,123.7518,,1,,
+21,json,0,True,,,499.9046,324.0694,,1,1,45
+21,json_schema,1,True,,,560.3404,144.339,,1,1,50
+21,bundled,2,True,,,459.9254,279.5103,,1,,
+21,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',861.5164,122.3454,,1,,
+21,choice,4,True,,,935.1686,128.007,,7,,
+22,json_schema,0,True,,,577.1732,303.6407,,1,1,50
+22,bundled,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',457.3824,281.3308,,1,,
+22,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',844.7386,138.9651,,1,,
+22,choice,3,True,,,870.1203,126.3773,,7,,
+22,json,4,True,,,493.3332,156.1878,,1,1,45
+23,bundled,0,True,,,474.7454,287.2953,,1,,
+23,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',859.4637,147.7221,,1,,
+23,choice,2,True,,,925.8577,120.813,,7,,
+23,json,3,True,,,519.8396,293.7625,,1,1,45
+23,json_schema,4,True,,,590.8537,124.3887,,1,1,50
+24,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',862.2032,288.172,,1,,
+24,choice,1,True,,,889.0086,128.3212,,7,,
+24,json,2,True,,,511.1012,276.9185,,1,1,47
+24,json_schema,3,True,,,579.9719,150.8139,,1,1,50
+24,bundled,4,True,,,475.2625,172.9221,,1,,
+25,choice,0,True,,,942.9671,281.7659,,7,,
+25,json,1,True,,,498.4108,280.5212,,1,1,45
+25,json_schema,2,True,,,552.9391,122.6156,,1,1,50
+25,bundled,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',456.9458,130.6906,,1,,
+25,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',846.6197,157.082,,1,,
+26,json,0,True,,,507.7134,313.3176,,1,1,45
+26,json_schema,1,True,,,552.3912,123.729,,1,1,50
+26,bundled,2,True,,,480.7141,279.2153,,1,,
+26,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',858.1008,124.2405,,1,,
+26,choice,4,True,,,912.0193,123.3058,,7,,
+27,json_schema,0,True,,,567.9472,280.417,,1,1,50
+27,bundled,1,True,,,453.5201,280.7207,,1,,
+27,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',831.8661,121.9974,,1,,
+27,choice,3,True,,,887.1376,122.8952,,7,,
+27,json,4,True,,,511.2593,127.9247,,1,1,45
+28,bundled,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',457.2241,296.1213,,1,,
+28,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',834.9049,124.733,,1,,
+28,choice,2,True,,,917.3111,125.4932,,7,,
+28,json,3,True,,,503.1757,276.3573,,1,1,45
+28,json_schema,4,True,,,579.7604,136.7569,,1,1,50
+29,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',847.9161,285.1027,,1,,
+29,choice,1,True,,,913.793,124.817,,7,,
+29,json,2,True,,,540.1169,281.1057,,1,1,45
+29,json_schema,3,True,,,550.249,120.5086,,1,1,50
+29,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',459.421,132.7301,,1,,
+30,choice,0,True,,,888.5333,284.4434,,7,,
+30,json,1,True,,,497.1881,296.151,,1,1,45
+30,json_schema,2,True,,,547.0778,136.2704,,1,1,50
+30,bundled,3,True,,,459.9678,128.5853,,1,,
+30,bundled_yn,4,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",505.1942,123.1265,,1,,
+31,json,0,True,,,519.9639,283.1635,,1,1,45
+31,json_schema,1,True,,,550.0889,121.9708,,1,1,50
+31,bundled,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',476.8861,281.7812,,1,,
+31,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',836.1411,138.8462,,1,,
+31,choice,4,True,,,901.2194,121.888,,7,,
+32,json_schema,0,True,,,569.6461,279.4161,,1,1,50
+32,bundled,1,True,,,472.262,279.527,,1,,
+32,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',844.2112,122.0232,,1,,
+32,choice,3,True,,,908.8317,123.1708,,7,,
+32,json,4,True,,,512.7892,162.4238,,1,1,45
+33,bundled,0,True,,,470.4879,283.8985,,1,,
+33,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',863.726,125.9095,,1,,
+33,choice,2,True,,,861.8679,127.9344,,7,,
+33,json,3,True,,,515.2581,282.5368,,1,1,45
+33,json_schema,4,True,,,554.7004,133.5018,,1,1,50
+34,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',868.0899,277.7402,,1,,
+34,choice,1,True,,,855.7576,122.1597,,7,,
+34,json,2,True,,,514.6591,287.7821,,1,1,45
+34,json_schema,3,True,,,557.114,123.1151,,1,1,50
+34,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',491.7055,146.5557,,1,,
+35,choice,0,True,,,975.4929,315.9422,,7,,
+35,json,1,True,,,523.6477,289.4136,,1,1,45
+35,json_schema,2,True,,,552.147,122.8345,,1,1,50
+35,bundled,3,True,,,478.2432,130.7707,,1,,
+35,bundled_yn,4,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",524.6399,123.4974,,1,,
+36,json,0,True,,,500.7592,283.8868,,1,1,45
+36,json_schema,1,True,,,583.0378,120.8941,,1,1,50
+36,bundled,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',486.5685,288.3694,,1,,
+36,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',867.5616,122.6458,,1,,
+36,choice,4,True,,,887.9394,121.0454,,7,,
+37,json_schema,0,True,,,557.3541,301.6314,,1,1,50
+37,bundled,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',459.1094,335.586,,1,,
+37,bundled_yn,2,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",517.1614,146.2415,,1,,
+37,choice,3,True,,,904.2328,120.5868,,7,,
+37,json,4,True,,,518.4702,153.5895,,1,1,47
+38,bundled,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',459.0262,289.4282,,1,,
+38,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',846.767,160.578,,1,,
+38,choice,2,True,,,916.9269,124.6136,,7,,
+38,json,3,True,,,525.9283,281.1361,,1,1,47
+38,json_schema,4,True,,,548.8166,122.8093,,1,1,50
+39,bundled_yn,0,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",530.7832,305.7116,,1,,
+39,choice,1,True,,,934.5507,147.6033,,7,,
+39,json,2,True,,,510.8729,276.5298,,1,1,45
+39,json_schema,3,True,,,547.7894,120.0918,,1,1,50
+39,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',457.2105,145.976,,1,,
+40,choice,0,True,,,897.2391,279.711,,7,,
+40,json,1,True,,,494.1307,279.2618,,1,1,45
+40,json_schema,2,True,,,587.8939,124.2499,,1,1,50
+40,bundled,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',456.5925,128.1016,,1,,
+40,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',856.0989,125.4342,,1,,
+41,json,0,True,,,498.2566,284.1319,,1,1,45
+41,json_schema,1,True,,,552.8872,122.4323,,1,1,50
+41,bundled,2,True,,,469.0039,294.9404,,1,,
+41,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',840.8572,123.573,,1,,
+41,choice,4,True,,,900.5912,122.5586,,7,,
+42,json_schema,0,True,,,569.6214,276.0476,,1,1,50
+42,bundled,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',493.1772,281.659,,1,,
+42,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',847.342,137.6064,,1,,
+42,choice,3,True,,,901.4908,123.1676,,7,,
+42,json,4,True,,,498.4374,131.014,,1,1,45
+43,bundled,0,True,,,481.9197,295.5581,,1,,
+43,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',844.1942,120.1014,,1,,
+43,choice,2,True,,,876.1248,125.2769,,7,,
+43,json,3,True,,,509.0668,283.0826,,1,1,45
+43,json_schema,4,True,,,585.6636,126.8066,,1,1,52
+44,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',841.5477,282.253,,1,,
+44,choice,1,True,,,953.4561,124.4654,,7,,
+44,json,2,True,,,509.5128,282.681,,1,1,47
+44,json_schema,3,True,,,597.6471,121.5633,,1,1,52
+44,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',459.9575,150.7149,,1,,
+45,choice,0,True,,,917.9042,279.8301,,7,,
+45,json,1,True,,,529.4659,302.6032,,1,1,45
+45,json_schema,2,True,,,550.2009,120.9627,,1,1,50
+45,bundled,3,True,,,484.5033,162.3713,,1,,
+45,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',866.4158,121.4138,,1,,
+46,json,0,True,,,502.0672,294.4309,,1,1,45
+46,json_schema,1,True,,,550.2686,126.1556,,1,1,50
+46,bundled,2,True,,,485.3486,284.6684,,1,,
+46,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',893.0318,129.6011,,1,,
+46,choice,4,True,,,952.5484,124.4636,,7,,
+47,json_schema,0,True,,,577.971,325.1535,,1,1,50
+47,bundled,1,True,,,465.738,299.0549,,1,,
+47,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',856.1651,125.1932,,1,,
+47,choice,3,True,,,913.8602,124.3947,,7,,
+47,json,4,True,,,504.1555,128.7173,,1,1,45
+48,bundled,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',460.1137,292.5179,,1,,
+48,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',842.291,123.4367,,1,,
+48,choice,2,True,,,988.2285,148.0303,,7,,
+48,json,3,True,,,508.16,286.4072,,1,1,47
+48,json_schema,4,True,,,560.4414,121.2698,,1,1,52
+49,bundled_yn,0,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",503.1924,302.8386,,1,,
+49,choice,1,True,,,977.2903,125.0238,,7,,
+49,json,2,True,,,497.6456,288.0135,,1,1,45
+49,json_schema,3,True,,,581.194,135.5245,,1,1,50
+49,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',460.8601,131.606,,1,,
+50,choice,0,True,,,936.8826,282.358,,7,,
+50,json,1,True,,,502.7229,283.7417,,1,1,45
+50,json_schema,2,True,,,551.7686,137.651,,1,1,50
+50,bundled,3,True,,,457.288,129.4044,,1,,
+50,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',841.097,122.0311,,1,,
+51,json,0,True,,,521.1549,284.903,,1,1,45
+51,json_schema,1,True,,,568.2408,122.8461,,1,1,50
+51,bundled,2,True,,,452.8949,279.9772,,1,,
+51,bundled_yn,3,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",499.7507,131.0935,,1,,
+51,choice,4,True,,,896.5737,137.1734,,7,,
+52,json_schema,0,True,,,550.1861,280.9992,,1,1,50
+52,bundled,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',479.1089,288.006,,1,,
+52,bundled_yn,2,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",499.3993,125.5041,,1,,
+52,choice,3,True,,,899.0008,145.9723,,7,,
+52,json,4,True,,,497.5926,131.496,,1,1,45
+53,bundled,0,True,,,457.8344,282.3958,,1,,
+53,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',854.267,141.7547,,1,,
+53,choice,2,True,,,874.2398,127.3307,,7,,
+53,json,3,True,,,498.0077,284.5302,,1,1,45
+53,json_schema,4,True,,,548.9379,141.0908,,1,1,50
+54,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',837.4783,278.9653,,1,,
+54,choice,1,True,,,931.5196,124.0758,,7,,
+54,json,2,True,,,501.9739,318.7194,,1,1,45
+54,json_schema,3,True,,,551.1207,121.4617,,1,1,50
+54,bundled,4,True,,,472.3767,131.3215,,1,,
+55,choice,0,True,,,895.7495,283.7425,,7,,
+55,json,1,True,,,499.4732,283.3987,,1,1,45
+55,json_schema,2,True,,,575.1825,136.2085,,1,1,50
+55,bundled,3,True,,,457.2776,140.3176,,1,,
+55,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',865.7697,146.0186,,1,,
+56,json,0,True,,,524.7998,295.3029,,1,1,45
+56,json_schema,1,True,,,552.4577,122.7875,,1,1,50
+56,bundled,2,True,,,474.8301,282.6728,,1,,
+56,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',844.684,147.5229,,1,,
+56,choice,4,True,,,902.8885,137.1706,,7,,
+57,json_schema,0,True,,,553.5103,282.6715,,1,1,50
+57,bundled,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',459.1144,278.4384,,1,,
+57,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',888.2014,122.3761,,1,,
+57,choice,3,True,,,906.9979,127.7869,,7,,
+57,json,4,True,,,512.9675,165.8647,,1,1,45
+58,bundled,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',457.7805,307.3111,,1,,
+58,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',843.4938,123.2112,,1,,
+58,choice,2,True,,,940.4525,124.2905,,7,,
+58,json,3,True,,,497.149,300.9877,,1,1,45
+58,json_schema,4,True,,,553.6479,127.6804,,1,1,50
+59,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',880.1885,285.8908,,1,,
+59,choice,1,True,,,880.2636,147.743,,7,,
+59,json,2,True,,,518.8439,289.5632,,1,1,45
+59,json_schema,3,True,,,567.4263,137.0029,,1,1,50
+59,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',467.6152,141.9203,,1,,
+60,choice,0,True,,,906.1731,292.7172,,7,,
+60,json,1,True,,,520.6058,295.9143,,1,1,45
+60,json_schema,2,True,,,563.3158,131.2255,,1,1,50
+60,bundled,3,True,,,468.2874,139.1169,,1,,
+60,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',880.57,154.5226,,1,,
+61,json,0,True,,,513.877,299.2295,,1,1,45
+61,json_schema,1,True,,,568.2942,149.5621,,1,1,50
+61,bundled,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',492.7358,312.991,,1,,
+61,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',869.3867,132.4773,,1,,
+61,choice,4,True,,,970.7265,134.8627,,7,,
+62,json_schema,0,True,,,569.49,293.9481,,1,1,50
+62,bundled,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',481.8883,315.0979,,1,,
+62,bundled_yn,2,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",542.1464,131.6882,,1,,
+62,choice,3,True,,,951.8108,137.3057,,7,,
+62,json,4,True,,,519.2624,154.883,,1,1,45
+63,bundled,0,True,,,472.6003,298.7369,,1,,
+63,bundled_yn,1,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",543.1209,137.505,,1,,
+63,choice,2,True,,,968.6738,133.4307,,7,,
+63,json,3,True,,,526.5436,306.7551,,1,1,45
+63,json_schema,4,True,,,565.8604,131.1649,,1,1,50
+64,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',863.4947,296.6173,,1,,
+64,choice,1,True,,,940.077,171.9736,,7,,
+64,json,2,True,,,526.6057,294.4595,,1,1,45
+64,json_schema,3,True,,,591.9099,129.9653,,1,1,50
+64,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',484.2371,140.3227,,1,,
+65,choice,0,True,,,947.5232,289.0388,,7,,
+65,json,1,True,,,506.7031,297.5705,,1,1,45
+65,json_schema,2,True,,,573.2734,133.2607,,1,1,50
+65,bundled,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',472.4063,136.9921,,1,,
+65,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',849.5961,159.2984,,1,,
+66,json,0,True,,,502.7035,314.2016,,1,1,45
+66,json_schema,1,True,,,595.5241,129.9907,,1,1,50
+66,bundled,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',471.6666,309.0658,,1,,
+66,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',900.1901,129.7288,,1,,
+66,choice,4,True,,,1022.2769,147.1022,,7,,
+67,json_schema,0,True,,,576.3586,315.451,,1,1,50
+67,bundled,1,True,,,462.3095,288.7208,,1,,
+67,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',883.7239,142.6447,,1,,
+67,choice,3,True,,,919.3133,131.2241,,7,,
+67,json,4,True,,,516.3325,134.071,,1,1,45
+68,bundled,0,True,,,473.094,286.8413,,1,,
+68,bundled_yn,1,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",504.0265,153.0354,,1,,
+68,choice,2,True,,,954.4463,130.9376,,7,,
+68,json,3,True,,,520.1413,289.066,,1,1,45
+68,json_schema,4,True,,,563.8811,131.0812,,1,1,50
+69,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',912.84,291.1789,,1,,
+69,choice,1,True,,,989.4678,145.814,,7,,
+69,json,2,True,,,515.5691,290.224,,1,1,45
+69,json_schema,3,True,,,556.7496,127.9584,,1,1,50
+69,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',481.8586,138.5262,,1,,
+70,choice,0,True,,,988.1504,289.6293,,7,,
+70,json,1,True,,,520.8597,292.3827,,1,1,45
+70,json_schema,2,True,,,576.6892,129.6566,,1,1,50
+70,bundled,3,True,,,468.1041,136.6512,,1,,
+70,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',840.1687,148.0044,,1,,
+71,json,0,True,,,514.029,306.245,,1,1,47
+71,json_schema,1,True,,,566.0305,127.1151,,1,1,52
+71,bundled,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',471.4083,303.2611,,1,,
+71,bundled_yn,3,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",511.7498,129.5623,,1,,
+71,choice,4,True,,,929.8179,145.808,,7,,
+72,json_schema,0,True,,,566.2948,292.6814,,1,1,52
+72,bundled,1,True,,,502.8471,289.6791,,1,,
+72,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',871.7495,172.3661,,1,,
+72,choice,3,True,,,891.2593,168.9432,,7,,
+72,json,4,True,,,508.117,137.3813,,1,1,47
+73,bundled,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',470.2017,287.0972,,1,,
+73,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',861.6336,144.4424,,1,,
+73,choice,2,True,,,939.1469,129.6854,,7,,
+73,json,3,True,,,516.4313,298.6188,,1,1,45
+73,json_schema,4,True,,,561.371,146.8481,,1,1,50
+74,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',892.0193,294.5778,,1,,
+74,choice,1,True,,,946.1687,131.0619,,7,,
+74,json,2,True,,,505.8993,287.8005,,1,1,45
+74,json_schema,3,True,,,585.2002,127.4676,,1,1,50
+74,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',469.5508,139.8169,,1,,
+75,choice,0,True,,,940.1859,314.9746,,7,,
+75,json,1,True,,,511.1518,318.2964,,1,1,47
+75,json_schema,2,True,,,569.7217,127.6044,,1,1,52
+75,bundled,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',471.7625,138.694,,1,,
+75,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',882.6538,157.2421,,1,,
+76,json,0,True,,,513.0543,315.8986,,1,1,45
+76,json_schema,1,True,,,580.9333,132.1825,,1,1,50
+76,bundled,2,True,,,497.2698,340.8511,,1,,
+76,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',890.9328,131.2469,,1,,
+76,choice,4,True,,,980.1739,134.4875,,7,,
+77,json_schema,0,True,,,563.6833,292.736,,1,1,50
+77,bundled,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',489.7391,291.1297,,1,,
+77,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',866.9407,167.6726,,1,,
+77,choice,3,True,,,929.608,129.8211,,7,,
+77,json,4,True,,,501.6478,137.4602,,1,1,45
+78,bundled,0,True,,,466.906,288.5088,,1,,
+78,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',871.1673,172.1204,,1,,
+78,choice,2,True,,,967.9275,132.8262,,7,,
+78,json,3,True,,,518.1611,293.1201,,1,1,47
+78,json_schema,4,True,,,601.1263,129.2464,,1,1,52
+79,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',873.2937,302.2356,,1,,
+79,choice,1,True,,,928.4011,143.5691,,7,,
+79,json,2,True,,,501.9393,287.883,,1,1,45
+79,json_schema,3,True,,,561.0743,130.9747,,1,1,50
+79,bundled,4,True,,,484.7846,160.9462,,1,,
+80,choice,0,True,,,937.1913,307.0082,,7,,
+80,json,1,True,,,522.6352,286.9919,,1,1,45
+80,json_schema,2,True,,,565.6704,132.6828,,1,1,50
+80,bundled,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',470.0025,137.2363,,1,,
+80,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',848.7797,128.6098,,1,,
+81,json,0,True,,,497.6508,289.1739,,1,1,45
+81,json_schema,1,True,,,558.4247,133.0955,,1,1,50
+81,bundled,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',472.3052,306.1678,,1,,
+81,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',867.7291,130.8634,,1,,
+81,choice,4,True,,,934.0672,129.7848,,7,,
+82,json_schema,0,True,,,581.4825,290.2709,,1,1,50
+82,bundled,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',469.6158,308.2744,,1,,
+82,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',878.9322,148.1989,,1,,
+82,choice,3,True,,,993.7985,132.7726,,7,,
+82,json,4,True,,,508.8984,150.914,,1,1,45
+83,bundled,0,True,,,486.8889,290.2303,,1,,
+83,bundled_yn,1,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",539.6497,145.7819,,1,,
+83,choice,2,True,,,928.5484,157.8697,,7,,
+83,json,3,True,,,525.1019,290.5297,,1,1,47
+83,json_schema,4,True,,,578.519,143.4155,,1,1,52
+84,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',889.0679,301.4337,,1,,
+84,choice,1,True,,,928.1661,140.1601,,7,,
+84,json,2,True,,,512.2117,284.4843,,1,1,47
+84,json_schema,3,True,,,575.6699,161.0475,,1,1,52
+84,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',462.3764,143.384,,1,,
+85,choice,0,True,,,943.5808,292.6996,,7,,
+85,json,1,True,,,503.3926,306.5429,,1,1,45
+85,json_schema,2,True,,,559.1375,131.6221,,1,1,50
+85,bundled,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',470.3616,150.7574,,1,,
+85,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',862.7932,132.8843,,1,,
+86,json,0,True,,,504.0953,289.2195,,1,1,45
+86,json_schema,1,True,,,580.4291,148.3074,,1,1,50
+86,bundled,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',473.2406,291.0198,,1,,
+86,bundled_yn,3,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",522.3609,130.05,,1,,
+86,choice,4,True,,,943.703,133.275,,7,,
+87,json_schema,0,True,,,602.4676,302.1782,,1,1,52
+87,bundled,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',475.551,289.9665,,1,,
+87,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',872.5856,153.8972,,1,,
+87,choice,3,True,,,911.0462,136.7141,,7,,
+87,json,4,True,,,534.9489,134.7996,,1,1,47
+88,bundled,0,True,,,471.893,321.1059,,1,,
+88,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',888.9304,132.8615,,1,,
+88,choice,2,True,,,947.715,132.9633,,7,,
+88,json,3,True,,,530.8276,291.3382,,1,1,45
+88,json_schema,4,True,,,565.4733,134.5271,,1,1,50
+89,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',867.4861,293.1621,,1,,
+89,choice,1,True,,,918.6646,131.9262,,7,,
+89,json,2,True,,,502.8959,304.7123,,1,1,45
+89,json_schema,3,True,,,559.5282,129.9223,,1,1,50
+89,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',503.7985,143.4271,,1,,
+90,choice,0,True,,,967.0995,312.0661,,7,,
+90,json,1,True,,,520.6304,302.0907,,1,1,45
+90,json_schema,2,True,,,580.189,134.0269,,1,1,50
+90,bundled,3,True,,,497.1505,140.1127,,1,,
+90,bundled_yn,4,False,bundled_format_error,"no label token found for axis 'image_type'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'art_style'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'color'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'subject'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for axis 'situation'; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN' | no label token found for sub-questions of axis 'outfit': ['6a=sailor_uniform', '6b=school_uniform', '6c=office_wear', '6d=swimsuit', '6e=maid', '6f=miko', '6g=nun', '6h=other']; output: 'D\nD\nC\nF\nG | no label token found for sub-questions of axis 'character': ['7a=alisa', '7b=second_original', '7c=other_original']; output: 'D\nD\nC\nF\nG\nB\nB\nB\nB\nB\nB\nB\nB\nN\nN\nN'",525.9565,133.7424,,1,,
+91,json,0,True,,,503.4198,307.1426,,1,1,45
+91,json_schema,1,True,,,568.622,129.1463,,1,1,50
+91,bundled,2,True,,,476.1492,305.3704,,1,,
+91,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',869.342,132.679,,1,,
+91,choice,4,True,,,929.9006,131.7525,,7,,
+92,json_schema,0,True,,,576.544,286.6404,,1,1,50
+92,bundled,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',474.1997,288.0135,,1,,
+92,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',874.8954,145.051,,1,,
+92,choice,3,True,,,992.6489,143.9583,,7,,
+92,json,4,True,,,502.7513,136.9382,,1,1,45
+93,bundled,0,True,,,471.4858,287.67,,1,,
+93,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',868.896,131.231,,1,,
+93,choice,2,True,,,922.8492,133.79,,7,,
+93,json,3,True,,,531.8827,288.8567,,1,1,47
+93,json_schema,4,True,,,573.1201,171.0332,,1,1,52
+94,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',869.548,316.6653,,1,,
+94,choice,1,True,,,942.6049,134.6189,,7,,
+94,json,2,True,,,503.9243,289.3377,,1,1,45
+94,json_schema,3,True,,,563.371,131.1165,,1,1,50
+94,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',470.4445,162.2791,,1,,
+95,choice,0,True,,,923.3215,292.8554,,7,,
+95,json,1,True,,,532.4995,326.3404,,1,1,47
+95,json_schema,2,True,,,589.3325,146.8707,,1,1,52
+95,bundled,3,True,,,472.0453,139.3496,,1,,
+95,bundled_yn,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',876.914,133.0236,,1,,
+96,json,0,True,,,518.6636,289.5522,,1,1,45
+96,json_schema,1,True,,,565.7005,130.6194,,1,1,50
+96,bundled,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',483.9491,300.3271,,1,,
+96,bundled_yn,3,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',881.2296,137.5778,,1,,
+96,choice,4,True,,,937.8828,128.9986,,7,,
+97,json_schema,0,True,,,570.105,292.0717,,1,1,50
+97,bundled,1,True,,,472.0924,291.0211,,1,,
+97,bundled_yn,2,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',863.7974,130.1202,,1,,
+97,choice,3,True,,,904.426,132.9009,,7,,
+97,json,4,True,,,514.4599,163.098,,1,1,47
+98,bundled,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',471.5627,321.009,,1,,
+98,bundled_yn,1,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',877.5405,129.2801,,1,,
+98,choice,2,True,,,926.3443,148.2749,,7,,
+98,json,3,True,,,510.8861,307.9952,,1,1,45
+98,json_schema,4,True,,,571.2865,152.778,,1,1,50
+99,bundled_yn,0,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6a: B\n6b: B\n6c: B\n6d: B\n6e: B\n6f: B\n6g: B\n6h: B\n7a: B\n7b: B\n7c: B',873.0852,309.7214,,1,,
+99,choice,1,True,,,1054.4624,153.0619,,7,,
+99,json,2,True,,,511.2315,291.7897,,1,1,45
+99,json_schema,3,True,,,581.3171,130.326,,1,1,50
+99,bundled,4,False,bundled_format_error,no label token found for axis 'subject'; output: '1: D\n2: D\n3: C\n4: G\n5: G\n6: I\n7: D',480.3586,143.855,,1,,

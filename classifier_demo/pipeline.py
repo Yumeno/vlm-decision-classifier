@@ -283,8 +283,10 @@ def classify(
             bundled_info = out["bundled"]
             if bundled_info["request_ms"] is not None:
                 per_axis_timing["bundled_request_ms"] = bundled_info["request_ms"]
-        elif mode == "json":
-            json_baseline_result = json_baseline.classify_json(backend, image_bytes, mime, taxonomy)
+        elif mode in ("json", "json_schema"):
+            json_baseline_result = json_baseline.classify_json(
+                backend, image_bytes, mime, taxonomy, constrained=(mode == "json_schema")
+            )
             if json_baseline_result["tags"] is not None:
                 vision_tags = json_baseline_result["tags"]
             else:

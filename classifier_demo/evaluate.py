@@ -26,14 +26,14 @@ from .pipeline import _git_commit
 from .taxonomy import Taxonomy
 from .taxonomy import load as load_taxonomy
 
-VALID_MODES = {"choice", "json", "bundled"}
+VALID_MODES = {"choice", "json", "bundled", "json_schema"}
 
 
 def case_mode_order(modes: list[str], i: int) -> list[str]:
     """ケースiのモード実行順(順序効果の抑制)。2モードは交互(偶数=順、奇数=逆順)、
-    3モードは i%3 だけ回転する。"""
-    if len(modes) == 3:
-        k = i % 3
+    3モード以上は i%n だけ回転する。"""
+    if len(modes) >= 3:
+        k = i % len(modes)
         return list(modes[k:]) + list(modes[:k])
     return list(modes) if i % 2 == 0 else list(reversed(modes))
 
@@ -326,7 +326,7 @@ def _run_prime(
     """
     parallel = max(1, parallel)
     prime_fn = decision.prime
-    if mode == "json":
+    if mode in ("json", "json_schema"):
         prime_fn, parallel = json_baseline.prime, 1
     start = time.perf_counter_ns()
     try:
