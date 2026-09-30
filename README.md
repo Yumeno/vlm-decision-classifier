@@ -677,6 +677,19 @@ gh repo edit Yumeno/vlm-decision-classifier --visibility public --accept-visibil
 gh api -X PATCH repos/Yumeno/vlm-decision-classifier -f "security_and_analysis[secret_scanning][status]=enabled" -f "security_and_analysis[secret_scanning_push_protection][status]=enabled"
 ```
 
+公開後のサプライチェーン対策の方針:
+
+- Actions は普段は停止する。初回の Pages 公開後にリポジトリ設定で Actions を無効化し、ダッシュボードを更新するときだけ一時的に有効化して手動実行(workflow_dispatch)または main への push で公開、終わったら再び無効化する。自動更新(Dependabot の version updates)は使わない(外から新しい版が入る経路を持たないため)。脆弱性アラートはメール通知のみ。
+- Actions はフルSHAでピン留め済み(`.github/workflows/pages.yml`。バージョンは行末コメント)。
+- Actions を有効にしている間に適用するリポジトリ設定(Settings > Actions ほか):
+  - デフォルトの `GITHUB_TOKEN` 権限は read-only。
+  - 許可するActionsは GitHub 製のみ、かつSHAピン留めを必須にする。
+  - 外部コントリビューターのワークフロー実行は承認制にする。
+  - Actions による PR の作成・承認は許可しない。
+  - `github-pages` environment のデプロイ元は `main` のみに制限する。
+- 常時有効にする設定: secret scanning と push protection、private vulnerability reporting、デフォルトブランチの ruleset `protect-main`(下記)。
+- 利用者向け: ダウンロードした GGUF は `doc/experiments/runtime/*.json` に記録した SHA256 と照合してから使う。
+
 続けて、デフォルトブランチのruleset（削除禁止・force push禁止・PR必須、承認数0）を作成する。`gh api -X POST repos/Yumeno/vlm-decision-classifier/rulesets` に次のJSONを渡す:
 
 ```json
