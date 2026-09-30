@@ -603,7 +603,7 @@ E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はP
 - 通常JSON方式では、単一選択の軸をリストで返す形式不正が起こることがある。
 - E2（Gemma）で、LM Studioサーバー側のChannel Errorによりyes/no確認が2件失敗した（失敗として分母に残した。E2bでは再発せず）。
 
-結果をグラフで見るダッシュボード: <https://yumeno.github.io/vlm-decision-classifier/>(GitHub Pages。公開後に有効)。`site/index.html` を直接ブラウザで開いてもローカルで見られます。データは `doc/experiments/reprime/` の測定(各条件1回)です。
+結果をグラフで見るダッシュボード: <https://yumeno.github.io/vlm-decision-classifier/>(GitHub Pages)。`site/index.html` を直接ブラウザで開いてもローカルで見られます。データは `doc/experiments/reprime/` の測定(各条件1回)です。
 
 詳細は [`doc/experiments/report.md`](doc/experiments/report.md) §1.2〜§1.4（本表・小型モデル・形式の崩れやすさ）、§4〜§6（経緯・限界）を参照。
 
@@ -659,7 +659,7 @@ Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードす�
 7. 記事の本表として、最終の取り直し（F1〜F3、36回）と小型モデルの比較（S1〜S9）を実施。
 8. `--prime` が通常JSONだけに効いていなかった不公平に気づき（デモの動作から）、PR #20 で方式ごとの準備に修正。F1〜F3とS1〜S9を準備なし・準備ありの2条件で測り直した（`doc/experiments/reprime/`）。
 
-詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)・E8(メタデータ補助の対照実験)は初版MVPの完了条件外の追加課題です(E7 束ね質問は2026-09-29 作者判断で初版に含める)(`AGENTS.md`参照)。
+詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)と E8(メタデータ補助の対照実験)は実施していません。
 
 ## 関連資料
 
