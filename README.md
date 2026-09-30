@@ -110,6 +110,8 @@ LM Studio の代わりに llama-server を使うこともできます。`--base-
 
 `probe`/`classify`/`evaluate`/`serve` は、既定でリクエストに `reasoning_effort: "none"` を含めます。これを外すと、Qwen/Gemmaともthinking（考える出力）が先に出て、1トークン目で回答ラベルの logprobs が取れません（2026-09-24のprobeで確認）。サーバーが `reasoning_effort` を拒否して400を返したときは、外して再送し、その事実を記録します（別方式へのフォールバックはしません）。
 
+ダウンロードした GGUF と mmproj は、`doc/experiments/runtime/*.json` に記録した SHA256 と照合してから使ってください(実験で使ったファイルと同じかどうかの確認にもなります)。
+
 ## 5. まず動かす
 
 LM Studio にモデルをロードした状態で、次の順に実行します。`<モデルID>` は §4 で確かめた値です。接続先の既定は `http://127.0.0.1:1234/v1`（LM Studio）で、変えるときは `--base-url` を付けます。
@@ -601,7 +603,7 @@ E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はP
 - 通常JSON方式では、単一選択の軸をリストで返す形式不正が起こることがある。
 - E2（Gemma）で、LM Studioサーバー側のChannel Errorによりyes/no確認が2件失敗した（失敗として分母に残した。E2bでは再発せず）。
 
-結果をグラフで見るダッシュボード: <https://yumeno.github.io/vlm-decision-classifier/>(GitHub Pages。公開後に有効)。`site/index.html` を直接ブラウザで開いてもローカルで見られます。データは `doc/experiments/reprime/` の測定(各条件1回)です。
+結果をグラフで見るダッシュボード: <https://yumeno.github.io/vlm-decision-classifier/>(GitHub Pages)。`site/index.html` を直接ブラウザで開いてもローカルで見られます。データは `doc/experiments/reprime/` の測定(各条件1回)です。
 
 詳細は [`doc/experiments/report.md`](doc/experiments/report.md) §1.2〜§1.4（本表・小型モデル・形式の崩れやすさ）、§4〜§6（経緯・限界）を参照。
 
@@ -618,6 +620,7 @@ E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はP
 | `doc/phase0-sources-models.md` | 移植元の要点、使用モデルとSHA256、probe結果、画像生成の条件 |
 | `doc/dataset-plan.md` | 正解付与規則、31枠の生成計画表、manifest仕様、検収と正解付与の経緯 |
 | `doc/worklog.md` | 作業記録（新しい順） |
+| `doc/maintenance.md` | 保守メモ(ダッシュボードの更新手順、リポジトリ設定) |
 | `doc/experiments/` | 実験レポート(`report.md`)、実験ごとの`run.json`/`cases.csv`/`summary.md`、実行手順書(`phase3-runbook.md`/`phase4-runbook.md`)、実行環境記録(`runtime/`) |
 | `doc/experiments/reprime/` | 準備の不公平を直したあとの測り直し(F1〜F3、S1〜S9。準備なし・準備ありの2条件)。集計(`summary.md`)、`final_noprime/`・`final_prime/`・`small_noprime/`・`small_prime/`(各 `runs/`・`progress.log`、小型はprobeログも) |
 | `doc/experiments/e10/` | 出力形式の頑健性（E10 ノイズ100枚 `noise/`、E10b 実データ `dataset/`）。集計（`summary.md`）、各モデルの `run.json`・`cases.csv`・`summary.md`、`progress.log`（ノイズ画像は `scripts/format_stress.py` の seed から再生成できるので含めない） |
@@ -656,49 +659,7 @@ Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードす�
 7. 記事の本表として、最終の取り直し（F1〜F3、36回）と小型モデルの比較（S1〜S9）を実施。
 8. `--prime` が通常JSONだけに効いていなかった不公平に気づき（デモの動作から）、PR #20 で方式ごとの準備に修正。F1〜F3とS1〜S9を準備なし・準備ありの2条件で測り直した（`doc/experiments/reprime/`）。
 
-詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)・E8(メタデータ補助の対照実験)は初版MVPの完了条件外の追加課題です(E7 束ね質問は2026-09-29 作者判断で初版に含める)(`AGENTS.md`参照)。
-
-## 公開前の確認
-
-- 公開画像と使用した生成モデル・LoRAについて、権利と配布条件を確認する。
-- 正解ラベルをモデル出力を見る前に付け、元画像とメタデータ除去コピーを独立画像として水増ししない。
-- 秘密情報、個人パス、自家製アプリの画像やDB、モデル重みが履歴を含めて混入していないことを確認する。
-- 実際のモデル・量子化・環境、画像別の結果、失敗例、使用したコミットをREADMEと実験レポートで示す。
-- ライセンス: 確定済み(下記「ライセンス」)。
-- 公開に切り替えた直後に、privateの無料プランでは使えないGitHub設定を有効化する（下記）。
-
-### 公開時のGitHub設定
-
-設定済み: Wiki・Projects無効、squash/merge commitのみ許可、merge後のブランチ自動削除、Dependabotアラートとセキュリティ更新、topics。
-
-公開への切替後に実行する（privateの無料プランではAPIが403を返す）:
-
-```powershell
-gh repo edit Yumeno/vlm-decision-classifier --visibility public --accept-visibility-change-consequences
-gh api -X PATCH repos/Yumeno/vlm-decision-classifier -f "security_and_analysis[secret_scanning][status]=enabled" -f "security_and_analysis[secret_scanning_push_protection][status]=enabled"
-```
-
-公開後のサプライチェーン対策の方針:
-
-- Actions は普段は停止する。初回の Pages 公開後にリポジトリ設定で Actions を無効化し、ダッシュボードを更新するときだけ一時的に有効化して手動実行(workflow_dispatch)または main への push で公開、終わったら再び無効化する。自動更新(Dependabot の version updates)は使わない(外から新しい版が入る経路を持たないため)。脆弱性アラートはメール通知のみ。
-- Actions はフルSHAでピン留め済み(`.github/workflows/pages.yml`。バージョンは行末コメント)。
-- Actions を有効にしている間に適用するリポジトリ設定(Settings > Actions ほか):
-  - デフォルトの `GITHUB_TOKEN` 権限は read-only。
-  - 許可するActionsは GitHub 製のみ、かつSHAピン留めを必須にする。
-  - 外部コントリビューターのワークフロー実行は承認制にする。
-  - Actions による PR の作成・承認は許可しない。
-  - `github-pages` environment のデプロイ元は `main` のみに制限する。
-- 常時有効にする設定: secret scanning と push protection、private vulnerability reporting、デフォルトブランチの ruleset `protect-main`(下記)。
-- 利用者向け: ダウンロードした GGUF は `doc/experiments/runtime/*.json` に記録した SHA256 と照合してから使う。
-
-続けて、デフォルトブランチのruleset（削除禁止・force push禁止・PR必須、承認数0）を作成する。`gh api -X POST repos/Yumeno/vlm-decision-classifier/rulesets` に次のJSONを渡す:
-
-```json
-{"name":"protect-main","target":"branch","enforcement":"active",
- "conditions":{"ref_name":{"include":["~DEFAULT_BRANCH"],"exclude":[]}},
- "rules":[{"type":"deletion"},{"type":"non_fast_forward"},
-  {"type":"pull_request","parameters":{"required_approving_review_count":0,"dismiss_stale_reviews_on_push":false,"require_code_owner_review":false,"require_last_push_approval":false,"required_review_thread_resolution":false}}]}
-```
+詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)と E8(メタデータ補助の対照実験)は実施していません。
 
 ## 関連資料
 
