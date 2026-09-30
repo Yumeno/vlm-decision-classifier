@@ -600,6 +600,8 @@ E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はP
 - 通常JSON方式では、単一選択の軸をリストで返す形式不正が起こることがある。
 - E2（Gemma）で、LM Studioサーバー側のChannel Errorによりyes/no確認が2件失敗した（失敗として分母に残した。E2bでは再発せず）。
 
+結果をグラフで見るダッシュボード: <https://yumeno.github.io/vlm-decision-classifier/>(GitHub Pages。公開後に有効)。`site/index.html` を直接ブラウザで開いてもローカルで見られます。データは `doc/experiments/reprime/` の測定(各条件1回)です。
+
 詳細は [`doc/experiments/report.md`](doc/experiments/report.md) §1.2〜§1.4（本表・小型モデル・形式の崩れやすさ）、§4〜§6（経緯・限界）を参照。
 
 ## 13. リポジトリの構成とリンク
@@ -607,6 +609,7 @@ E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はP
 | パス | 役割 |
 |---|---|
 | `README.md` | 概要・導入・再現の入口(このファイル) |
+| `site/index.html` | 結果ダッシュボード(単一HTML、データ埋め込み。`doc/experiments/reprime/` 由来)。GitHub Pages（`.github/workflows/pages.yml`）で https://yumeno.github.io/vlm-decision-classifier/ に配信 |
 | `AGENTS.md`、`CLAUDE.md` | AIコーディングエージェント向けの作業規約 |
 | `doc/requirements.md` | 要件、対象範囲、公開条件 |
 | `doc/basic-design.md` | 分類・データ・アダプタ設計 |

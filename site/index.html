@@ -1,0 +1,945 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>選択式VLM判定の実験結果</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=BIZ+UDPGothic:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  --paper: #E8EDF1;
+  --surface: #F6F8FA;
+  --ink: #1E272E;
+  --ink-2: #4C5A65;
+  --muted: #8A98A3;
+  --rule: #C9D2D9;
+  --cobalt: #2F55D4;
+  --on-cobalt: #F6F8FA;
+  --ocher: #B8892B;
+  --vermillion: #C8432F;
+  --c-choice: #2a78d6;
+  --c-json: #eb6834;
+  --c-brank: #1baf7a;
+  --c-byn: #eda100;
+  --c-confirm: #e87ba4;
+  --font-display: "Barlow Condensed", "Bahnschrift", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  --font-body: "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, "BIZ UDGothic", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #12171B;
+    --surface: #1B2228;
+    --ink: #E6ECF0;
+    --ink-2: #A3B0BA;
+    --muted: #7D8B96;
+    --rule: #2F3A43;
+    --cobalt: #7F9AF2;
+    --on-cobalt: #12171B;
+    --ocher: #D9AE55;
+    --vermillion: #EE7A65;
+    --c-choice: #3987e5;
+    --c-json: #d95926;
+    --c-brank: #199e70;
+    --c-byn: #c98500;
+    --c-confirm: #d55181;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #12171B;
+  --surface: #1B2228;
+  --ink: #E6ECF0;
+  --ink-2: #A3B0BA;
+  --muted: #7D8B96;
+  --rule: #2F3A43;
+  --cobalt: #7F9AF2;
+  --on-cobalt: #12171B;
+  --ocher: #D9AE55;
+  --vermillion: #EE7A65;
+  --c-choice: #3987e5;
+  --c-json: #d95926;
+  --c-brank: #199e70;
+  --c-byn: #c98500;
+  --c-confirm: #d55181;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.75;
+}
+a { color: var(--cobalt); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid var(--cobalt);
+  outline-offset: 2px;
+}
+.wrap { max-width: 900px; margin: 0 auto; padding: 0 16px 80px; }
+header.top { padding: 36px 0 20px; }
+h1 {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 7vw, 46px);
+  line-height: 1.15;
+  margin: 0 0 14px;
+  font-weight: 700;
+}
+#summary { font-size: 17px; line-height: 1.9; margin: 0 0 8px; max-width: 46em; }
+#summary b { font-family: var(--font-display); font-size: 1.3em; font-weight: 700; font-variant-numeric: tabular-nums; }
+.toplinks { font-size: 14px; margin: 6px 0 0; }
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  padding: 14px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  margin: 18px 0 0;
+}
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend { padding: 0; font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
+.seg { display: inline-flex; flex-wrap: wrap; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg span {
+  display: block;
+  padding: 6px 14px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 -1px -1px 0;
+}
+.seg input:checked + span { background: var(--cobalt); color: var(--on-cobalt); border-color: var(--cobalt); font-weight: 700; position: relative; }
+.seg input:focus-visible + span { outline: 3px solid var(--cobalt); outline-offset: 2px; position: relative; z-index: 1; }
+.seg.small span { padding: 4px 10px; font-size: 13px; }
+.seg input:disabled + span { opacity: .4; cursor: not-allowed; }
+.seg input:disabled { cursor: not-allowed; }
+select.sel {
+  font: inherit; font-size: 14px; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--ink-2);
+  padding: 6px 10px; max-width: 100%; min-width: 0; width: 22em;
+}
+.cnote { font-size: 13px; color: var(--ink-2); margin: 8px 0 0; }
+.sub { margin-top: 26px; }
+.sub .chead { margin-bottom: 2px; }
+.sub h3 { margin: 0; }
+
+section.chart { padding: 36px 0 8px; border-bottom: 1px solid var(--rule); }
+section.chart:last-of-type { border-bottom: 0; }
+.chead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 4px; }
+h2 { font-size: 20px; line-height: 1.4; margin: 0; display: flex; align-items: baseline; gap: 10px; }
+h2 .no { font-family: var(--font-display); font-size: 34px; font-weight: 600; color: var(--cobalt); line-height: 1; }
+h3 { font-size: 16px; margin: 22px 0 4px; }
+.desc { color: var(--ink-2); font-size: 14px; margin: 0 0 12px; max-width: 46em; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: end; margin-bottom: 10px; }
+.tbtn {
+  font: inherit; font-size: 13px; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--ink-2);
+  padding: 4px 12px; cursor: pointer;
+}
+.tbtn[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+.box { background: var(--surface); border: 1px solid var(--rule); padding: 8px; overflow-x: auto; }
+.box svg { display: block; width: 100%; height: auto; min-width: 560px; }
+.box.wide svg { min-width: 780px; }
+.box[hidden], .tablebox[hidden] { display: none; }
+.tablebox { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 6px 10px; border-bottom: 1px solid var(--rule); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 700; color: var(--ink-2); background: var(--paper); }
+td { font-variant-numeric: tabular-nums; }
+tr.bad td { color: var(--vermillion); }
+caption { text-align: left; padding: 6px 10px; color: var(--ink-2); font-size: 13px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.legend svg { flex: none; }
+
+svg text { font-family: var(--font-body); font-size: 13px; fill: var(--ink); }
+svg .t2 { fill: var(--ink-2); }
+svg .b { font-weight: 700; }
+svg .sm { font-size: 12px; }
+svg .dn { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 16px; }
+svg .mid { text-anchor: middle; }
+svg .end { text-anchor: end; }
+svg text.vt { fill: var(--vermillion); font-weight: 700; }
+svg .grid { stroke: var(--rule); stroke-width: 1; fill: none; }
+svg .axis { stroke: var(--ink-2); stroke-width: 1.5; fill: none; }
+svg .hit { cursor: default; }
+svg .hit:hover .hl, svg .hit:focus .hl { stroke: var(--ink); stroke-width: 2; }
+svg .hit:focus { outline: none; }
+svg .hit:focus-visible .hl { stroke: var(--cobalt); stroke-width: 3; }
+
+#tip {
+  position: fixed; z-index: 10; pointer-events: none;
+  background: var(--ink); color: var(--paper);
+  padding: 6px 10px; font-size: 13px; line-height: 1.55;
+  max-width: 320px; white-space: pre-line;
+}
+#tip[hidden] { display: none; }
+
+.notes { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--ink-2); }
+.notes ul { margin: 6px 0 0; padding-left: 1.2em; }
+.notes li { margin-bottom: 4px; }
+code { font-family: var(--font-mono); font-size: 12.5px; background: var(--surface); border: 1px solid var(--rule); padding: 0 4px; word-break: break-all; }
+.mono-note { font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+<header class="top">
+  <h1>選択式VLM判定の実験結果</h1>
+  <p id="summary"></p>
+  <p class="toplinks">手順・詳細は <a href="https://github.com/Yumeno/vlm-decision-classifier">リポジトリの README</a> へ。仕組みの解説は note 記事で(リンクは公開後に追加)。</p>
+
+  <div class="filters" role="group" aria-label="表示する条件">
+    <fieldset>
+      <legend>測定条件(時間・精度のグラフすべてに反映)</legend>
+      <div class="seg" id="seg-pr">
+        <label><input type="radio" name="pr" value="noprime" checked><span>初めて見る画像(準備なし)</span></label>
+        <label><input type="radio" name="pr" value="prime"><span>画像を読み込み済み(準備あり)</span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend><label for="sel-cond">モデル・条件(グラフ 1〜3 に反映)</label></legend>
+      <select class="sel" id="sel-cond"></select>
+    </fieldset>
+    <fieldset>
+      <legend>画像の長辺(ピクセル)</legend>
+      <div class="seg" id="seg-edge" aria-describedby="cond-note">
+        <label><input type="radio" name="edge" value="1024" checked><span>1024</span></label>
+        <label><input type="radio" name="edge" value="768"><span>768</span></label>
+      </div>
+    </fieldset>
+  </div>
+  <p class="cnote" id="cond-note"></p>
+</header>
+
+<section class="chart" id="s1">
+  <div class="chead">
+    <h2><span class="no">1</span>方式ごとの判定時間</h2>
+    <button class="tbtn" type="button" data-toggle="s1" aria-pressed="false">表で見る</button>
+  </div>
+  <p class="desc" id="s1-desc"></p>
+  <div class="box" id="s1-chart"></div>
+  <div class="tablebox" id="s1-table" hidden></div>
+  <ul class="legend" data-legend="prime"></ul>
+</section>
+
+<section class="chart" id="s2">
+  <div class="chead">
+    <h2><span class="no">2</span>方式ごとの精度</h2>
+    <button class="tbtn" type="button" data-toggle="s2" aria-pressed="false">表で見る</button>
+  </div>
+  <p class="desc">元画像31件の一致率(%)。服装とキャラは完全一致(複数選択の全ラベルが一致)。色が濃いほど高く、数値を必ず表示します。精度は、準備の有無でほとんど変わりません(F1・F2 は全ケースで同一、F3 の1項目ずつだけ数件違う)。</p>
+  <div class="box" id="s2-chart"></div>
+  <div class="tablebox" id="s2-table" hidden></div>
+  <ul class="legend" data-legend="methods"></ul>
+</section>
+
+<section class="chart" id="s3">
+  <div class="chead">
+    <h2><span class="no">3</span>速さと精度</h2>
+    <button class="tbtn" type="button" data-toggle="s3" aria-pressed="false">表で見る</button>
+  </div>
+  <p class="desc">横軸が判定時間、縦軸が精度。左上ほど速くて正確です。点は方式(選んだ条件の5点)。縦軸は途中から始まります。判定時間は、上で選んだ測定条件のものです。</p>
+  <div class="tools">
+    <fieldset>
+      <legend>縦軸</legend>
+      <div class="seg small" id="seg-y">
+        <label><input type="radio" name="ymetric" value="character" checked><span>キャラの完全一致</span></label>
+        <label><input type="radio" name="ymetric" value="single_avg"><span>単一選択5項目の平均</span></label>
+      </div>
+    </fieldset>
+  </div>
+  <div class="box" id="s3-chart"></div>
+  <div class="tablebox" id="s3-table" hidden></div>
+  <ul class="legend" data-legend="methods"></ul>
+</section>
+
+<section class="chart" id="s4">
+  <div class="chead">
+    <h2><span class="no">4</span>小型モデル</h2>
+    <button class="tbtn" type="button" data-toggle="s4" aria-pressed="false">表で見る</button>
+  </div>
+  <p class="desc" id="s4-desc"></p>
+  <div class="box wide" id="s4-chart"></div>
+  <div class="tablebox" id="s4-table" hidden></div>
+  <ul class="legend" data-legend="states"></ul>
+</section>
+
+<section class="chart" id="s5">
+  <div class="chead">
+    <h2><span class="no">5</span>モデルの比較(方式を選ぶ)</h2>
+  </div>
+  <p class="desc" id="s5-desc"></p>
+  <div class="tools">
+    <fieldset>
+      <legend>方式</legend>
+      <div class="seg small" id="seg-m">
+        <label><input type="radio" name="mm" value="choice" checked><span>1項目ずつ(確認オフ)</span></label>
+        <label><input type="radio" name="mm" value="json"><span>JSON</span></label>
+        <label><input type="radio" name="mm" value="bundled_rank"><span>束ね(順位付け)</span></label>
+        <label><input type="radio" name="mm" value="bundled_yn"><span>束ね(Y/N欄)</span></label>
+        <label><input type="radio" name="mm" value="choice_confirm"><span>1項目ずつ(確認オン)</span></label>
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="sub" id="s5a">
+    <div class="chead">
+      <h3>5a 判定時間</h3>
+      <button class="tbtn" type="button" data-toggle="s5a" aria-pressed="false">表で見る</button>
+    </div>
+    <p class="desc" id="s5a-desc"></p>
+    <div class="box" id="s5a-chart"></div>
+    <div class="tablebox" id="s5a-table" hidden></div>
+    <ul class="legend" data-legend="tags"></ul>
+  </div>
+
+  <div class="sub" id="s5b">
+    <div class="chead">
+      <h3>5b 正答率</h3>
+      <button class="tbtn" type="button" data-toggle="s5b" aria-pressed="false">表で見る</button>
+    </div>
+    <p class="desc">元画像31件の一致率(%)。服装とキャラは完全一致。失敗したケースも分母に残るので、失敗が多いモデルは大きく下がります。</p>
+    <div class="box" id="s5b-chart"></div>
+    <div class="tablebox" id="s5b-table" hidden></div>
+    <ul class="legend" data-legend="tags"></ul>
+  </div>
+
+  <div class="sub" id="s5c">
+    <div class="chead">
+      <h3>5c 速さと正答率</h3>
+      <button class="tbtn" type="button" data-toggle="s5c" aria-pressed="false">表で見る</button>
+    </div>
+    <p class="desc">横軸が判定時間、縦軸が正答率。左上ほど速くて正確です。点は1モデル1つで、色は選んだ方式の色。縦軸は途中から始まることがあります。</p>
+    <div class="tools">
+      <fieldset>
+        <legend>縦軸</legend>
+        <div class="seg small" id="seg-my">
+          <label><input type="radio" name="my" value="single_avg" checked><span>単一選択5項目の平均</span></label>
+          <label><input type="radio" name="my" value="character"><span>キャラの完全一致</span></label>
+        </div>
+      </fieldset>
+    </div>
+    <div class="box" id="s5c-chart"></div>
+    <div class="tablebox" id="s5c-table" hidden></div>
+    <ul class="legend" data-legend="fam"></ul>
+  </div>
+</section>
+
+
+<div class="notes">
+  <ul>
+    <li>元画像31件の小標本です。1〜2件の差は誤差の範囲として読み、順位はつけません。</li>
+    <li>スコアは、列挙した候補の中で合計1に割り直した相対スコアで、正答確率ではありません。</li>
+    <li>測定は各条件<b>1回</b>のみなので、標準偏差(ひげ)は出していません。判定は temperature=0 で決定的です(旧測定の3回測定では、判定は3回とも完全一致=217判定中の揺れ0、時間の標準偏差は 2〜59 ms)。今回は1回なので、数十 ms 程度の差は区別できません。</li>
+    <li><b>準備なし</b>=初めて見る画像。どの方式も画像の読み込みを判定時間 <code>classification_wall_ms</code> に含みます。<b>準備あり</b>=方式ごとに、その方式の質問形式で直前に準備リクエストを送り(準備の時間は別記録)、画像を読み込み済みにした状態です。</li>
+    <li>最初の測定は、準備を選択式の質問文でしか送っておらず、JSON だけ画像の読み込みが判定時間に入っていた不公平な比較でした。方式ごとの準備に直して測り直した結果が、このページの数値です(PR #20・#22)。</li>
+    <li>F1・F3 と小型 S1〜S9 は改造版 llama-server(画像キャッシュの復元あり)、F2 は未改造 llama-server で測っています。未改造版は画像のキャッシュがないので、準備の有無で時間がほぼ変わりません。</li>
+    <li>グラフ 5 の「× 崩れ」は失敗5件以上、「△ 一部失敗」は失敗1〜4件(31件中)。値はそのモデル・方式全体の失敗数で、特定の1項目の失敗ではありません。</li>
+    <li>出典: <code>doc/experiments/reprime/summary.md</code> と <code>reprime/{final,small}_{noprime,prime}/runs/*/cases.csv</code>。旧測定(準備が JSON に効いていなかったもの)は <code>doc/experiments/final/</code>・<code>small/</code> に残してあります。</li>
+  </ul>
+  <p class="toplinks"><a href="https://github.com/Yumeno/vlm-decision-classifier">リポジトリの README</a> に手順とレポートがあります。仕組みの解説は note 記事で(リンクは公開後に追加)。</p>
+</div>
+</div>
+
+<div id="tip" role="tooltip" hidden></div>
+
+<script type="application/json" id="data">{"generated_from": "doc/experiments/reprime/{final,small}_{noprime,prime}/runs/*/cases.csv(元画像31件、派生を除く。失敗の件数は cases.csv の error_types が空でない元画像の行)", "conditions": {"noprime": "初めて見る画像(準備なし)", "prime": "画像を読み込み済み(準備あり)"}, "models": {"F1": "Qwen3.5 9B Q4_K_M · 改造版 llama-server", "F2": "Qwen3.5 9B Q4_K_M · 未改造 llama-server", "F3": "Gemma 4 12B Q4_K_M · 改造版 llama-server", "S1": "Qwen3.5 4B Q4_K_M", "S2": "Qwen3.5 4B Q8_0", "S3": "Qwen3.5 2B Q4_K_M", "S4": "Qwen3.5 2B Q8_0", "S5": "Qwen3.5 0.8B Q4_K_M", "S6": "Qwen3.5 0.8B Q8_0", "S7": "Gemma 4 E4B Q4_K_M", "S8": "Gemma 4 E2B Q8_0", "S9": "Gemma 4 E2B Q4_K_M"}, "final": {"F1|1024|choice|noprime": {"time_ms": 1889.9, "requests": 7.0, "fails": 0, "image_type": 93.5, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 83.9, "outfit": 90.3, "character": 90.3, "single_avg": 90.3, "n_runs": 1}, "F1|1024|json|noprime": {"time_ms": 1624.0, "requests": 1.06, "fails": 1, "image_type": 96.8, "art_style": 77.4, "color": 93.5, "subject": 93.5, "situation": 83.9, "outfit": 90.3, "character": 87.1, "single_avg": 89.0, "n_runs": 1}, "F1|1024|bundled_rank|noprime": {"time_ms": 1187.6, "requests": 1.0, "fails": 0, "image_type": 90.3, "art_style": 90.3, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 87.1, "single_avg": 93.5, "n_runs": 1}, "F1|1024|choice_confirm|noprime": {"time_ms": 2671.1, "requests": 11.29, "fails": 0, "image_type": 93.5, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 83.9, "outfit": 77.4, "character": 93.5, "single_avg": 90.3, "n_runs": 1}, "F1|1024|bundled_yn|noprime": {"time_ms": 1619.3, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 87.1, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 83.9, "character": 100.0, "single_avg": 94.2, "n_runs": 1}, "F1|768|choice|noprime": {"time_ms": 1637.2, "requests": 7.0, "fails": 0, "image_type": 90.3, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 80.6, "outfit": 90.3, "character": 90.3, "single_avg": 89.0, "n_runs": 1}, "F1|768|json|noprime": {"time_ms": 1340.3, "requests": 1.06, "fails": 1, "image_type": 96.8, "art_style": 83.9, "color": 93.5, "subject": 93.5, "situation": 83.9, "outfit": 93.5, "character": 80.6, "single_avg": 90.3, "n_runs": 1}, "F1|768|bundled_rank|noprime": {"time_ms": 1008.4, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 80.6, "single_avg": 94.8, "n_runs": 1}, "F1|768|choice_confirm|noprime": {"time_ms": 2347.1, "requests": 11.52, "fails": 0, "image_type": 90.3, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 80.6, "outfit": 74.2, "character": 93.5, "single_avg": 89.0, "n_runs": 1}, "F1|768|bundled_yn|noprime": {"time_ms": 1482.8, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 100.0, "single_avg": 94.8, "n_runs": 1}, "F2|1024|choice|noprime": {"time_ms": 5162.8, "requests": 7.0, "fails": 0, "image_type": 93.5, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 83.9, "outfit": 90.3, "character": 90.3, "single_avg": 90.3, "n_runs": 1}, "F2|1024|json|noprime": {"time_ms": 1609.2, "requests": 1.06, "fails": 1, "image_type": 96.8, "art_style": 77.4, "color": 93.5, "subject": 93.5, "situation": 83.9, "outfit": 90.3, "character": 87.1, "single_avg": 89.0, "n_runs": 1}, "F2|1024|bundled_rank|noprime": {"time_ms": 1383.6, "requests": 1.0, "fails": 0, "image_type": 90.3, "art_style": 83.9, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 83.9, "single_avg": 92.3, "n_runs": 1}, "F2|1024|choice_confirm|noprime": {"time_ms": 8262.3, "requests": 11.29, "fails": 0, "image_type": 93.5, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 83.9, "outfit": 77.4, "character": 93.5, "single_avg": 90.3, "n_runs": 1}, "F2|1024|bundled_yn|noprime": {"time_ms": 1899.5, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 87.1, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 83.9, "character": 100.0, "single_avg": 94.2, "n_runs": 1}, "F2|768|choice|noprime": {"time_ms": 3381.2, "requests": 7.0, "fails": 0, "image_type": 90.3, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 80.6, "outfit": 90.3, "character": 90.3, "single_avg": 89.0, "n_runs": 1}, "F2|768|json|noprime": {"time_ms": 1326.7, "requests": 1.06, "fails": 1, "image_type": 96.8, "art_style": 83.9, "color": 93.5, "subject": 93.5, "situation": 83.9, "outfit": 93.5, "character": 80.6, "single_avg": 90.3, "n_runs": 1}, "F2|768|bundled_rank|noprime": {"time_ms": 1112.8, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 83.9, "single_avg": 94.8, "n_runs": 1}, "F2|768|choice_confirm|noprime": {"time_ms": 5402.4, "requests": 11.52, "fails": 0, "image_type": 90.3, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 80.6, "outfit": 74.2, "character": 93.5, "single_avg": 89.0, "n_runs": 1}, "F2|768|bundled_yn|noprime": {"time_ms": 1638.4, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 100.0, "single_avg": 94.8, "n_runs": 1}, "F3|1024|choice|noprime": {"time_ms": 3003.5, "requests": 7.0, "fails": 0, "image_type": 100.0, "art_style": 83.9, "color": 100.0, "subject": 96.8, "situation": 80.6, "outfit": 80.6, "character": 90.3, "single_avg": 92.3, "n_runs": 1}, "F3|1024|json|noprime": {"time_ms": 2087.4, "requests": 1.13, "fails": 2, "image_type": 90.3, "art_style": 80.6, "color": 93.5, "subject": 90.3, "situation": 71.0, "outfit": 83.9, "character": 93.5, "single_avg": 85.2, "n_runs": 1}, "F3|1024|bundled_rank|noprime": {"time_ms": 1579.2, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 100.0, "subject": 96.8, "situation": 83.9, "outfit": 87.1, "character": 90.3, "single_avg": 92.3, "n_runs": 1}, "F3|1024|choice_confirm|noprime": {"time_ms": 3884.3, "requests": 9.94, "fails": 0, "image_type": 100.0, "art_style": 83.9, "color": 96.8, "subject": 96.8, "situation": 80.6, "outfit": 74.2, "character": 93.5, "single_avg": 91.6, "n_runs": 1}, "F3|1024|bundled_yn|noprime": {"time_ms": 2223.0, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 100.0, "subject": 96.8, "situation": 80.6, "outfit": 90.3, "character": 100.0, "single_avg": 91.6, "n_runs": 1}, "F3|768|choice|noprime": {"time_ms": 2244.8, "requests": 7.0, "fails": 0, "image_type": 100.0, "art_style": 90.3, "color": 96.8, "subject": 96.8, "situation": 77.4, "outfit": 74.2, "character": 90.3, "single_avg": 92.3, "n_runs": 1}, "F3|768|json|noprime": {"time_ms": 1939.9, "requests": 1.13, "fails": 2, "image_type": 93.5, "art_style": 83.9, "color": 93.5, "subject": 90.3, "situation": 67.7, "outfit": 83.9, "character": 93.5, "single_avg": 85.8, "n_runs": 1}, "F3|768|bundled_rank|noprime": {"time_ms": 1428.4, "requests": 1.0, "fails": 0, "image_type": 100.0, "art_style": 83.9, "color": 100.0, "subject": 96.8, "situation": 77.4, "outfit": 87.1, "character": 90.3, "single_avg": 91.6, "n_runs": 1}, "F3|768|choice_confirm|noprime": {"time_ms": 2837.7, "requests": 9.97, "fails": 0, "image_type": 100.0, "art_style": 90.3, "color": 96.8, "subject": 96.8, "situation": 77.4, "outfit": 71.0, "character": 93.5, "single_avg": 92.3, "n_runs": 1}, "F3|768|bundled_yn|noprime": {"time_ms": 2118.9, "requests": 1.0, "fails": 0, "image_type": 100.0, "art_style": 83.9, "color": 100.0, "subject": 96.8, "situation": 77.4, "outfit": 93.5, "character": 100.0, "single_avg": 91.6, "n_runs": 1}, "F1|1024|choice|prime": {"time_ms": 1285.4, "prime_ms": 405.9, "requests": 7.0, "fails": 0, "image_type": 93.5, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 83.9, "outfit": 90.3, "character": 90.3, "single_avg": 90.3, "n_runs": 1}, "F1|1024|json|prime": {"time_ms": 963.2, "prime_ms": 813.6, "requests": 1.06, "fails": 1, "image_type": 96.8, "art_style": 77.4, "color": 93.5, "subject": 93.5, "situation": 83.9, "outfit": 90.3, "character": 87.1, "single_avg": 89.0, "n_runs": 1}, "F1|1024|bundled_rank|prime": {"time_ms": 713.1, "prime_ms": 639.6, "requests": 1.0, "fails": 0, "image_type": 90.3, "art_style": 90.3, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 87.1, "single_avg": 93.5, "n_runs": 1}, "F1|1024|choice_confirm|prime": {"time_ms": 1997.7, "prime_ms": 524.0, "requests": 11.29, "fails": 0, "image_type": 93.5, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 83.9, "outfit": 77.4, "character": 93.5, "single_avg": 90.3, "n_runs": 1}, "F1|1024|bundled_yn|prime": {"time_ms": 1277.6, "prime_ms": 490.0, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 87.1, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 83.9, "character": 100.0, "single_avg": 94.2, "n_runs": 1}, "F1|768|choice|prime": {"time_ms": 1401.1, "prime_ms": 380.7, "requests": 7.0, "fails": 0, "image_type": 90.3, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 80.6, "outfit": 90.3, "character": 90.3, "single_avg": 89.0, "n_runs": 1}, "F1|768|json|prime": {"time_ms": 990.6, "prime_ms": 578.0, "requests": 1.06, "fails": 1, "image_type": 96.8, "art_style": 83.9, "color": 93.5, "subject": 93.5, "situation": 83.9, "outfit": 93.5, "character": 80.6, "single_avg": 90.3, "n_runs": 1}, "F1|768|bundled_rank|prime": {"time_ms": 781.7, "prime_ms": 493.3, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 80.6, "single_avg": 94.8, "n_runs": 1}, "F1|768|choice_confirm|prime": {"time_ms": 1969.7, "prime_ms": 384.4, "requests": 11.52, "fails": 0, "image_type": 90.3, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 80.6, "outfit": 74.2, "character": 93.5, "single_avg": 89.0, "n_runs": 1}, "F1|768|bundled_yn|prime": {"time_ms": 1274.5, "prime_ms": 353.4, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 100.0, "single_avg": 94.8, "n_runs": 1}, "F2|1024|choice|prime": {"time_ms": 5124.4, "prime_ms": 762.8, "requests": 7.0, "fails": 0, "image_type": 93.5, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 83.9, "outfit": 90.3, "character": 90.3, "single_avg": 90.3, "n_runs": 1}, "F2|1024|json|prime": {"time_ms": 1546.0, "prime_ms": 777.1, "requests": 1.06, "fails": 1, "image_type": 96.8, "art_style": 77.4, "color": 93.5, "subject": 93.5, "situation": 83.9, "outfit": 90.3, "character": 87.1, "single_avg": 89.0, "n_runs": 1}, "F2|1024|bundled_rank|prime": {"time_ms": 1285.2, "prime_ms": 808.1, "requests": 1.0, "fails": 0, "image_type": 90.3, "art_style": 83.9, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 83.9, "single_avg": 92.3, "n_runs": 1}, "F2|1024|choice_confirm|prime": {"time_ms": 8213.9, "prime_ms": 788.8, "requests": 11.29, "fails": 0, "image_type": 93.5, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 83.9, "outfit": 77.4, "character": 93.5, "single_avg": 90.3, "n_runs": 1}, "F2|1024|bundled_yn|prime": {"time_ms": 1863.9, "prime_ms": 753.4, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 87.1, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 83.9, "character": 100.0, "single_avg": 94.2, "n_runs": 1}, "F2|768|choice|prime": {"time_ms": 3312.3, "prime_ms": 530.8, "requests": 7.0, "fails": 0, "image_type": 90.3, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 80.6, "outfit": 90.3, "character": 90.3, "single_avg": 89.0, "n_runs": 1}, "F2|768|json|prime": {"time_ms": 1260.0, "prime_ms": 512.5, "requests": 1.06, "fails": 1, "image_type": 96.8, "art_style": 83.9, "color": 93.5, "subject": 93.5, "situation": 83.9, "outfit": 93.5, "character": 80.6, "single_avg": 90.3, "n_runs": 1}, "F2|768|bundled_rank|prime": {"time_ms": 1027.5, "prime_ms": 536.3, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 83.9, "single_avg": 94.8, "n_runs": 1}, "F2|768|choice_confirm|prime": {"time_ms": 5521.2, "prime_ms": 534.3, "requests": 11.52, "fails": 0, "image_type": 90.3, "art_style": 77.4, "color": 100.0, "subject": 96.8, "situation": 80.6, "outfit": 74.2, "character": 93.5, "single_avg": 89.0, "n_runs": 1}, "F2|768|bundled_yn|prime": {"time_ms": 1677.0, "prime_ms": 506.3, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 93.5, "character": 100.0, "single_avg": 94.8, "n_runs": 1}, "F3|1024|choice|prime": {"time_ms": 2739.7, "prime_ms": 758.2, "requests": 7.0, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 96.8, "subject": 96.8, "situation": 80.6, "outfit": 80.6, "character": 90.3, "single_avg": 91.0, "n_runs": 1}, "F3|1024|json|prime": {"time_ms": 1713.3, "prime_ms": 756.8, "requests": 1.13, "fails": 2, "image_type": 90.3, "art_style": 80.6, "color": 93.5, "subject": 90.3, "situation": 71.0, "outfit": 83.9, "character": 93.5, "single_avg": 85.2, "n_runs": 1}, "F3|1024|bundled_rank|prime": {"time_ms": 1202.8, "prime_ms": 800.4, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 100.0, "subject": 96.8, "situation": 83.9, "outfit": 87.1, "character": 90.3, "single_avg": 92.3, "n_runs": 1}, "F3|1024|choice_confirm|prime": {"time_ms": 3499.5, "prime_ms": 644.6, "requests": 10.0, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 96.8, "subject": 96.8, "situation": 80.6, "outfit": 71.0, "character": 93.5, "single_avg": 91.0, "n_runs": 1}, "F3|1024|bundled_yn|prime": {"time_ms": 1963.8, "prime_ms": 566.7, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 100.0, "subject": 96.8, "situation": 80.6, "outfit": 90.3, "character": 100.0, "single_avg": 91.6, "n_runs": 1}, "F3|768|choice|prime": {"time_ms": 1825.3, "prime_ms": 570.9, "requests": 7.0, "fails": 0, "image_type": 100.0, "art_style": 90.3, "color": 96.8, "subject": 96.8, "situation": 77.4, "outfit": 74.2, "character": 90.3, "single_avg": 92.3, "n_runs": 1}, "F3|768|json|prime": {"time_ms": 1605.1, "prime_ms": 533.4, "requests": 1.13, "fails": 2, "image_type": 93.5, "art_style": 83.9, "color": 93.5, "subject": 90.3, "situation": 67.7, "outfit": 83.9, "character": 93.5, "single_avg": 85.8, "n_runs": 1}, "F3|768|bundled_rank|prime": {"time_ms": 1076.9, "prime_ms": 575.6, "requests": 1.0, "fails": 0, "image_type": 100.0, "art_style": 83.9, "color": 100.0, "subject": 96.8, "situation": 77.4, "outfit": 87.1, "character": 90.3, "single_avg": 91.6, "n_runs": 1}, "F3|768|choice_confirm|prime": {"time_ms": 2473.5, "prime_ms": 498.5, "requests": 9.81, "fails": 0, "image_type": 100.0, "art_style": 90.3, "color": 96.8, "subject": 96.8, "situation": 77.4, "outfit": 71.0, "character": 93.5, "single_avg": 92.3, "n_runs": 1}, "F3|768|bundled_yn|prime": {"time_ms": 1895.1, "prime_ms": 435.3, "requests": 1.0, "fails": 0, "image_type": 100.0, "art_style": 83.9, "color": 100.0, "subject": 96.8, "situation": 77.4, "outfit": 93.5, "character": 100.0, "single_avg": 91.6, "n_runs": 1}}, "small": {"S1|choice|noprime": {"time_ms": 1586.8, "requests": 7.0, "fails": 0, "image_type": 100.0, "art_style": 80.6, "color": 100.0, "subject": 96.8, "situation": 77.4, "outfit": 93.5, "character": 90.3, "single_avg": 91.0, "n_runs": 1}, "S1|json|noprime": {"time_ms": 1379.8, "requests": 1.13, "fails": 2, "image_type": 93.5, "art_style": 83.9, "color": 90.3, "subject": 90.3, "situation": 74.2, "outfit": 74.2, "character": 87.1, "single_avg": 86.5, "n_runs": 1}, "S1|bundled_rank|noprime": {"time_ms": 796.1, "requests": 1.0, "fails": 30, "image_type": 12.9, "art_style": 12.9, "color": 12.9, "subject": 9.7, "situation": 12.9, "outfit": 3.2, "character": 3.2, "single_avg": 12.3, "n_runs": 1}, "S1|choice_confirm|noprime": {"time_ms": 2486.1, "requests": 12.48, "fails": 0, "image_type": 100.0, "art_style": 80.6, "color": 100.0, "subject": 96.8, "situation": 77.4, "outfit": 64.5, "character": 93.5, "single_avg": 91.0, "n_runs": 1}, "S1|bundled_yn|noprime": {"time_ms": 845.7, "requests": 1.0, "fails": 30, "image_type": 3.2, "art_style": 3.2, "color": 3.2, "subject": 3.2, "situation": 3.2, "outfit": 0.0, "character": 3.2, "single_avg": 3.2, "n_runs": 1}, "S2|choice|noprime": {"time_ms": 1617.0, "requests": 7.0, "fails": 0, "image_type": 96.8, "art_style": 74.2, "color": 100.0, "subject": 96.8, "situation": 71.0, "outfit": 93.5, "character": 90.3, "single_avg": 87.7, "n_runs": 1}, "S2|json|noprime": {"time_ms": 1541.4, "requests": 1.13, "fails": 2, "image_type": 93.5, "art_style": 87.1, "color": 93.5, "subject": 90.3, "situation": 74.2, "outfit": 71.0, "character": 87.1, "single_avg": 87.7, "n_runs": 1}, "S2|bundled_rank|noprime": {"time_ms": 814.9, "requests": 1.0, "fails": 28, "image_type": 9.7, "art_style": 9.7, "color": 9.7, "subject": 9.7, "situation": 9.7, "outfit": 9.7, "character": 9.7, "single_avg": 9.7, "n_runs": 1}, "S2|choice_confirm|noprime": {"time_ms": 2459.1, "requests": 12.48, "fails": 0, "image_type": 96.8, "art_style": 74.2, "color": 100.0, "subject": 96.8, "situation": 71.0, "outfit": 64.5, "character": 93.5, "single_avg": 87.7, "n_runs": 1}, "S2|bundled_yn|noprime": {"time_ms": 925.5, "requests": 1.0, "fails": 28, "image_type": 9.7, "art_style": 9.7, "color": 9.7, "subject": 9.7, "situation": 9.7, "outfit": 9.7, "character": 9.7, "single_avg": 9.7, "n_runs": 1}, "S3|choice|noprime": {"time_ms": 987.7, "requests": 7.0, "fails": 0, "image_type": 100.0, "art_style": 67.7, "color": 100.0, "subject": 96.8, "situation": 87.1, "outfit": 74.2, "character": 90.3, "single_avg": 90.3, "n_runs": 1}, "S3|json|noprime": {"time_ms": 1321.0, "requests": 1.58, "fails": 9, "image_type": 61.3, "art_style": 64.5, "color": 67.7, "subject": 71.0, "situation": 51.6, "outfit": 51.6, "character": 64.5, "single_avg": 63.2, "n_runs": 1}, "S3|bundled_rank|noprime": {"time_ms": 563.4, "requests": 1.0, "fails": 0, "image_type": 87.1, "art_style": 83.9, "color": 100.0, "subject": 90.3, "situation": 71.0, "outfit": 74.2, "character": 74.2, "single_avg": 86.5, "n_runs": 1}, "S3|choice_confirm|noprime": {"time_ms": 1504.9, "requests": 12.29, "fails": 0, "image_type": 100.0, "art_style": 67.7, "color": 100.0, "subject": 96.8, "situation": 87.1, "outfit": 32.3, "character": 93.5, "single_avg": 90.3, "n_runs": 1}, "S3|bundled_yn|noprime": {"time_ms": 798.8, "requests": 1.0, "fails": 10, "image_type": 96.8, "art_style": 87.1, "color": 100.0, "subject": 90.3, "situation": 74.2, "outfit": 25.8, "character": 16.1, "single_avg": 89.7, "n_runs": 1}, "S4|choice|noprime": {"time_ms": 1001.4, "requests": 7.0, "fails": 0, "image_type": 96.8, "art_style": 45.2, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 83.9, "character": 90.3, "single_avg": 85.8, "n_runs": 1}, "S4|json|noprime": {"time_ms": 950.6, "requests": 1.19, "fails": 3, "image_type": 80.6, "art_style": 83.9, "color": 87.1, "subject": 90.3, "situation": 71.0, "outfit": 58.1, "character": 83.9, "single_avg": 82.6, "n_runs": 1}, "S4|bundled_rank|noprime": {"time_ms": 558.6, "requests": 1.0, "fails": 6, "image_type": 74.2, "art_style": 67.7, "color": 80.6, "subject": 74.2, "situation": 61.3, "outfit": 58.1, "character": 58.1, "single_avg": 71.6, "n_runs": 1}, "S4|choice_confirm|noprime": {"time_ms": 1494.6, "requests": 11.97, "fails": 0, "image_type": 96.8, "art_style": 45.2, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 51.6, "character": 93.5, "single_avg": 85.8, "n_runs": 1}, "S4|bundled_yn|noprime": {"time_ms": 713.3, "requests": 1.0, "fails": 17, "image_type": 51.6, "art_style": 48.4, "color": 51.6, "subject": 48.4, "situation": 38.7, "outfit": 12.9, "character": 3.2, "single_avg": 47.7, "n_runs": 1}, "S5|choice|noprime": {"time_ms": 872.8, "requests": 7.0, "fails": 0, "image_type": 100.0, "art_style": 80.6, "color": 100.0, "subject": 90.3, "situation": 61.3, "outfit": 48.4, "character": 58.1, "single_avg": 86.5, "n_runs": 1}, "S5|json|noprime": {"time_ms": 886.5, "requests": 1.65, "fails": 10, "image_type": 64.5, "art_style": 54.8, "color": 67.7, "subject": 61.3, "situation": 45.2, "outfit": 38.7, "character": 45.2, "single_avg": 58.7, "n_runs": 1}, "S5|bundled_rank|noprime": {"time_ms": 467.4, "requests": 1.0, "fails": 0, "image_type": 67.7, "art_style": 83.9, "color": 100.0, "subject": 90.3, "situation": 77.4, "outfit": 64.5, "character": 67.7, "single_avg": 83.9, "n_runs": 1}, "S5|choice_confirm|noprime": {"time_ms": 1447.4, "requests": 13.0, "fails": 0, "image_type": 100.0, "art_style": 80.6, "color": 100.0, "subject": 90.3, "situation": 61.3, "outfit": 51.6, "character": 54.8, "single_avg": 86.5, "n_runs": 1}, "S5|bundled_yn|noprime": {"time_ms": 674.6, "requests": 1.0, "fails": 1, "image_type": 87.1, "art_style": 77.4, "color": 96.8, "subject": 90.3, "situation": 64.5, "outfit": 22.6, "character": 29.0, "single_avg": 83.2, "n_runs": 1}, "S6|choice|noprime": {"time_ms": 877.1, "requests": 7.0, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 100.0, "subject": 90.3, "situation": 64.5, "outfit": 54.8, "character": 71.0, "single_avg": 87.1, "n_runs": 1}, "S6|json|noprime": {"time_ms": 732.3, "requests": 1.19, "fails": 3, "image_type": 87.1, "art_style": 80.6, "color": 90.3, "subject": 83.9, "situation": 61.3, "outfit": 45.2, "character": 61.3, "single_avg": 80.6, "n_runs": 1}, "S6|bundled_rank|noprime": {"time_ms": 470.5, "requests": 1.0, "fails": 0, "image_type": 83.9, "art_style": 87.1, "color": 96.8, "subject": 87.1, "situation": 67.7, "outfit": 61.3, "character": 61.3, "single_avg": 84.5, "n_runs": 1}, "S6|choice_confirm|noprime": {"time_ms": 1415.9, "requests": 13.0, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 100.0, "subject": 90.3, "situation": 64.5, "outfit": 38.7, "character": 80.6, "single_avg": 87.1, "n_runs": 1}, "S6|bundled_yn|noprime": {"time_ms": 682.5, "requests": 1.0, "fails": 0, "image_type": 93.5, "art_style": 83.9, "color": 100.0, "subject": 87.1, "situation": 67.7, "outfit": 9.7, "character": 9.7, "single_avg": 86.5, "n_runs": 1}, "S7|choice|noprime": {"time_ms": 1207.2, "requests": 7.0, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 93.5, "subject": 96.8, "situation": 71.0, "outfit": 74.2, "character": 80.6, "single_avg": 88.4, "n_runs": 1}, "S7|json|noprime": {"time_ms": 1250.7, "requests": 1.45, "fails": 7, "image_type": 74.2, "art_style": 67.7, "color": 74.2, "subject": 77.4, "situation": 51.6, "outfit": 51.6, "character": 74.2, "single_avg": 69.0, "n_runs": 1}, "S7|bundled_rank|noprime": {"time_ms": 712.3, "requests": 1.0, "fails": 12, "image_type": 58.1, "art_style": 45.2, "color": 61.3, "subject": 58.1, "situation": 38.7, "outfit": 48.4, "character": 54.8, "single_avg": 52.3, "n_runs": 1}, "S7|choice_confirm|noprime": {"time_ms": 1672.3, "requests": 11.03, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 93.5, "subject": 96.8, "situation": 71.0, "outfit": 71.0, "character": 83.9, "single_avg": 88.4, "n_runs": 1}, "S7|bundled_yn|noprime": {"time_ms": 886.6, "requests": 1.0, "fails": 24, "image_type": 29.0, "art_style": 22.6, "color": 29.0, "subject": 29.0, "situation": 22.6, "outfit": 9.7, "character": 9.7, "single_avg": 26.5, "n_runs": 1}, "S8|choice|noprime": {"time_ms": 885.7, "requests": 7.0, "fails": 0, "image_type": 93.5, "art_style": 87.1, "color": 96.8, "subject": 90.3, "situation": 67.7, "outfit": 71.0, "character": 87.1, "single_avg": 87.1, "n_runs": 1}, "S8|json|noprime": {"time_ms": 953.1, "requests": 1.13, "fails": 2, "image_type": 90.3, "art_style": 83.9, "color": 93.5, "subject": 87.1, "situation": 64.5, "outfit": 51.6, "character": 87.1, "single_avg": 83.9, "n_runs": 1}, "S8|bundled_rank|noprime": {"time_ms": 575.9, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 90.3, "situation": 58.1, "outfit": 54.8, "character": 77.4, "single_avg": 87.1, "n_runs": 1}, "S8|choice_confirm|noprime": {"time_ms": 1215.8, "requests": 10.68, "fails": 0, "image_type": 93.5, "art_style": 87.1, "color": 96.8, "subject": 90.3, "situation": 67.7, "outfit": 71.0, "character": 87.1, "single_avg": 87.1, "n_runs": 1}, "S8|bundled_yn|noprime": {"time_ms": 769.4, "requests": 1.0, "fails": 14, "image_type": 51.6, "art_style": 45.2, "color": 54.8, "subject": 51.6, "situation": 32.3, "outfit": 25.8, "character": 32.3, "single_avg": 47.1, "n_runs": 1}, "S9|choice|noprime": {"time_ms": 925.0, "requests": 7.0, "fails": 0, "image_type": 100.0, "art_style": 90.3, "color": 90.3, "subject": 90.3, "situation": 67.7, "outfit": 77.4, "character": 87.1, "single_avg": 87.7, "n_runs": 1}, "S9|json|noprime": {"time_ms": 884.0, "requests": 1.39, "fails": 6, "image_type": 80.6, "art_style": 74.2, "color": 80.6, "subject": 74.2, "situation": 61.3, "outfit": 41.9, "character": 67.7, "single_avg": 74.2, "n_runs": 1}, "S9|bundled_rank|noprime": {"time_ms": 574.8, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 90.3, "situation": 64.5, "outfit": 51.6, "character": 77.4, "single_avg": 88.4, "n_runs": 1}, "S9|choice_confirm|noprime": {"time_ms": 1249.1, "requests": 10.87, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 90.3, "subject": 90.3, "situation": 64.5, "outfit": 61.3, "character": 83.9, "single_avg": 86.5, "n_runs": 1}, "S9|bundled_yn|noprime": {"time_ms": 903.4, "requests": 1.0, "fails": 10, "image_type": 100.0, "art_style": 90.3, "color": 96.8, "subject": 90.3, "situation": 61.3, "outfit": 38.7, "character": 48.4, "single_avg": 87.7, "n_runs": 1}, "S1|choice|prime": {"time_ms": 1215.9, "prime_ms": 338.6, "requests": 7.0, "fails": 0, "image_type": 100.0, "art_style": 80.6, "color": 100.0, "subject": 96.8, "situation": 77.4, "outfit": 93.5, "character": 90.3, "single_avg": 91.0, "n_runs": 1}, "S1|json|prime": {"time_ms": 949.8, "prime_ms": 592.7, "requests": 1.13, "fails": 2, "image_type": 93.5, "art_style": 83.9, "color": 90.3, "subject": 90.3, "situation": 74.2, "outfit": 74.2, "character": 87.1, "single_avg": 86.5, "n_runs": 1}, "S1|bundled_rank|prime": {"time_ms": 466.6, "prime_ms": 500.8, "requests": 1.0, "fails": 30, "image_type": 12.9, "art_style": 12.9, "color": 12.9, "subject": 9.7, "situation": 12.9, "outfit": 3.2, "character": 3.2, "single_avg": 12.3, "n_runs": 1}, "S1|choice_confirm|prime": {"time_ms": 2083.2, "prime_ms": 406.2, "requests": 12.48, "fails": 0, "image_type": 100.0, "art_style": 80.6, "color": 100.0, "subject": 96.8, "situation": 77.4, "outfit": 64.5, "character": 93.5, "single_avg": 91.0, "n_runs": 1}, "S1|bundled_yn|prime": {"time_ms": 630.7, "prime_ms": 368.2, "requests": 1.0, "fails": 30, "image_type": 3.2, "art_style": 3.2, "color": 3.2, "subject": 3.2, "situation": 3.2, "outfit": 0.0, "character": 3.2, "single_avg": 3.2, "n_runs": 1}, "S2|choice|prime": {"time_ms": 1181.9, "prime_ms": 326.8, "requests": 7.0, "fails": 0, "image_type": 96.8, "art_style": 74.2, "color": 100.0, "subject": 96.8, "situation": 71.0, "outfit": 93.5, "character": 90.3, "single_avg": 87.7, "n_runs": 1}, "S2|json|prime": {"time_ms": 1097.8, "prime_ms": 573.3, "requests": 1.13, "fails": 2, "image_type": 93.5, "art_style": 87.1, "color": 93.5, "subject": 90.3, "situation": 74.2, "outfit": 71.0, "character": 87.1, "single_avg": 87.7, "n_runs": 1}, "S2|bundled_rank|prime": {"time_ms": 479.3, "prime_ms": 484.2, "requests": 1.0, "fails": 28, "image_type": 9.7, "art_style": 9.7, "color": 9.7, "subject": 9.7, "situation": 9.7, "outfit": 9.7, "character": 9.7, "single_avg": 9.7, "n_runs": 1}, "S2|choice_confirm|prime": {"time_ms": 2071.5, "prime_ms": 405.1, "requests": 12.48, "fails": 0, "image_type": 96.8, "art_style": 74.2, "color": 100.0, "subject": 96.8, "situation": 71.0, "outfit": 64.5, "character": 93.5, "single_avg": 87.7, "n_runs": 1}, "S2|bundled_yn|prime": {"time_ms": 708.0, "prime_ms": 368.4, "requests": 1.0, "fails": 28, "image_type": 9.7, "art_style": 9.7, "color": 9.7, "subject": 9.7, "situation": 9.7, "outfit": 9.7, "character": 9.7, "single_avg": 9.7, "n_runs": 1}, "S3|choice|prime": {"time_ms": 730.6, "prime_ms": 196.7, "requests": 7.0, "fails": 0, "image_type": 100.0, "art_style": 67.7, "color": 100.0, "subject": 96.8, "situation": 87.1, "outfit": 74.2, "character": 90.3, "single_avg": 90.3, "n_runs": 1}, "S3|json|prime": {"time_ms": 1048.9, "prime_ms": 365.4, "requests": 1.58, "fails": 9, "image_type": 61.3, "art_style": 64.5, "color": 67.7, "subject": 71.0, "situation": 51.6, "outfit": 51.6, "character": 64.5, "single_avg": 63.2, "n_runs": 1}, "S3|bundled_rank|prime": {"time_ms": 361.2, "prime_ms": 293.7, "requests": 1.0, "fails": 0, "image_type": 87.1, "art_style": 83.9, "color": 100.0, "subject": 90.3, "situation": 71.0, "outfit": 74.2, "character": 74.2, "single_avg": 86.5, "n_runs": 1}, "S3|choice_confirm|prime": {"time_ms": 1232.3, "prime_ms": 243.8, "requests": 12.29, "fails": 0, "image_type": 100.0, "art_style": 67.7, "color": 100.0, "subject": 96.8, "situation": 87.1, "outfit": 32.3, "character": 93.5, "single_avg": 90.3, "n_runs": 1}, "S3|bundled_yn|prime": {"time_ms": 659.6, "prime_ms": 232.0, "requests": 1.0, "fails": 10, "image_type": 96.8, "art_style": 87.1, "color": 100.0, "subject": 90.3, "situation": 74.2, "outfit": 25.8, "character": 16.1, "single_avg": 89.7, "n_runs": 1}, "S4|choice|prime": {"time_ms": 735.7, "prime_ms": 199.3, "requests": 7.0, "fails": 0, "image_type": 96.8, "art_style": 45.2, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 83.9, "character": 90.3, "single_avg": 85.8, "n_runs": 1}, "S4|json|prime": {"time_ms": 675.7, "prime_ms": 368.5, "requests": 1.19, "fails": 3, "image_type": 80.6, "art_style": 83.9, "color": 87.1, "subject": 90.3, "situation": 71.0, "outfit": 58.1, "character": 83.9, "single_avg": 82.6, "n_runs": 1}, "S4|bundled_rank|prime": {"time_ms": 361.5, "prime_ms": 296.1, "requests": 1.0, "fails": 6, "image_type": 74.2, "art_style": 67.7, "color": 80.6, "subject": 74.2, "situation": 61.3, "outfit": 58.1, "character": 58.1, "single_avg": 71.6, "n_runs": 1}, "S4|choice_confirm|prime": {"time_ms": 1205.7, "prime_ms": 244.6, "requests": 11.97, "fails": 0, "image_type": 96.8, "art_style": 45.2, "color": 100.0, "subject": 96.8, "situation": 90.3, "outfit": 51.6, "character": 93.5, "single_avg": 85.8, "n_runs": 1}, "S4|bundled_yn|prime": {"time_ms": 575.3, "prime_ms": 227.5, "requests": 1.0, "fails": 17, "image_type": 51.6, "art_style": 48.4, "color": 51.6, "subject": 48.4, "situation": 38.7, "outfit": 12.9, "character": 3.2, "single_avg": 47.7, "n_runs": 1}, "S5|choice|prime": {"time_ms": 724.1, "prime_ms": 167.9, "requests": 7.0, "fails": 0, "image_type": 100.0, "art_style": 80.6, "color": 100.0, "subject": 90.3, "situation": 61.3, "outfit": 48.4, "character": 58.1, "single_avg": 86.5, "n_runs": 1}, "S5|json|prime": {"time_ms": 698.5, "prime_ms": 273.7, "requests": 1.65, "fails": 10, "image_type": 64.5, "art_style": 54.8, "color": 67.7, "subject": 61.3, "situation": 45.2, "outfit": 38.7, "character": 45.2, "single_avg": 58.7, "n_runs": 1}, "S5|bundled_rank|prime": {"time_ms": 326.9, "prime_ms": 234.5, "requests": 1.0, "fails": 0, "image_type": 67.7, "art_style": 83.9, "color": 100.0, "subject": 90.3, "situation": 77.4, "outfit": 64.5, "character": 67.7, "single_avg": 83.9, "n_runs": 1}, "S5|choice_confirm|prime": {"time_ms": 1263.8, "prime_ms": 195.8, "requests": 13.0, "fails": 0, "image_type": 100.0, "art_style": 80.6, "color": 100.0, "subject": 90.3, "situation": 61.3, "outfit": 51.6, "character": 54.8, "single_avg": 86.5, "n_runs": 1}, "S5|bundled_yn|prime": {"time_ms": 580.3, "prime_ms": 183.6, "requests": 1.0, "fails": 1, "image_type": 87.1, "art_style": 77.4, "color": 96.8, "subject": 90.3, "situation": 64.5, "outfit": 22.6, "character": 29.0, "single_avg": 83.2, "n_runs": 1}, "S6|choice|prime": {"time_ms": 706.7, "prime_ms": 165.2, "requests": 7.0, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 100.0, "subject": 90.3, "situation": 64.5, "outfit": 54.8, "character": 71.0, "single_avg": 87.1, "n_runs": 1}, "S6|json|prime": {"time_ms": 548.1, "prime_ms": 277.0, "requests": 1.19, "fails": 3, "image_type": 87.1, "art_style": 80.6, "color": 90.3, "subject": 83.9, "situation": 61.3, "outfit": 45.2, "character": 61.3, "single_avg": 80.6, "n_runs": 1}, "S6|bundled_rank|prime": {"time_ms": 333.2, "prime_ms": 237.0, "requests": 1.0, "fails": 0, "image_type": 83.9, "art_style": 87.1, "color": 96.8, "subject": 87.1, "situation": 67.7, "outfit": 61.3, "character": 61.3, "single_avg": 84.5, "n_runs": 1}, "S6|choice_confirm|prime": {"time_ms": 1301.8, "prime_ms": 203.3, "requests": 13.0, "fails": 0, "image_type": 96.8, "art_style": 83.9, "color": 100.0, "subject": 90.3, "situation": 64.5, "outfit": 38.7, "character": 80.6, "single_avg": 87.1, "n_runs": 1}, "S6|bundled_yn|prime": {"time_ms": 597.6, "prime_ms": 186.6, "requests": 1.0, "fails": 0, "image_type": 93.5, "art_style": 83.9, "color": 100.0, "subject": 87.1, "situation": 67.7, "outfit": 9.7, "character": 9.7, "single_avg": 86.5, "n_runs": 1}, "S7|choice|prime": {"time_ms": 949.5, "prime_ms": 211.2, "requests": 7.0, "fails": 0, "image_type": 96.8, "art_style": 87.1, "color": 93.5, "subject": 96.8, "situation": 71.0, "outfit": 74.2, "character": 83.9, "single_avg": 89.0, "n_runs": 1}, "S7|json|prime": {"time_ms": 1021.9, "prime_ms": 335.0, "requests": 1.45, "fails": 7, "image_type": 74.2, "art_style": 67.7, "color": 74.2, "subject": 77.4, "situation": 51.6, "outfit": 51.6, "character": 74.2, "single_avg": 69.0, "n_runs": 1}, "S7|bundled_rank|prime": {"time_ms": 533.7, "prime_ms": 272.9, "requests": 1.0, "fails": 12, "image_type": 58.1, "art_style": 45.2, "color": 61.3, "subject": 58.1, "situation": 38.7, "outfit": 48.4, "character": 54.8, "single_avg": 52.3, "n_runs": 1}, "S7|choice_confirm|prime": {"time_ms": 1458.0, "prime_ms": 238.4, "requests": 11.03, "fails": 0, "image_type": 96.8, "art_style": 87.1, "color": 93.5, "subject": 96.8, "situation": 71.0, "outfit": 71.0, "character": 83.9, "single_avg": 89.0, "n_runs": 1}, "S7|bundled_yn|prime": {"time_ms": 774.2, "prime_ms": 226.9, "requests": 1.0, "fails": 24, "image_type": 29.0, "art_style": 22.6, "color": 29.0, "subject": 29.0, "situation": 22.6, "outfit": 9.7, "character": 9.7, "single_avg": 26.5, "n_runs": 1}, "S8|choice|prime": {"time_ms": 699.7, "prime_ms": 158.3, "requests": 7.0, "fails": 0, "image_type": 93.5, "art_style": 87.1, "color": 96.8, "subject": 90.3, "situation": 64.5, "outfit": 71.0, "character": 87.1, "single_avg": 86.5, "n_runs": 1}, "S8|json|prime": {"time_ms": 793.2, "prime_ms": 257.7, "requests": 1.13, "fails": 2, "image_type": 90.3, "art_style": 83.9, "color": 93.5, "subject": 87.1, "situation": 64.5, "outfit": 51.6, "character": 87.1, "single_avg": 83.9, "n_runs": 1}, "S8|bundled_rank|prime": {"time_ms": 462.9, "prime_ms": 205.8, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 90.3, "situation": 58.1, "outfit": 54.8, "character": 77.4, "single_avg": 87.1, "n_runs": 1}, "S8|choice_confirm|prime": {"time_ms": 1083.2, "prime_ms": 173.0, "requests": 10.65, "fails": 0, "image_type": 93.5, "art_style": 87.1, "color": 96.8, "subject": 90.3, "situation": 64.5, "outfit": 71.0, "character": 87.1, "single_avg": 86.5, "n_runs": 1}, "S8|bundled_yn|prime": {"time_ms": 688.6, "prime_ms": 172.7, "requests": 1.0, "fails": 14, "image_type": 51.6, "art_style": 45.2, "color": 54.8, "subject": 51.6, "situation": 32.3, "outfit": 25.8, "character": 32.3, "single_avg": 47.1, "n_runs": 1}, "S9|choice|prime": {"time_ms": 726.6, "prime_ms": 155.4, "requests": 7.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 90.3, "subject": 90.3, "situation": 67.7, "outfit": 80.6, "character": 87.1, "single_avg": 87.1, "n_runs": 1}, "S9|json|prime": {"time_ms": 711.3, "prime_ms": 260.9, "requests": 1.39, "fails": 6, "image_type": 80.6, "art_style": 74.2, "color": 80.6, "subject": 74.2, "situation": 61.3, "outfit": 41.9, "character": 67.7, "single_avg": 74.2, "n_runs": 1}, "S9|bundled_rank|prime": {"time_ms": 450.9, "prime_ms": 206.0, "requests": 1.0, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 100.0, "subject": 90.3, "situation": 64.5, "outfit": 51.6, "character": 77.4, "single_avg": 88.4, "n_runs": 1}, "S9|choice_confirm|prime": {"time_ms": 1087.4, "prime_ms": 173.7, "requests": 10.87, "fails": 0, "image_type": 96.8, "art_style": 90.3, "color": 90.3, "subject": 90.3, "situation": 67.7, "outfit": 67.7, "character": 83.9, "single_avg": 87.1, "n_runs": 1}, "S9|bundled_yn|prime": {"time_ms": 830.5, "prime_ms": 169.0, "requests": 1.0, "fails": 10, "image_type": 100.0, "art_style": 90.3, "color": 96.8, "subject": 90.3, "situation": 61.3, "outfit": 38.7, "character": 48.4, "single_avg": 87.7, "n_runs": 1}}, "history": {"note": "途中の実験の数値(最終の取り直しとは条件が異なる)。JSON との時間比較は含まない(JSON を含む旧測定の比較は測り直したので載せない)。数値は各 summary.md / worklog から。", "cache_patch_E1b_E3_E4": {"desc": "Qwen 9B、1軸ずつ・確認オン・PNG1024、画像先読みなし", "lmstudio_ms": 9280.3, "llamaserver_vanilla_ms": 8706.5, "llamaserver_patched_ms": 3127.5, "source": "doc/experiments/E1b_*, E3_*, E4_* summary.md"}, "E5_same_image": {"desc": "同じ画像で質問だけ変えたとき(2軸目以降の中央値)", "vanilla_ms": 653.7, "patched_ms": 196.0, "first_axis_vanilla_ms": 749.5, "first_axis_patched_ms": 327.8, "source": "doc/experiments/E5_qwen-llamaserver/*.json"}, "E9_parallel": {"desc": "Qwen 9B 改造版、確認オン、画像先読み。軸の並列送信", "seq_ms": 2823.2, "par4_prime1_ms": 4407.6, "par4_prime4_ms": 4272.9, "par4_prime4_prime_ms": 2885.6, "par4_noidle_ms": 2516.7, "par4_noidle_prime_ms": 3460.1, "seq_prime_ms": 837.6, "source": "doc/experiments/E9*/summary.md"}, "server_log_breakdown": {"desc": "llama-server のログ(prompt eval)から。画像キャッシュ済みの1リクエスト", "qwen_fixed_ms": 130, "gemma_fixed_ms": 350, "decode_ms_per_token": 10, "prefill_ms_per_token": "0.5〜1", "json_output_tokens": 54.5, "source": "worklog 2026-09-29(サーバーログは非公開)"}, "E7a_format": {"desc": "束ね質問を記号だけの空白区切りで答えさせた最初の形式。軸を飛ばして後ろがずれた", "bundled_char": 64.5, "bundled_fails": 8, "source": "doc/experiments/E7a_*/summary.md"}, "image_load_prime_old": {"desc": "旧測定の準備リクエスト(選択式の質問文、初めて見る画像)。F1 の choice と choice_confirm の平均", "F1|1024": 848.0, "F1|768": 581.5, "source": "doc/experiments/final/summary.md(旧測定)"}}}</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById('data').textContent);
+  var NS = 'http://www.w3.org/2000/svg';
+
+  var M = [
+    { k: 'choice', n: '1項目ずつ(確認オフ)', c: 'choice', shape: 'circle' },
+    { k: 'json', n: 'JSON', c: 'json', shape: 'square' },
+    { k: 'bundled_rank', n: '束ね(順位付け)', c: 'brank', shape: 'diamond' },
+    { k: 'bundled_yn', n: '束ね(Y/N欄)', c: 'byn', shape: 'tri' },
+    { k: 'choice_confirm', n: '1項目ずつ(確認オン)', c: 'confirm', shape: 'cross' }
+  ];
+  var AX = [['image_type', '画像の種類'], ['art_style', '画風'], ['color', '色'], ['subject', '被写体'], ['situation', '場面'], ['outfit', '服装'], ['character', 'キャラ']];
+  var COND = { F1: 'Qwen 9B 改造版', F2: 'Qwen 9B 未改造', F3: 'Gemma 12B 改造版' };
+  var SMALL = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9'];
+  var ORDER = ['F1', 'F2', 'F3'].concat(SMALL);
+  var state = { cond: 'F1', edge: '1024', y: 'character', mm: 'choice', my: 'single_avg', pr: 'noprime' };
+  var PRN = { noprime: '初めて見る画像(準備なし)', prime: '画像を読み込み済み(準備あり)' };
+  function isS(c) { return c.charAt(0) === 'S'; }
+  function condName(c) { return isS(c) ? c + ' ' + D.models[c] : c + ' ' + COND[c]; }
+  function edgeEff() { return isS(state.cond) ? '1024' : state.edge; }
+  /* model id + method -> data row (long edge 1024) */
+  function getV(id, k) { return isS(id) ? D.small[id + '|' + k + '|' + state.pr] : D.final[id + '|1024|' + k + '|' + state.pr]; }
+  function fullName(id) {
+    var b = D.models[id].split(' · ')[0];
+    if (id === 'F2') return id + ' ' + b + ' 未改造';
+    if (id.charAt(0) === 'F') return id + ' ' + b + ' 改造版';
+    return id + ' ' + b;
+  }
+  function stOf(f) { return f >= 5 ? 'x' : f >= 1 ? 't' : 'o'; }
+  function stText(f) { return f >= 5 ? '× 崩れ' : f >= 1 ? '△ 一部失敗' : ''; }
+  function isGemma(id) { return D.models[id].indexOf('Gemma') === 0; }
+
+  /* ---------- helpers ---------- */
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function tx(parent, x, y, s, cls, extra) {
+    var a = { x: x, y: y }, st = {};
+    if (extra) for (var k in extra) a[k] = extra[k];
+    if (a.fill) { st.fill = a.fill; delete a.fill; }
+    if (a['font-size']) { st.fontSize = a['font-size'] + 'px'; delete a['font-size']; }
+    var t = el('text', a, parent);
+    if (st.fill) t.style.fill = st.fill;
+    if (st.fontSize) t.style.fontSize = st.fontSize;
+    if (cls) t.setAttribute('class', cls);
+    t.textContent = s;
+    return t;
+  }
+  function rect(parent, x, y, w, h, fill) {
+    var r = el('rect', { x: x, y: y, width: Math.max(0, w), height: h }, parent);
+    if (fill) r.style.fill = fill;
+    return r;
+  }
+  function line(parent, x1, y1, x2, y2, cls) { return el('line', { x1: x1, y1: y1, x2: x2, y2: y2, class: cls }, parent); }
+  function sec2(ms) { return (ms / 1000).toFixed(2); }
+  function fin(m) { return isS(state.cond) ? D.small[state.cond + '|' + m.k + '|' + state.pr] : D.final[state.cond + '|' + state.edge + '|' + m.k + '|' + state.pr]; }
+  function nice(maxVal, maxTicks) {
+    var steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20];
+    var step = steps[steps.length - 1];
+    for (var i = 0; i < steps.length; i++) { if (maxVal / steps[i] <= maxTicks) { step = steps[i]; break; } }
+    return { step: step, max: Math.ceil(maxVal / step - 1e-9) * step };
+  }
+  function fixedStr(v, n) { return v.toFixed(n); }
+
+  /* series mark: returns element inside parent */
+  function mark(parent, shape, cx, cy, r, cname) {
+    var col = 'var(--c-' + cname + ')', e;
+    if (shape === 'circle') { e = el('circle', { cx: cx, cy: cy, r: r }, parent); e.style.fill = col; }
+    else if (shape === 'square') { e = el('rect', { x: cx - r, y: cy - r, width: 2 * r, height: 2 * r }, parent); e.style.fill = col; }
+    else if (shape === 'diamond') { e = el('polygon', { points: cx + ',' + (cy - r - 1) + ' ' + (cx + r + 1) + ',' + cy + ' ' + cx + ',' + (cy + r + 1) + ' ' + (cx - r - 1) + ',' + cy }, parent); e.style.fill = col; }
+    else if (shape === 'tri') { e = el('polygon', { points: cx + ',' + (cy - r - 1) + ' ' + (cx + r + 1) + ',' + (cy + r) + ' ' + (cx - r - 1) + ',' + (cy + r) }, parent); e.style.fill = col; }
+    else { e = el('path', { d: 'M' + (cx - r) + ',' + cy + ' H' + (cx + r) + ' M' + cx + ',' + (cy - r) + ' V' + (cy + r) }, parent); e.style.stroke = col; e.style.strokeWidth = '4'; e.style.fill = 'none'; }
+    return e;
+  }
+
+  /* tooltip */
+  var tip = document.getElementById('tip');
+  function placeTip(x, y) {
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    var nx = Math.min(Math.max(8, x + 14), window.innerWidth - w - 8);
+    var ny = y + 16 + h > window.innerHeight ? Math.max(8, y - h - 12) : y + 16;
+    tip.style.left = nx + 'px'; tip.style.top = ny + 'px';
+  }
+  function showTip(text, x, y) { tip.textContent = text; tip.hidden = false; placeTip(x, y); }
+  function hideTip() { tip.hidden = true; }
+  function attachTip(node, text) {
+    node.setAttribute('tabindex', '0');
+    node.setAttribute('role', 'img');
+    node.setAttribute('aria-label', text.replace(/\n/g, ' '));
+    node.setAttribute('class', (node.getAttribute('class') || '') + ' hit');
+    node.addEventListener('mouseenter', function (e) { showTip(text, e.clientX, e.clientY); });
+    node.addEventListener('mousemove', function (e) { showTip(text, e.clientX, e.clientY); });
+    node.addEventListener('mouseleave', hideTip);
+    node.addEventListener('focus', function () { var r = node.getBoundingClientRect(); showTip(text, r.left + r.width / 2, r.top + r.height / 2); });
+    node.addEventListener('blur', hideTip);
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideTip(); });
+  window.addEventListener('scroll', hideTip, { passive: true });
+
+  function newSvg(host, w, h, label) {
+    host.textContent = '';
+    var s = el('svg', { viewBox: '0 0 ' + w + ' ' + h, role: 'group', 'aria-label': label }, host);
+    return s;
+  }
+  function table(host, caption, head, rows, badFn) {
+    host.textContent = '';
+    var t = document.createElement('table');
+    var c = document.createElement('caption'); c.textContent = caption; t.appendChild(c);
+    var tr = document.createElement('tr');
+    head.forEach(function (h) { var th = document.createElement('th'); th.scope = 'col'; th.textContent = h; tr.appendChild(th); });
+    var thead = document.createElement('thead'); thead.appendChild(tr); t.appendChild(thead);
+    var tb = document.createElement('tbody');
+    rows.forEach(function (r, i) {
+      var row = document.createElement('tr');
+      if (badFn && badFn(i)) row.className = 'bad';
+      r.forEach(function (v, j) {
+        var td = document.createElement(j === 0 ? 'th' : 'td');
+        if (j === 0) { td.scope = 'row'; td.style.fontWeight = '400'; td.style.background = 'transparent'; td.style.color = 'inherit'; }
+        td.textContent = v; row.appendChild(td);
+      });
+      tb.appendChild(row);
+    });
+    t.appendChild(tb); host.appendChild(t);
+  }
+
+  /* legends */
+  function legendMark(li, m) {
+    var s = el('svg', { width: 16, height: 16, viewBox: '0 0 16 16', 'aria-hidden': 'true' }, li);
+    s.style.minWidth = '0';
+    mark(s, m.shape, 8, 8, 5, m.c);
+  }
+  function famMark(parent, shape, cx, cy, r, col, filled) {
+    var e = shape === 'circle' ? el('circle', { cx: cx, cy: cy, r: r }, parent) : el('rect', { x: cx - r, y: cy - r, width: 2 * r, height: 2 * r }, parent);
+    e.style.fill = filled ? col : 'var(--surface)'; e.style.stroke = col; e.style.strokeWidth = '2';
+    return e;
+  }
+  function fillLegends() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-legend]'), function (ul) {
+      var kind = ul.getAttribute('data-legend');
+      ul.textContent = '';
+      if (kind !== 'states' && kind !== 'hist' && kind !== 'tags' && kind !== 'fam') {
+        M.forEach(function (m) {
+          var li = document.createElement('li'); legendMark(li, m);
+          li.appendChild(document.createTextNode(m.n)); ul.appendChild(li);
+        });
+      }
+      if (kind === 'prime') {
+        var li = document.createElement('li');
+        var sw = document.createElement('span'); sw.style.cssText = 'width:16px;height:10px;background:var(--muted);opacity:.55;display:inline-block';
+        li.appendChild(sw); li.appendChild(document.createTextNode('準備(その方式の準備リクエスト。判定時間に含めない)')); if (state.pr === 'prime') ul.appendChild(li);
+      }
+      if (kind === 'hist') {
+        [M[4], M[2]].forEach(function (m) {
+          var li = document.createElement('li'); legendMark(li, m);
+          li.appendChild(document.createTextNode(m.n)); ul.appendChild(li);
+        });
+        var lh = document.createElement('li');
+        var sh = document.createElement('span'); sh.style.cssText = 'width:16px;height:10px;background:var(--muted);display:inline-block';
+        lh.appendChild(sh); lh.appendChild(document.createTextNode('未改造・別サーバー・準備(薄い棒)')); ul.appendChild(lh);
+      }
+      if (kind === 'fam') {
+        [['circle', true, 'Qwen 9B(F1・F2)'], ['square', true, 'Gemma 12B(F3)'], ['circle', false, 'Qwen 小型(S1〜S6)'], ['square', false, 'Gemma 小型(S7〜S9)']].forEach(function (x) {
+          var li = document.createElement('li');
+          var s = el('svg', { width: 16, height: 16, viewBox: '0 0 16 16', 'aria-hidden': 'true' }, li);
+          s.style.minWidth = '0';
+          famMark(s, x[0], 8, 8, 5, 'var(--ink-2)', x[1]);
+          li.appendChild(document.createTextNode(x[2])); ul.appendChild(li);
+        });
+        var lc = document.createElement('li'); lc.textContent = '色は選んだ方式。塗りつぶし=9B・12B、白抜き=小型。ラベルの × は「崩れ」(失敗5件以上)、F2 は未改造。'; ul.appendChild(lc);
+      }
+      if (kind === 'tags') {
+        [['× 崩れ', '失敗5件以上(形式不正で崩れた)', 'var(--vermillion)'], ['△ 一部失敗', '失敗1〜4件', 'var(--ocher)']].forEach(function (x) {
+          var li = document.createElement('li');
+          var b = document.createElement('b'); b.textContent = x[0]; b.style.color = x[2]; li.appendChild(b);
+          li.appendChild(document.createTextNode(' ' + x[1])); ul.appendChild(li);
+        });
+        var l2 = document.createElement('li'); l2.textContent = 'F2 は未改造の llama-server(比較用)。すべて各条件1回の測定。'; ul.appendChild(l2);
+      }
+      if (kind === 'states') {
+        M.forEach(function (m) {
+          var li = document.createElement('li'); legendMark(li, m);
+          li.appendChild(document.createTextNode(m.n)); ul.appendChild(li);
+        });
+        [['× 崩れ', '失敗5件以上(形式不正で崩れた)', 'var(--vermillion)'], ['△ 一部失敗', '失敗1〜4件', 'var(--ocher)']].forEach(function (x) {
+          var li = document.createElement('li');
+          var b = document.createElement('b'); b.textContent = x[0]; b.style.color = x[2]; li.appendChild(b);
+          li.appendChild(document.createTextNode(' ' + x[1])); ul.appendChild(li);
+        });
+      }
+    });
+  }
+
+  /* ---------- summary ---------- */
+  (function () {
+    var f = D.final;
+    var g = function (k, p) { return f['F1|1024|' + k + '|' + p]; };
+    var mn = 1e9, mx = 0;
+    ['F1', 'F2', 'F3'].forEach(function (c) { ['1024', '768'].forEach(function (e) { ['noprime', 'prime'].forEach(function (p) {
+      var d = (1 - f[c + '|' + e + '|bundled_rank|' + p].time_ms / f[c + '|' + e + '|json|' + p].time_ms) * 100;
+      mn = Math.min(mn, d); mx = Math.max(mx, d);
+    }); }); });
+    var p = document.getElementById('summary');
+    p.innerHTML = 'Qwen 9B 改造版(長辺1024)では、束ね質問(順位付け)の判定が、初めて見る画像(準備なし)で <b>' + sec2(g('bundled_rank', 'noprime').time_ms) + '秒</b>(通常のJSONは <b>' + sec2(g('json', 'noprime').time_ms) +
+      '秒</b>)、画像を読み込み済み(準備あり)で <b>' + sec2(g('bundled_rank', 'prime').time_ms) + '秒</b>(JSONは <b>' + sec2(g('json', 'prime').time_ms) +
+      '秒</b>)でした。3モデル×長辺2種×2条件の12通りすべてで、束ね質問は JSON より <b>' + Math.round(mn) + '〜' + Math.round(mx) +
+      '%</b> 速く、1項目ずつはどの条件でも JSON より遅くなりました。束ね質問に候補ごとのY/N欄を入れると、キャラの完全一致は31件中31件(<b>' + Math.round(g('bundled_yn', 'noprime').character) +
+      '%</b>)でした。';
+  })();
+
+  /* ---------- chart 1: time ---------- */
+  function chart1() {
+    var pr = state.pr === 'prime';
+    var rows = M.map(function (m) { return { m: m, v: fin(m) }; });
+    var maxT = Math.max.apply(null, rows.map(function (r) { return Math.max(r.v.time_ms, pr ? r.v.prime_ms : 0); }));
+    var nc = nice(maxT / 1000, 7);
+    var W = 600, L = 176, R = 64, top = 12, rh = pr ? 50 : 42;
+    var axisY = top + 5 * rh + 4;
+    var H = axisY + 44;
+    var svg = newSvg(G('s1-chart'), W, H, '方式ごとの判定時間の横棒グラフ(' + PRN[state.pr] + ')');
+    G('s1-desc').textContent = '元画像31件の平均(1回の測定)。' + (pr
+      ? '準備あり: 各方式の判定の直前に、その方式の準備リクエストを送って画像を読み込み済みにした状態からの判定時間です。準備の時間は判定時間に含めず、各行の下の薄い細い棒で示します。'
+      : '準備なし: 初めて見る画像の判定時間で、どの方式も画像の読み込みを含みます(準備はありません)。');
+    var aw = W - L - R;
+    function X(sec) { return L + aw * sec / nc.max; }
+    for (var t = 0; t <= nc.max + 1e-9; t += nc.step) {
+      line(svg, X(t), top - 4, X(t), axisY, 'grid');
+      tx(svg, X(t), axisY + 18, fixedStr(t, nc.step < 1 ? 1 : 0), 'dn mid');
+    }
+    tx(svg, L + aw, axisY + 34, '秒', 'sm t2 end');
+    line(svg, L, axisY, L + aw, axisY, 'axis');
+    rows.forEach(function (r, i) {
+      var y = top + i * rh;
+      var g = el('g', {}, svg);
+      var hl = rect(g, L, y + 4, X(r.v.time_ms / 1000) - L, 24, r.m.c ? 'var(--c-' + r.m.c + ')' : ''); hl.setAttribute('class', 'hl');
+      mark(g, r.m.shape, 12, y + 16, 5, r.m.c);
+      tx(g, 26, y + 21, r.m.n, '');
+      tx(g, X(r.v.time_ms / 1000) + 8, y + 22, sec2(r.v.time_ms), 'dn');
+      if (pr) {
+        var pb = rect(g, L, y + 32, X(r.v.prime_ms / 1000) - L, 8, 'var(--muted)'); pb.style.opacity = '.55';
+        tx(g, X(r.v.prime_ms / 1000) + 6, y + 40, '準備 ' + sec2(r.v.prime_ms), 'sm t2');
+      }
+      attachTip(g, r.m.n + '(' + PRN[state.pr] + ')\n判定 ' + sec2(r.v.time_ms) + '秒(1回の測定)' + (pr ? '\n準備 ' + sec2(r.v.prime_ms) + '秒(判定時間に含めない)' : '') + '\nリクエスト ' + r.v.requests.toFixed(1) + '回 / 失敗 ' + r.v.fails + '件');
+    });
+    var rowsT = rows.map(function (r) { return [r.m.n, sec2(r.v.time_ms), pr ? sec2(r.v.prime_ms) : '—', r.v.requests.toFixed(1), String(r.v.fails)]; });
+    table(G('s1-table'), condName(state.cond) + '、長辺' + edgeEff() + '、' + PRN[state.pr] + '。判定時間(秒)は1回の測定', ['方式', '判定時間(秒)', '準備(秒)', 'リクエスト数', '失敗件数'], rowsT);
+  }
+
+  /* ---------- chart 2: heatmap ---------- */
+  function bin(v) { return v >= 100 ? 4 : v >= 90 ? 3 : v >= 80 ? 2 : v >= 70 ? 1 : 0; }
+  var BINPCT = [10, 22, 34, 46, 58];
+  function chart2() {
+    var W = 640, L = 150, cw = 61, hh = 46, rh = 40;
+    var H = hh + 5 * rh + 56;
+    var svg = newSvg(G('s2-chart'), W, H, '方式ごとの精度のヒートマップ');
+    AX.forEach(function (a, i) {
+      var x = L + i * cw + cw / 2;
+      tx(svg, x, 20, a[1], 'sm b mid');
+      if (i >= 5) tx(svg, x, 35, '完全一致', 'mid t2', { 'font-size': 10 });
+    });
+    tx(svg, L + 7 * cw + cw / 2, 20, '単一5項目', 'sm b mid'); tx(svg, L + 7 * cw + cw / 2, 35, '平均', 'mid t2', { 'font-size': 10 });
+    var trows = [];
+    M.forEach(function (m, ri) {
+      var v = fin(m), y = hh + ri * rh;
+      mark(svg, m.shape, 10, y + 20, 5, m.c);
+      tx(svg, 24, y + 25, m.n, 'sm');
+      var cells = AX.map(function (a) { return [a[1], v[a[0]]]; }).concat([['単一5項目の平均', v.single_avg]]);
+      cells.forEach(function (c, ci) {
+        var x = L + ci * cw;
+        var g = el('g', {}, svg);
+        var r = rect(g, x + 2, y + 2, cw - 4, rh - 4, 'color-mix(in srgb, var(--cobalt) ' + BINPCT[bin(c[1])] + '%, var(--surface))');
+        r.setAttribute('class', 'hl');
+        tx(g, x + cw / 2, y + 26, c[1].toFixed(1), 'dn mid');
+        var cnt = Math.round(c[1] * 31 / 100);
+        attachTip(g, m.n + ' / ' + c[0] + '\n' + c[1].toFixed(1) + '%(' + (ci < 7 ? cnt + ' / 31件' : '5項目の平均') + ')');
+      });
+      trows.push([m.n].concat(cells.map(function (c) { return c[1].toFixed(1); })));
+    });
+    var ly = hh + 5 * rh + 14;
+    tx(svg, 10, ly + 12, '色の段階', 'sm t2');
+    var labs = ['70未満', '70〜', '80〜', '90〜', '100'];
+    labs.forEach(function (t, i) {
+      var x = L + i * 96;
+      rect(svg, x, ly, 22, 16, 'color-mix(in srgb, var(--cobalt) ' + BINPCT[i] + '%, var(--surface))').style.stroke = 'var(--rule)';
+      tx(svg, x + 28, ly + 13, t, 'sm');
+    });
+    table(G('s2-table'), condName(state.cond) + '、長辺' + edgeEff() + '。一致率(%)。服装・キャラは完全一致', ['方式'].concat(AX.map(function (a) { return a[1]; })).concat(['単一5項目の平均']), trows);
+  }
+
+  /* ---------- chart 3: scatter ---------- */
+  function chart3() {
+    var key = state.y;
+    var pts = M.map(function (m) { var v = fin(m); return { m: m, t: v.time_ms / 1000, y: v[key], v: v }; });
+    var W = 600, H = 350, ml = 58, mr = 24, mt = 16, mb = 52;
+    var svg = newSvg(G('s3-chart'), W, H, '判定時間と精度の散布図');
+    var maxT = Math.max.apply(null, pts.map(function (p) { return p.t; })) * 1.1;
+    var nx = nice(maxT, 8);
+    var minY = Math.min.apply(null, pts.map(function (p) { return p.y; }));
+    var y0 = Math.floor((minY - 3) / 5) * 5, y1 = 100;
+    var pw = W - ml - mr, ph = H - mt - mb;
+    function X(t) { return ml + pw * t / nx.max; }
+    function Y(v) { return mt + ph * (1 - (v - y0) / (y1 - y0)); }
+    for (var t = 0; t <= nx.max + 1e-9; t += nx.step) {
+      line(svg, X(t), mt, X(t), mt + ph, 'grid');
+      tx(svg, X(t), mt + ph + 20, fixedStr(t, nx.step < 1 ? 1 : 0), 'dn mid');
+    }
+    for (var yv = y0; yv <= y1; yv += 5) {
+      line(svg, ml, Y(yv), ml + pw, Y(yv), 'grid');
+      tx(svg, ml - 8, Y(yv) + 5, String(yv), 'dn end');
+    }
+    line(svg, ml, mt + ph, ml + pw, mt + ph, 'axis'); line(svg, ml, mt, ml, mt + ph, 'axis');
+    tx(svg, ml + pw / 2, H - 8, '判定時間(秒)', 'sm t2 mid');
+    var yl = tx(svg, 14, mt + ph / 2, key === 'character' ? 'キャラの完全一致(%)' : '単一選択5項目の平均(%)', 'sm t2 mid');
+    yl.setAttribute('transform', 'rotate(-90 14 ' + (mt + ph / 2) + ')');
+    pts.forEach(function (p) {
+      var g = el('g', {}, svg);
+      var ring = el('circle', { cx: X(p.t), cy: Y(p.y), r: 13, class: 'hl' }, g); ring.style.fill = 'transparent';
+      mark(g, p.m.shape, X(p.t), Y(p.y), 7, p.m.c);
+      attachTip(g, p.m.n + '\n判定 ' + p.t.toFixed(2) + '秒 / ' + (key === 'character' ? 'キャラ ' : '単一5項目平均 ') + p.y.toFixed(1) + '%');
+    });
+    table(G('s3-table'), condName(state.cond) + '、長辺' + edgeEff(), ['方式', '判定時間(秒)', 'キャラの完全一致(%)', '単一5項目の平均(%)'],
+      pts.map(function (p) { return [p.m.n, p.t.toFixed(2), p.v.character.toFixed(1), p.v.single_avg.toFixed(1)]; }));
+  }
+
+  /* ---------- chart 4: small models ---------- */
+  function chart4() {
+    var rows = [['F1', 'F1 Qwen 9B 改造版(参考)', 'f'], ['F3', 'F3 Gemma 12B 改造版(参考)', 'f']];
+    ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9'].forEach(function (s) { rows.push([s, s + ' ' + D.models[s], 's']); });
+    var L = 200, cw = 128, hh = 40, rh = 58, W = L + 5 * cw + 10, H = hh + rows.length * rh + 6;
+    var svg = newSvg(G('s4-chart'), W, H, 'モデルと方式ごとの単一選択平均・判定時間・失敗件数');
+    M.forEach(function (m, i) {
+      var x = L + i * cw;
+      mark(svg, m.shape, x + 10, 18, 5, m.c);
+      tx(svg, x + 22, 22, m.n, 'sm b');
+    });
+    var trows = [], bad = [];
+    rows.forEach(function (r, ri) {
+      var y = hh + ri * rh;
+      if (ri === 2) line(svg, 0, y - 3, W, y - 3, 'grid');
+      tx(svg, 10, y + 32, r[1], 'sm');
+      var trow = [r[1]];
+      var anyBad = false;
+      M.forEach(function (m, ci) {
+        var v = r[2] === 'f' ? D.final[r[0] + '|1024|' + m.k + '|' + state.pr] : D.small[r[0] + '|' + m.k + '|' + state.pr];
+        var x = L + ci * cw, f = v.fails;
+        var st = f >= 5 ? 'x' : f >= 1 ? 't' : 'o';
+        if (st === 'x') anyBad = true;
+        var g = el('g', {}, svg);
+        var box = rect(g, x + 2, y + 2, cw - 6, rh - 6, 'var(--paper)');
+        box.setAttribute('class', 'hl');
+        box.style.stroke = st === 'x' ? 'var(--vermillion)' : 'var(--rule)';
+        box.style.strokeWidth = st === 'x' ? '2' : '1';
+        tx(g, x + 10, y + 22, v.single_avg.toFixed(1), 'dn');
+        if (st === 'x') tx(g, x + cw - 10, y + 21, '× 崩れ', 'sm vt end');
+        else if (st === 't') tx(g, x + cw - 10, y + 21, '△ 一部失敗', 'sm b end');
+        var tr = rect(g, x + 10, y + 28, cw - 26, 6, 'var(--rule)');
+        var br = rect(g, x + 10, y + 28, (cw - 26) * v.single_avg / 100, 6, 'var(--c-' + m.c + ')');
+        if (st === 'x') br.style.opacity = '.4';
+        tx(g, x + 10, y + 46, sec2(v.time_ms) + '秒 / 失敗 ' + f + '件', 'sm t2');
+        attachTip(g, r[1] + '\n' + m.n + (st === 'x' ? '\n形式不正で崩れた(失敗 ' + f + '件 / 31件)' : '') + '\n単一5項目の平均 ' + v.single_avg.toFixed(1) + '% / 服装 ' + v.outfit.toFixed(1) + '% / キャラ ' + v.character.toFixed(1) + '%\n判定 ' + sec2(v.time_ms) + '秒 / 失敗 ' + f + '件');
+        trow.push(v.single_avg.toFixed(1) + '% / ' + sec2(v.time_ms) + '秒 / 失敗' + f + (st === 'x' ? ' 崩れ' : st === 't' ? ' 一部失敗' : ''));
+      });
+      trows.push(trow);
+    });
+    table(G('s4-table'), '単一5項目の平均 / 判定時間 / 失敗件数(31件中)、' + PRN[state.pr] + '。「崩れ」は失敗5件以上', ['モデル'].concat(M.map(function (m) { return m.n; })), trows);
+  }
+
+  /* ---------- chart 5: model comparison for one method ---------- */
+  function curM() { return M.filter(function (m) { return m.k === state.mm; })[0]; }
+  var BIN_LABS = ['70未満', '70〜', '80〜', '90〜', '100'];
+  function chartM1() {
+    G('s5a-desc').textContent = '元画像31件の平均(' + PRN[state.pr] + ')。並びは固定(値の順ではありません)。';
+    var m = curM(), W = 640, L = 250, R = 130, top = 8, rh = 30;
+    var vs = ORDER.map(function (id) { return getV(id, m.k); });
+    var nc = nice(Math.max.apply(null, vs.map(function (v) { return v.time_ms; })) / 1000, 6);
+    var H = top + ORDER.length * rh + 40;
+    var svg = newSvg(G('s5a-chart'), W, H, m.n + ' の判定時間(モデル別の横棒グラフ、' + PRN[state.pr] + ')');
+    var aw = W - L - R, axisY = top + ORDER.length * rh + 2;
+    function X(sec) { return L + aw * sec / nc.max; }
+    for (var t = 0; t <= nc.max + 1e-9; t += nc.step) {
+      line(svg, X(t), top, X(t), axisY, 'grid');
+      tx(svg, X(t), axisY + 18, fixedStr(t, nc.step < 1 ? 1 : 0), 'dn mid');
+    }
+    tx(svg, L + aw, axisY + 34, '秒', 'sm t2 end');
+    line(svg, L, axisY, L + aw, axisY, 'axis');
+    var trows = [];
+    ORDER.forEach(function (id, i) {
+      var v = vs[i], y = top + i * rh, st = stOf(v.fails);
+      if (i === 3) line(svg, 0, y - 1, W, y - 1, 'grid');
+      var g = el('g', {}, svg);
+      var b = rect(g, L, y + 4, X(v.time_ms / 1000) - L, 20, 'var(--c-' + m.c + ')'); b.setAttribute('class', 'hl');
+      if (st === 'x') b.style.opacity = '.4';
+      if (id === 'F2') { b.style.stroke = 'var(--ink)'; b.style.strokeDasharray = '4 3'; b.style.strokeWidth = '1.5'; }
+      tx(g, 8, y + 19, fullName(id), 'sm');
+      var xe = X(v.time_ms / 1000) + 8;
+      tx(g, xe, y + 20, sec2(v.time_ms), 'dn');
+      if (st !== 'o') tx(g, xe + 44, y + 19, stText(v.fails), st === 'x' ? 'sm vt' : 'sm b');
+      attachTip(g, fullName(id) + '\n' + m.n + '\n判定 ' + sec2(v.time_ms) + '秒 / 失敗 ' + v.fails + '件' + (st === 'x' ? '(崩れ)' : '') + '\n' + '1回の測定' + (id === 'F2' ? '\n未改造の llama-server' : ''));
+      trows.push([fullName(id), sec2(v.time_ms), String(v.fails), stText(v.fails) || '—', '1回']);
+    });
+    table(G('s5a-table'), m.n + '、長辺1024、' + PRN[state.pr] + '。判定時間(秒)。並びは固定', ['モデル', '判定時間(秒)', '失敗件数', '状態', '測定'], trows);
+  }
+
+  function chartM2() {
+    var m = curM();
+    var cols = [['single_avg', '単一5項目', '平均'], ['character', 'キャラ', '完全一致'], ['outfit', '服装', '完全一致']];
+    var W = 640, L = 250, cw = 96, hh = 46, rh = 32;
+    var H = hh + ORDER.length * rh + 40;
+    var svg = newSvg(G('s5b-chart'), W, H, m.n + ' の正答率(モデル別のヒートマップ)');
+    cols.forEach(function (c, i) {
+      var x = L + i * cw + cw / 2;
+      tx(svg, x, 20, c[1], 'sm b mid'); tx(svg, x, 35, c[2], 'mid t2', { 'font-size': 10 });
+    });
+    tx(svg, L + 3 * cw + 8, 20, '失敗', 'sm b'); tx(svg, L + 3 * cw + 8, 35, '(31件中)', 't2', { 'font-size': 10 });
+    var trows = [];
+    ORDER.forEach(function (id, ri) {
+      var v = getV(id, m.k), y = hh + ri * rh, st = stOf(v.fails);
+      if (ri === 3) line(svg, 0, y - 1, W, y - 1, 'grid');
+      tx(svg, 8, y + 21, fullName(id), 'sm');
+      cols.forEach(function (c, ci) {
+        var x = L + ci * cw, g = el('g', {}, svg), val = v[c[0]];
+        var r = rect(g, x + 2, y + 2, cw - 4, rh - 4, 'color-mix(in srgb, var(--cobalt) ' + BINPCT[bin(val)] + '%, var(--surface))');
+        r.setAttribute('class', 'hl');
+        if (st === 'x') { r.style.stroke = 'var(--vermillion)'; r.style.strokeWidth = '1.5'; }
+        tx(g, x + cw / 2, y + 22, val.toFixed(1), 'dn mid');
+        attachTip(g, fullName(id) + ' / ' + m.n + '\n' + c[1] + (ci ? '(完全一致)' : '') + ' ' + val.toFixed(1) + '%\n失敗 ' + v.fails + '件' + (st === 'x' ? '(崩れ)' : '') + ' / ' + '1回の測定');
+      });
+      var xt = L + 3 * cw + 8;
+      if (st === 'x') tx(svg, xt, y + 21, '× 崩れ ' + v.fails, 'sm vt');
+      else if (st === 't') tx(svg, xt, y + 21, '△ 一部失敗 ' + v.fails, 'sm b');
+      else tx(svg, xt, y + 21, '0', 'sm t2');
+      trows.push([fullName(id), v.single_avg.toFixed(1), v.character.toFixed(1), v.outfit.toFixed(1), v.fails + (st === 'x' ? '(崩れ)' : st === 't' ? '(一部失敗)' : '')]);
+    });
+    var ly = hh + ORDER.length * rh + 12;
+    tx(svg, 8, ly + 12, '色の段階', 'sm t2');
+    BIN_LABS.forEach(function (t, i) {
+      var x = L + i * 80;
+      rect(svg, x, ly, 20, 16, 'color-mix(in srgb, var(--cobalt) ' + BINPCT[i] + '%, var(--surface))').style.stroke = 'var(--rule)';
+      tx(svg, x + 25, ly + 13, t, 'sm');
+    });
+    table(G('s5b-table'), m.n + '、長辺1024、' + PRN[state.pr] + '。一致率(%)。服装・キャラは完全一致。すべて1回の測定', ['モデル', '単一5項目の平均', 'キャラ', '服装', '失敗件数'], trows);
+  }
+
+  function chartM3() {
+    var m = curM(), key = state.my, col = 'var(--c-' + m.c + ')';
+    var pts = ORDER.map(function (id) { var v = getV(id, m.k); return { id: id, v: v, t: v.time_ms / 1000, y: v[key], st: stOf(v.fails) }; });
+    var W = 640, H = 400, ml = 58, mr = 30, mt = 16, mb = 52;
+    var svg = newSvg(G('s5c-chart'), W, H, m.n + ' の判定時間と正答率の散布図(モデル別)');
+    var nx = nice(Math.max.apply(null, pts.map(function (p) { return p.t; })) * 1.12, 8);
+    var minY = Math.min.apply(null, pts.map(function (p) { return p.y; }));
+    var y0 = Math.max(0, Math.floor((minY - 3) / 10) * 10), y1 = 100, ystep = (y1 - y0) > 50 ? 10 : 5;
+    var pw = W - ml - mr, ph = H - mt - mb;
+    function X(t) { return ml + pw * t / nx.max; }
+    function Y(v) { return mt + ph * (1 - (v - y0) / (y1 - y0)); }
+    for (var t = 0; t <= nx.max + 1e-9; t += nx.step) {
+      line(svg, X(t), mt, X(t), mt + ph, 'grid');
+      tx(svg, X(t), mt + ph + 20, fixedStr(t, nx.step < 1 ? 1 : 0), 'dn mid');
+    }
+    for (var yv = y0; yv <= y1; yv += ystep) {
+      line(svg, ml, Y(yv), ml + pw, Y(yv), 'grid');
+      tx(svg, ml - 8, Y(yv) + 5, String(yv), 'dn end');
+    }
+    line(svg, ml, mt + ph, ml + pw, mt + ph, 'axis'); line(svg, ml, mt, ml, mt + ph, 'axis');
+    tx(svg, ml + pw / 2, H - 8, '判定時間(秒)', 'sm t2 mid');
+    var yl = tx(svg, 14, mt + ph / 2, key === 'character' ? 'キャラの完全一致(%)' : '単一選択5項目の平均(%)', 'sm t2 mid');
+    yl.setAttribute('transform', 'rotate(-90 14 ' + (mt + ph / 2) + ')');
+    /* label placement: greedy, avoid earlier labels and all points; far candidates get a leader line */
+    var PR = 9, placed = [];
+    function tw(s) { var n = 0; for (var i = 0; i < s.length; i++) n += s.charCodeAt(i) < 256 ? 7.5 : 13; return n; }
+    function hit(a, b) { return !(a.x1 < b.x0 || a.x0 > b.x1 || a.y1 < b.y0 || a.y0 > b.y1); }
+    var order = pts.slice().sort(function (a, b) { return a.t - b.t; });
+    order.forEach(function (p) {
+      p.cx = X(p.t); p.cy = Y(p.y);
+      p.label = p.id + (p.id === 'F2' ? '(未改造)' : '') + (p.st === 'x' ? ' ×' : '');
+      p.w = tw(p.label);
+    });
+    order.forEach(function (p) {
+      var w = p.w, d = PR + 3, D2 = 30;
+      var cands = [
+        ['s', p.cx + d, p.cy + 4, false], ['e', p.cx - d, p.cy + 4, false], ['m', p.cx, p.cy - d - 2, false], ['m', p.cx, p.cy + d + 12, false],
+        ['s', p.cx + d, p.cy - d, false], ['s', p.cx + d, p.cy + d + 8, false], ['e', p.cx - d, p.cy - d, false], ['e', p.cx - d, p.cy + d + 8, false],
+        ['s', p.cx + D2, p.cy - D2, true], ['e', p.cx - D2, p.cy - D2, true], ['s', p.cx + D2, p.cy + D2 + 8, true], ['e', p.cx - D2, p.cy + D2 + 8, true],
+        ['s', p.cx + D2 + 20, p.cy + 4, true], ['e', p.cx - D2 - 20, p.cy + 4, true]
+      ];
+      var pick = null;
+      for (var i = 0; i < cands.length && !pick; i++) {
+        var c = cands[i];
+        var x0 = c[0] === 's' ? c[1] : c[0] === 'e' ? c[1] - w : c[1] - w / 2;
+        var bb = { x0: x0, x1: x0 + w, y0: c[2] - 11, y1: c[2] + 3 };
+        if (bb.x0 < 2 || bb.x1 > W - 2 || bb.y0 < mt - 4 || bb.y1 > mt + ph + 2) continue;
+        var bad = placed.some(function (q) { return hit(bb, q); }) ||
+          pts.some(function (q) { return hit(bb, { x0: X(q.t) - PR, x1: X(q.t) + PR, y0: Y(q.y) - PR, y1: Y(q.y) + PR }); });
+        if (!bad) pick = { c: c, bb: bb };
+      }
+      if (!pick) { var c0 = cands[0]; pick = { c: c0, bb: { x0: c0[1], x1: c0[1] + w, y0: c0[2] - 11, y1: c0[2] + 3 } }; }
+      placed.push(pick.bb); p.pick = pick;
+    });
+    pts.forEach(function (p) {
+      var g = el('g', {}, svg), c = p.pick.c;
+      var ring = el('circle', { cx: p.cx, cy: p.cy, r: 13, class: 'hl' }, g); ring.style.fill = 'transparent';
+      if (c[3]) {
+        var lx = c[0] === 's' ? p.pick.bb.x0 : c[0] === 'e' ? p.pick.bb.x1 : c[1];
+        var ln = line(g, p.cx, p.cy, lx, c[2] - 4, 'grid'); ln.style.stroke = 'var(--ink-2)';
+      }
+      famMark(g, isGemma(p.id) ? 'square' : 'circle', p.cx, p.cy, 6, col, p.id.charAt(0) === 'F');
+      var lab = tx(g, c[1], c[2], p.label, 'sm b' + (c[0] === 'e' ? ' end' : c[0] === 'm' ? ' mid' : ''));
+      if (p.st === 'x') lab.style.fill = 'var(--vermillion)';
+      attachTip(g, fullName(p.id) + '\n' + m.n + '\n判定 ' + p.t.toFixed(2) + '秒 / ' + (key === 'character' ? 'キャラ ' : '単一5項目平均 ') + p.y.toFixed(1) + '%\n失敗 ' + p.v.fails + '件' + (p.st === 'x' ? '(崩れ)' : '') + ' / ' + '1回の測定' + (p.id === 'F2' ? '\n未改造の llama-server' : ''));
+    });
+    table(G('s5c-table'), m.n + '、長辺1024、' + PRN[state.pr] + '。すべて1回の測定', ['モデル', '判定時間(秒)', '単一5項目の平均(%)', 'キャラの完全一致(%)', '失敗件数'],
+      pts.map(function (p) { return [fullName(p.id), p.t.toFixed(2), p.v.single_avg.toFixed(1), p.v.character.toFixed(1), p.v.fails + (p.st === 'x' ? '(崩れ)' : p.st === 't' ? '(一部失敗)' : '')]; }));
+  }
+
+  function G(id) { return document.getElementById(id); }
+
+  /* ---------- toggles & filters ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll('[data-toggle]'), function (b) {
+    b.addEventListener('click', function () {
+      var id = b.getAttribute('data-toggle');
+      var on = b.getAttribute('aria-pressed') !== 'true';
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.textContent = on ? 'グラフで見る' : '表で見る';
+      G(id + '-chart').hidden = on;
+      G(id + '-table').hidden = !on;
+      var lg = document.querySelector('#' + id + ' .legend'); if (lg) lg.hidden = on;
+      hideTip();
+    });
+  });
+  function bindRadios(name, key) {
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="' + name + '"]'), function (r) {
+      r.addEventListener('change', function () { if (r.checked) { state[key] = r.value; renderFiltered(); } });
+    });
+  }
+  bindRadios('edge', 'edge'); bindRadios('ymetric', 'y');
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="pr"]'), function (r) {
+    r.addEventListener('change', function () { if (r.checked) { state.pr = r.value; fillLegends(); renderFiltered(); chart4(); renderModels(); descs(); } });
+  });
+  function descs() {
+    var c = PRN[state.pr];
+    G('s4-desc').textContent = 'モデル × 方式。帯の長さは単一選択5項目の平均(0〜100%)、下に判定時間と失敗したケース数。失敗のケースも分母に残るので、失敗が多いセルは平均が大きく下がります。モデル・長辺のフィルタの対象外(長辺1024)ですが、測定条件には従います(いま: ' + c + ')。各条件1回の測定。';
+    G('s5-desc').textContent = '方式を1つ選び、12モデル(9B・12B の F1〜F3 と小型 S1〜S9)を同じ方式で並べます。長辺1024のみ、各条件1回の測定(いま: ' + c + ')。F1・F3 と小型は改造版 llama-server、F2 だけ未改造(比較用)。モデル・長辺のフィルタの対象外です。';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="mm"]'), function (r) {
+    r.addEventListener('change', function () { if (r.checked) { state.mm = r.value; renderModels(); } });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="my"]'), function (r) {
+    r.addEventListener('change', function () { if (r.checked) { state.my = r.value; hideTip(); chartM3(); } });
+  });
+  function renderModels() { hideTip(); chartM1(); chartM2(); chartM3(); }
+  var sel = G('sel-cond');
+  [['本命(9B・12B、長辺1024・768)', ['F1', 'F2', 'F3']], ['小型(長辺1024のみ)', SMALL]].forEach(function (grp) {
+    var og = document.createElement('optgroup'); og.label = grp[0];
+    grp[1].forEach(function (c) { var o = document.createElement('option'); o.value = c; o.textContent = condName(c); og.appendChild(o); });
+    sel.appendChild(og);
+  });
+  sel.value = state.cond;
+  sel.addEventListener('change', function () { state.cond = sel.value; syncCond(); renderFiltered(); });
+  function syncCond() {
+    var s = isS(state.cond);
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="edge"]'), function (r) {
+      r.disabled = s && r.value !== '1024';
+      r.checked = r.value === edgeEff();
+    });
+    var n = G('cond-note');
+    n.textContent = (s ? '小型は長辺1024のみ。改造版 llama-server。'
+      : state.cond === 'F2' ? 'この条件だけ未改造の llama-server(比較用)。'
+      : '改造版 llama-server。') + 'どの数値も各条件1回の測定です。';
+  }
+  function renderFiltered() { hideTip(); chart1(); chart2(); chart3(); }
+
+  fillLegends();
+  descs();
+  syncCond();
+  renderFiltered();
+  chart4();
+  renderModels();
+  
+})();
+</script>
+</body>
+</html>
