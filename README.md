@@ -662,6 +662,7 @@ Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードす�
 詳細な順序と退出条件は [`doc/implementation-experiment-plan.md`](doc/implementation-experiment-plan.md) に記載しています。E6(説明文付きJSON)と E8(メタデータ補助の対照実験)は実施していません。
 
 ## 関連資料
+- [この実験の解説記事(note)](https://note.com/yumenojmd/n/nefe57d7a951b)
 
 - [Qwen3.5 9B（公式モデル）](https://huggingface.co/Qwen/Qwen3.5-9B)
 - [Gemma 4 12B it（公式モデル）](https://huggingface.co/google/gemma-4-12B-it)
