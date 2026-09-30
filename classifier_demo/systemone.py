@@ -14,8 +14,11 @@ TypeSafe 社および Jev とは無関係。`typesafe-sdk` には依存せず、
 - 誤り: SDK は TypeSafeError を送出する。本実装は SystemOneError を送出する(回答ごとのエラー欄はない)。
 
 SDK と違う点(意図的):
-- `images` は本実装の拡張(Jev は画像非対応)。ローカルのファイルパスのみ。**provisional:
-  画像の渡し方は Issue #4 の調査後に確定する**。画像の処理は `_image_parts()` に閉じ込めてある。
+- `images` は本実装の拡張(Jev は画像非対応)。形式は razorback16/openjev(Apache-2.0、api.py 2026-10-01)の
+  `images: list[str | {"content_type", "base64"}]` と同じ(str は `data:image/...;base64,` URL)。
+  加えて利便としてファイルパスと bytes も受ける。上限は openjev に揃える(8枚、デコード後5MiB、
+  jpeg/png/webp/gif。違反は明示エラー)。openjev はサーバー側でリサイズしないが、本実装は
+  既存実験と結果を揃えるため送信前に prepare_image(長辺 max_edge、既定 jpeg q90)を通す。
 - `confidence` は返さない。公式文書は「probabilities の広がりから計算」としか書いておらず式を確認できないため。
   必要なら probabilities から自分で計算する。
 - `probabilities` は候補内で再正規化した**相対スコア**(Jev の「較正済み確率」ではなく、正答確率でもない)。
@@ -27,6 +30,8 @@ SDK と違う点(意図的):
 
 from __future__ import annotations
 
+import base64
+import io
 import json
 import re
 from dataclasses import dataclass
@@ -40,6 +45,9 @@ SYSTEM_TEXT = "You answer a question about the given state. Reply with one chara
 SCORE_MAX_LEVELS = 10  # ラベルは数字 "0".."9" の1トークン
 MAX_STATE_CHARS = 100_000
 MAX_TEXT_CHARS = 8_000  # instructions と各説明の上限。超過は切り捨てずエラー
+MAX_IMAGES = 8  # 以下3つは openjev の既定に揃える
+MAX_IMAGE_BYTES = 5 * 1024 * 1024  # デコード後
+IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 PARAMS = {"max_tokens": 1, "temperature": 0, "logprobs": True, "top_logprobs": 20}
 PRIME_PARAMS = {"max_tokens": 1, "temperature": 0}
 
@@ -128,11 +136,49 @@ def _state_text(state: object) -> str:
     return _clean(text, MAX_STATE_CHARS, "state")
 
 
-def _image_parts(images: list[str] | None, max_edge: int, image_format: str) -> list[dict]:
-    """画像(provisional: ローカルのファイルパスのみ。渡し方は #4 の調査後に確定する)。"""
+def _decode_image(item: object) -> bytes:
+    """1枚を生バイトにする。openjev 形式(data URL 文字列 / {content_type, base64})のほか、
+    クライアントの利便としてファイルパス(data: で始まらない str)と bytes も受ける。"""
+    if isinstance(item, (bytes, bytearray)):
+        return bytes(item)
+    if isinstance(item, dict):
+        mime, b64 = item.get("content_type"), item.get("base64")
+    elif isinstance(item, str) and item.startswith("data:"):
+        m = re.fullmatch(r"data:([^;,]+);base64,(.*)", item, re.DOTALL)
+        if not m:
+            raise SystemOneError("image data URL must be 'data:<mime>;base64,<data>'")
+        mime, b64 = m.group(1), m.group(2)
+    elif isinstance(item, str):
+        try:
+            with open(item, "rb") as f:
+                return f.read()
+        except OSError as e:
+            raise SystemOneError(f"cannot read image file: {e}") from e
+    else:
+        raise SystemOneError(f"unsupported image item: {type(item).__name__}")
+    if mime not in IMAGE_MIME_TYPES:
+        raise SystemOneError(f"unsupported image MIME type {mime!r} (allowed: {sorted(IMAGE_MIME_TYPES)})")
+    try:
+        return base64.b64decode(b64, validate=True)
+    except (ValueError, TypeError) as e:
+        raise SystemOneError(f"invalid base64 image data: {e}") from e
+
+
+def _image_parts(images: list | None, max_edge: int, image_format: str) -> list[dict]:
+    """画像(本実装の拡張。形式は openjev の `images` と同じ)を、既存の prepare_image で
+    縮小・再エンコードしてから chat の image_url(data URL)にして配列順に返す。"""
+    images = list(images or [])
+    if len(images) > MAX_IMAGES:
+        raise SystemOneError(f"too many images ({len(images)} > {MAX_IMAGES})")
     parts = []
-    for path in images or []:
-        image_bytes, mime, _orig, _sent = prepare_image(path, max_edge, image_format)
+    for i, item in enumerate(images):
+        raw = _decode_image(item)
+        if len(raw) > MAX_IMAGE_BYTES:
+            raise SystemOneError(f"image {i} is too large ({len(raw)} > {MAX_IMAGE_BYTES} bytes)")
+        try:
+            image_bytes, mime, _orig, _sent = prepare_image(io.BytesIO(raw), max_edge, image_format)
+        except (OSError, ValueError) as e:  # PIL の UnidentifiedImageError は OSError
+            raise SystemOneError(f"image {i} cannot be decoded: {e}") from e
         parts.append({"type": "image_url", "image_url": {"url": _data_url(image_bytes, mime)}})
     return parts
 

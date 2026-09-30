@@ -328,7 +328,7 @@ def build_parser() -> argparse.ArgumentParser:
     so_parser.add_argument("--questions", required=True, help="JSON file: {question_id: {type, instructions, criteria}}")
     so_parser.add_argument("--state", help="state text")
     so_parser.add_argument("--state-file", help="read state text from a file")
-    so_parser.add_argument("--image", action="append", default=[], help="image path (repeatable; provisional)")
+    so_parser.add_argument("--image", action="append", default=[], help="image path or data URL (repeatable)")
     so_parser.add_argument("--max-edge", type=int, default=1024)
     so_parser.add_argument("--image-format", choices=["jpeg", "png"], default="jpeg")
     so_parser.add_argument("--prime", action="store_true", help="send one prefix-only request first")

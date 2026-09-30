@@ -102,3 +102,56 @@ def test_control_chars_stripped_and_length_error():
     assert "State:\nab" in b.calls[0]["messages"][1]["content"][0]["text"]
     with pytest.raises(SystemOneError, match="too long"):
         c.system_one("x" * 200_000, {"q": {"type": "noul"}})
+
+
+def _png_bytes():
+    import io
+
+    buf = io.BytesIO()
+    Image.new("RGB", (8, 8), (255, 0, 0)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _image_urls(images):
+    import base64
+
+    c, b = client([make_logprobs_response({"A": 1.0, "B": 1.0})])
+    c.system_one("s", {"q": {"type": "noul"}}, images=images)
+    parts = b.calls[0]["messages"][1]["content"]
+    return [p["image_url"]["url"] for p in parts if p["type"] == "image_url"], base64
+
+
+def test_image_inputs_all_forms_in_order(tmp_path):
+    import base64
+
+    raw = _png_bytes()
+    b64 = base64.b64encode(raw).decode()
+    path = tmp_path / "a.png"
+    path.write_bytes(raw)
+    urls, _ = _image_urls(
+        [f"data:image/png;base64,{b64}", {"content_type": "image/png", "base64": b64}, str(path), raw]
+    )
+    assert len(urls) == 4 and all(u.startswith("data:image/jpeg;base64,") for u in urls)  # prepare_image を通る
+
+
+def test_image_limits_and_bad_inputs():
+    import base64
+
+    raw = _png_bytes()
+    b64 = base64.b64encode(raw).decode()
+    c, b = client([])
+    with pytest.raises(SystemOneError, match="too many"):
+        c.system_one("s", {"q": {"type": "noul"}}, images=[raw] * 9)
+    with pytest.raises(SystemOneError, match="too large"):
+        c.system_one("s", {"q": {"type": "noul"}}, images=[b"x" * (5 * 1024 * 1024 + 1)])
+    with pytest.raises(SystemOneError, match="MIME"):
+        c.system_one("s", {"q": {"type": "noul"}}, images=[{"content_type": "image/bmp", "base64": b64}])
+    with pytest.raises(SystemOneError, match="MIME"):
+        c.system_one("s", {"q": {"type": "noul"}}, images=[f"data:text/plain;base64,{b64}"])
+    with pytest.raises(SystemOneError, match="base64"):
+        c.system_one("s", {"q": {"type": "noul"}}, images=[{"content_type": "image/png", "base64": "!!!"}])
+    with pytest.raises(SystemOneError, match="decoded"):
+        c.system_one("s", {"q": {"type": "noul"}}, images=[b"not an image"])
+    with pytest.raises(SystemOneError, match="cannot read"):
+        c.system_one("s", {"q": {"type": "noul"}}, images=["no/such/file.png"])
+    assert b.request_count == 0

@@ -276,7 +276,7 @@ r = client.system_one(
         "urgent": {"type": "noul", "instructions": "緊急か?"},
         "tone": {"type": "score", "instructions": "怒りの強さは?", "criteria": ["平静", "不満", "激怒"]},
     },
-    images=["photo.png"],  # 本実装の拡張(暫定: 画像の渡し方は #4 の調査後に確定する)
+    images=["photo.png"],  # 本実装の拡張(Jev 本体は画像を受け付けない)
 )
 r.choices["dept"].choice, r.choices["dept"].probabilities, r.nouls["urgent"].noul, r.scores["tone"].score
 ```
@@ -297,7 +297,7 @@ CLI(手動確認用): `python -m classifier_demo systemone --base-url ... --mode
 - 全候補を観測できるのは20候補以内(`top_logprobs` が上位20件。`A` と ` A` のような表記ゆれも枠を使う)。
 - choice は最大52ラベル(Jev は255)。超過は明示エラー。ラベルトークンが出ない・thinking が先に出る・logprobs 欠損も `SystemOneError`(任意の選択肢には強制しない)。
 - `confidence` は返さない(公式文書で算出式を確認できないため。`probabilities` から計算する)。
-- `images` は本実装の拡張で、Jev は画像を受け付けない。現状はファイルパスのみの暫定仕様。
+- `images` は本実装の拡張で、TypeSafe の Jev 本体は画像を受け付けない。形式は openjev の `images`(`data:image/...;base64,` URL、または `{"content_type", "base64"}`)と同じで、加えてファイルパスと bytes も受ける。8枚まで・1枚5MiBまで・jpeg/png/webp/gif のみ(違反は明示エラー)。openjev はサーバー側でリサイズしないが、本実装は既存実験と揃えるため送信前に `prepare_image`(長辺 `--max-edge`、既定 jpeg q90)を通す。
 - 複数選択は Jev にない。本リポジトリの `classify` / 確認(yes/no)を使う。
 
 ### `scripts/benchmark_cache.py`（E5: 画像キャッシュ改造の再現用ベンチマーク）
