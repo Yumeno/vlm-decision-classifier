@@ -29,6 +29,13 @@
 
 **artifact**(非公開): 狙い一覧 (非公開の作業用ページ) 、正解付与シート (非公開の作業用ページ) (db の `labels` コレクション。最終版は `dataset/labels/labels_final.json` に固定済み)。
 
+## 2026-09-30 — ダッシュボードをリポジトリへ、GitHub Pages で配信
+
+- 結果ダッシュボードを `site/index.html`(単一HTML、データ埋め込み、reprime 由来)としてリポジトリに入れた。作業用ページ(artifact)のリンクは非公開なので、README リンクと note 記事の仮置き文言に差し替えた。
+- `.github/workflows/pages.yml` で main への push 時に `site/` を GitHub Pages へデプロイ(checkout v7 / configure-pages v6 / upload-pages-artifact v5 / deploy-pages v5)。
+- 公開リポジトリは `Yumeno/vlm-decision-classifier`(案A2)。開発用リポジトリは `-dev` に改名済み。Pages は公開後に有効化する。
+- 次の一手: 公開後に Pages を有効化し、note 記事のリンクをダッシュボードに追記。
+
 ## 2026-09-30 — E10・E10b(出力形式の頑健性、追加課題)
 
 **やったこと**(ブランチ `exp/e10`、実装コミット `f2004a0`。全11実行 dirty=false、UTC 2026-09-29 22:01〜22:59)
