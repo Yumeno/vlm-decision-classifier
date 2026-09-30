@@ -401,6 +401,7 @@ Gemmaは `--model gemma-4-12b-it --runtime-info doc\experiments\runtime\gemma-lm
 | E7a（記号のみ・空白区切り、PNG1024） | コミット `cc427e6` をチェックアウトして実行 | 束ね質問の回答形式を、のちに番号付きへ変えた（形式のずれが起きたため）ので、現在のコードでは再現できない。結果は比較には使っていない（report §4.7） |
 
 測定時のコミット・時刻・条件は、各フォルダの `run.json`（`tool_commit`、`started`、`note` など）と [`report.md`](doc/experiments/report.md) §2、[`doc/worklog.md`](doc/worklog.md) にあります。
+実験記録(`run.json` の `tool_commit` など)や worklog に残るコミット ID は、非公開の開発リポジトリのものです。この公開リポジトリでの対応するコミットは [`doc/commit-map.tsv`](doc/commit-map.tsv)(左が開発リポジトリ、右が公開リポジトリ)で引けます。
 
 ### F1〜F3（最終の取り直し）
 
