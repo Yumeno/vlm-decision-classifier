@@ -5,7 +5,7 @@ TypeSafe 社および Jev とは無関係。`typesafe-sdk` には依存せず、
 - `client.system_one(state, questions, ...)`  <- _core/client/sync/client.py
 - 質問 dict: {"type": "choice"|"noul"|"score", "instructions", "criteria"}  <- _core/question_types.py
   (choice の criteria は {ラベル名: 説明}、score は順序付きリスト、noul の criteria は {"true","false"})。
-  SDK の Choice/Noul/Score クラスは写さず、SDK が受ける生 dict だけを受ける。
+  SDK の Choice/Noul/Score ヘルパークラスは受け付けず、SDK の形の素の dict だけを受ける。
 - 応答: `.model` `.answers`(質問名キー)`.usage`、`.choices` `.nouls` `.scores`(0.7.2 ではプロパティ)
   <- _core/response_types.py。回答の型: ChoiceAnswer(choice, probabilities) / NoulAnswer(noul) /
   ScoreAnswer(score, legend, probabilities。キーは整数) <- _schemas/models.py
@@ -32,10 +32,13 @@ from __future__ import annotations
 
 import base64
 import io
+import os
 import json
 import re
 from dataclasses import dataclass
 from functools import cached_property
+
+from PIL import Image
 
 from .backend import ChatBackend
 from .decision import LABELS, DecisionError, _data_url, extract_top_logprobs, pool_labels
@@ -115,14 +118,22 @@ def _clean(text: str, limit: int, what: str) -> str:
     return text
 
 
+def _single_line(text: str, limit: int, what: str) -> str:
+    """選択肢行への注入を防ぐため、改行・タブ・制御文字を空白にして1行にする(state 以外はすべてこれを通す)。"""
+    text = re.sub(r"[\x00-\x1f\x7f]+|\s+", " ", text).strip()
+    return _clean(text, limit, what)
+
+
 def _content_text(value: object, what: str) -> str:
     """instructions / 説明: 文字列、または JSON として直列化できる object / array。"""
     if isinstance(value, str):
-        return _clean(value, MAX_TEXT_CHARS, what)
-    try:
-        return _clean(json.dumps(value, ensure_ascii=False), MAX_TEXT_CHARS, what)
-    except TypeError as e:
-        raise SystemOneError(f"{what} is not JSON-serializable: {e}") from e
+        text = value
+    else:
+        try:
+            text = json.dumps(value, ensure_ascii=False)
+        except TypeError as e:
+            raise SystemOneError(f"{what} is not JSON-serializable: {e}") from e
+    return _single_line(text, MAX_TEXT_CHARS, what)
 
 
 def _state_text(state: object) -> str:
@@ -150,6 +161,8 @@ def _decode_image(item: object) -> bytes:
         mime, b64 = m.group(1), m.group(2)
     elif isinstance(item, str):
         try:
+            if os.path.getsize(item) > MAX_IMAGE_BYTES:
+                raise SystemOneError(f"image file is too large (> {MAX_IMAGE_BYTES} bytes)")
             with open(item, "rb") as f:
                 return f.read()
         except OSError as e:
@@ -176,6 +189,10 @@ def _image_parts(images: list | None, max_edge: int, image_format: str) -> list[
         if len(raw) > MAX_IMAGE_BYTES:
             raise SystemOneError(f"image {i} is too large ({len(raw)} > {MAX_IMAGE_BYTES} bytes)")
         try:
+            with Image.open(io.BytesIO(raw)) as probe:
+                actual = probe.format
+            if actual not in ("JPEG", "PNG", "WEBP", "GIF"):
+                raise SystemOneError(f"image {i} has unsupported actual format {actual!r}")
             image_bytes, mime, _orig, _sent = prepare_image(io.BytesIO(raw), max_edge, image_format)
         except (OSError, ValueError) as e:  # PIL の UnidentifiedImageError は OSError
             raise SystemOneError(f"image {i} cannot be decoded: {e}") from e
@@ -223,7 +240,7 @@ class SystemOneClient:
             names = list(criteria)
             labels = LABELS[: len(names)]
             lines = [
-                _label_line(lb, re.sub(r"\s+", " ", _clean(str(n), 200, "choice name")), criteria[n])
+                _label_line(lb, _single_line(str(n), 200, "choice name"), criteria[n])
                 for lb, n in zip(labels, names)
             ]
             body = "\n".join(lines) + "\n\nAnswer with the single letter only."

@@ -287,9 +287,9 @@ CLI(手動確認用): `python -m classifier_demo systemone --base-url ... --mode
 |---|---|---|
 | `choice` | ラベル `A`〜`Z`,`a`〜`z` を順に割り当て、1質問1リクエスト(`max_tokens=1`, `top_logprobs=20`) | `choice`、`probabilities` |
 | `noul` | yes/no(`A`/`B`)の2択 | `noul`(yes の相対スコア) |
-| `score`(2〜10段階) | ラベル `0`〜`9` | `score`(相対スコアで重み付けした期待値)、`legend`、`probabilities` |
+| `score`(2〜10段階。`criteria` は順序付きリスト) | n 段階ならラベル `0`〜`n-1` | `score`(0〜n-1 の目盛りでの、相対スコアで重み付けした期待値)、`legend`、`probabilities` |
 
-先頭(system → 画像 → state)を全質問で共有し、質問は互いに見えない(束ねない)。`prime=True` で先頭だけのリクエストを先に送れる(時間は `usage.prime_elapsed_ms` に別記録)。
+質問は SDK の形の素の dict で渡す(SDK の `Choice`/`Noul`/`Score` ヘルパークラスは受け付けない)。選択肢名・説明・instructions の改行や制御文字は空白にして1行にする。先頭(system → 画像 → state)を全質問で共有し、質問は互いに見えない(束ねない)。`prime=True` で先頭だけのリクエストを先に送れる(時間は `usage.prime_elapsed_ms` に別記録)。
 
 限界:
 
