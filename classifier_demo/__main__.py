@@ -10,7 +10,7 @@ import sys
 
 from PIL import Image
 
-from . import evaluate, pipeline, server
+from . import evaluate, pipeline, server, systemone
 from .backend import ChatBackend
 from .decision import Choice, DecisionError, choose
 from .taxonomy import load as load_taxonomy
@@ -171,6 +171,28 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_systemone(args: argparse.Namespace) -> int:
+    import dataclasses
+
+    with open(args.questions, encoding="utf-8") as f:
+        questions = json.load(f)
+    if args.state_file:
+        with open(args.state_file, encoding="utf-8") as f:
+            state = f.read()
+    else:
+        state = args.state or ""
+    client = systemone.SystemOneClient(
+        base_url=args.base_url, model=args.model, max_edge=args.max_edge, image_format=args.image_format
+    )
+    try:
+        response = client.system_one(state, questions, images=args.image, prime=args.prime)
+    except systemone.SystemOneError as e:
+        print(f"SystemOneError: {e}", file=sys.stderr)
+        return 1
+    print(json.dumps(dataclasses.asdict(response), ensure_ascii=False, indent=2))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="classifier_demo")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -297,6 +319,20 @@ def build_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument("--port", type=int, default=8765)
     serve_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     serve_parser.set_defaults(func=cmd_serve)
+
+    so_parser = sub.add_parser(
+        "systemone", help="Jev-style questions (choice/noul/score) against a local VLM (experimental)"
+    )
+    so_parser.add_argument("--base-url", default="http://127.0.0.1:1234/v1")
+    so_parser.add_argument("--model", required=True)
+    so_parser.add_argument("--questions", required=True, help="JSON file: {question_id: {type, instructions, criteria}}")
+    so_parser.add_argument("--state", help="state text")
+    so_parser.add_argument("--state-file", help="read state text from a file")
+    so_parser.add_argument("--image", action="append", default=[], help="image path or data URL (repeatable)")
+    so_parser.add_argument("--max-edge", type=int, default=1024)
+    so_parser.add_argument("--image-format", choices=["jpeg", "png"], default="jpeg")
+    so_parser.add_argument("--prime", action="store_true", help="send one prefix-only request first")
+    so_parser.set_defaults(func=cmd_systemone)
 
     return parser
 
