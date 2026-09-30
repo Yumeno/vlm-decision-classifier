@@ -4,6 +4,8 @@
 
 ## ★ 現在地と引き継ぎ(2026-09-27 更新。compact 後はまずここを読む)
 
+**状態(2026-10-01 更新、公開)**: 公開リポジトリ `Yumeno/vlm-decision-classifier` として公開した。以後の更新はこのリポジトリで PR を作って merge する(main は ruleset で PR 必須)。非公開の開発リポジトリ(`vlm-decision-classifier-dev`)の履歴は洗浄して移し、旧コミット ID との対応は `doc/commit-map.tsv`。ダッシュボードは GitHub Pages(Actions は普段停止、手順は `doc/maintenance.md`)。次: note 記事の公開(作者)、issue(DiffusionGemma を WSL2 の vLLM で試す)、項目数を増やしたときの速度(未測定)。
+
 **状態(2026-09-30 更新、E10)**: ブランチ `exp/e10` に E10(ノイズ100枚)・E10b(実データ31枚)の結果(`doc/experiments/e10/`)、`scripts/run_e10b.sh`、report §1.4・README §12/§13 の更新を積んだ(PR で merge 待ち)。通常JSONの形式不正は `json_schema` で実データ全モデル0になった。次は、この結果を反映した記事・図解の直し、issue #21 など。
 
 **状態(2026-09-30 更新、reprime まで)**: PR #14〜#20 は merge 済み(#20: `--prime` を方式ごとの準備にして JSON の時間比較の不公平を修正)。ブランチ `exp/reprime` に、F1〜F3・S1〜S9 の測り直し(準備なし・準備あり、各1回)の結果(`doc/experiments/reprime/`)と、report.md・README の更新を積んだ(PR で merge 待ち)。次は、図解ページ・ダッシュボード・note 記事の下書きを測り直しの数値に直すこと、E10(形式頑健性)、issue #21(DiffusionGemma)、コードのライセンスは #18 で MIT に確定済み、HF Space(#17)の判断(作者)。詳細は下の「2026-09-30 — 準備の不公平の修正と測り直し」。
@@ -28,6 +30,16 @@
 **運用ルール(CLAUDE.md / メモリにもある)**: Sonnet が実装し、Codex(gpt-6-luna)がレビュー(5ラウンドで収束しなければ作者を呼ぶ)。VRAM を使う前に作者を呼ぶ。区切りごとに worklog に書く。コンテキストが 75〜85% になったら待機する。
 
 **artifact**(非公開): 狙い一覧 (非公開の作業用ページ) 、正解付与シート (非公開の作業用ページ) (db の `labels` コレクション。最終版は `dataset/labels/labels_final.json` に固定済み)。
+
+## 2026-10-01 — 公開
+
+- 公開方法は作者判断で「整理した履歴で新しいリポジトリとして公開」。開発リポジトリを `vlm-decision-classifier-dev` に改名し(非公開のまま、Actions 無効)、main だけを複製して git filter-repo で洗浄した: コミットメッセージのセッション URL の行を削除、作者・記録者を GitHub の noreply アドレスに統一、全履歴のファイル内容で個人パス・非公開の元プロジェクト名・非公開の作業用ページの URL を置き換え。監査(個人情報・秘密情報・大きなファイル・置き換え漏れ)は全履歴で0件、置き換え以外の差分なし、テスト 177 件通過を確認してから push。
+- 公開前にサプライチェーン対策を入れた: Pages の workflow の action をフル SHA で固定、checkout で認証情報を残さない、権限はジョブ単位で最小。作者判断で自動更新(Dependabot の version updates)は使わず、Actions は初回の Pages 公開後に停止(停止後もページが表示され続けることを確認)。
+- リポジトリ設定: Wiki・Projects・Discussions 無効、secret scanning と push protection、脆弱性アラート、private vulnerability reporting、Actions は GitHub 製のみ・SHA 固定必須・既定トークン read-only・外部の workflow は承認制、Pages は main のみ、ruleset protect-main。詳細は `doc/maintenance.md`。
+- 結果ダッシュボードは `site/index.html` として同梱し GitHub Pages で配信(作者判断: 結果の数値は公開し、仕組みの解説は note の有料部分)。
+- README から公開作業の段取りを外し、保守メモに移した(公開後 PR #1)。
+- 記事: note の無料部分は実験構成・条件・比較方式・結果の総括・所感・使いどころ、有料部分は仕組みの図解(図解ページをそのまま移したもの)。記事の下書きと図はリポジトリ外(`note/`、管理外)。
+- 未着手: DiffusionGemma を WSL2 の vLLM で試す(4bit 版は 3090 に載る見込み、画像入力の不具合の修正を当てる必要あり)、項目数を増やしたときの束ね質問と JSON の速度差(理屈では広がるはずだが未測定)。
 
 ## 2026-09-30 — ダッシュボードをリポジトリへ、GitHub Pages で配信
 

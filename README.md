@@ -663,6 +663,7 @@ Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードす�
 
 ## 関連資料
 
+- [この実験の解説記事(note)](https://note.com/yumenojmd/n/nefe57d7a951b)
 - [Qwen3.5 9B（公式モデル）](https://huggingface.co/Qwen/Qwen3.5-9B)
 - [Gemma 4 12B it（公式モデル）](https://huggingface.co/google/gemma-4-12B-it)
 - [vLLM PR #57250 — DiffusionGemmaの構造化読み出し](https://github.com/vllm-project/vllm/pull/57250)
