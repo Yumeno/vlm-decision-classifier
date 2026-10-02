@@ -13,6 +13,7 @@ from PIL import Image
 from . import evaluate, pipeline, server, systemone
 from .backend import ChatBackend
 from .decision import Choice, DecisionError, choose
+from .dgemma import DgemmaBackend
 from .taxonomy import load as load_taxonomy
 
 
@@ -79,9 +80,51 @@ def cmd_probe(args: argparse.Namespace) -> int:
     return 0
 
 
+def _samples_type(value: str) -> str | int:
+    if value == "auto":
+        return value
+    try:
+        n = int(value)
+    except ValueError:
+        n = 0
+    if n < 1:
+        raise argparse.ArgumentTypeError("must be 'auto' or an integer >= 1")
+    return n
+
+
+def _add_dgemma_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--dgemma-url",
+        default=None,
+        help="DiffusionGemma(issue #4): vLLM の example structured server のURL(例 http://127.0.0.1:8011)。"
+        "dgemma_choice で必須。--base-url は vLLM 本体(例 http://127.0.0.1:8000/v1)",
+    )
+    p.add_argument(
+        "--dgemma-samples",
+        type=_samples_type,
+        default="auto",
+        help="dgemma_choice の samples。auto=サーバー既定(標準)、整数=ノイズ draw の固定回数",
+    )
+
+
+def _make_backend(args: argparse.Namespace, modes: list[str]) -> ChatBackend | None:
+    """dgemma_* のモードを含むときは DgemmaBackend(thinking 無効を全リクエストに足す)、
+    それ以外は従来の ChatBackend。dgemma_choice に --dgemma-url が無ければ None。"""
+    if any(m.startswith("dgemma_") for m in modes):
+        if "dgemma_choice" in modes and not args.dgemma_url:
+            print("--dgemma-url is required for dgemma_choice", file=sys.stderr)
+            return None
+        return DgemmaBackend(
+            base_url=args.base_url, model=args.model, structured_url=args.dgemma_url, samples=args.dgemma_samples
+        )
+    return ChatBackend(base_url=args.base_url, model=args.model)
+
+
 def cmd_classify(args: argparse.Namespace) -> int:
     taxonomy = load_taxonomy(args.taxonomy)
-    backend = ChatBackend(base_url=args.base_url, model=args.model)
+    backend = _make_backend(args, [args.mode])
+    if backend is None:
+        return 1
     result = pipeline.classify(
         args.image,
         taxonomy,
@@ -143,7 +186,9 @@ def _modes_type(value: str) -> list[str]:
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
-    backend = ChatBackend(base_url=args.base_url, model=args.model)
+    backend = _make_backend(args, args.modes)
+    if backend is None:
+        return 1
     return evaluate.run_evaluate(
         manifest_path=args.manifest,
         taxonomy_path=args.taxonomy,
@@ -208,7 +253,7 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("image")
     classify_parser.add_argument("--base-url", default="http://127.0.0.1:1234/v1")
     classify_parser.add_argument("--model", required=True)
-    classify_parser.add_argument("--mode", choices=["choice", "json", "bundled", "json_schema"], default="choice")
+    classify_parser.add_argument("--mode", choices=sorted(evaluate.VALID_MODES), default="choice")
     classify_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     classify_parser.add_argument("--max-edge", type=int, default=1024)
     classify_parser.add_argument(
@@ -235,6 +280,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="rank",
         help="束ね質問(bundled)での複数選択軸の扱い。rank=相対スコアと閾値(既定)、yn=候補ごとのYes/No欄(E7e)",
     )
+    _add_dgemma_args(classify_parser)
     classify_parser.add_argument("--output")
     classify_parser.set_defaults(func=cmd_classify)
 
@@ -255,7 +301,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--modes",
         default="choice,json",
         type=_modes_type,
-        help="comma-separated choice/json/bundled/json_schema, no duplicates (default: choice,json). 3モード指定時はケースごとに実行順を回転する",
+        help="comma-separated choice/json/bundled/json_schema/dgemma_choice/dgemma_json, no duplicates (default: choice,json). 3モード指定時はケースごとに実行順を回転する",
     )
     evaluate_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     evaluate_parser.add_argument("--max-edge", type=int, default=1024)
@@ -311,6 +357,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="rank",
         help="束ね質問(bundled)での複数選択軸の扱い。rank=相対スコアと閾値(既定)、yn=候補ごとのYes/No欄(E7e)",
     )
+    _add_dgemma_args(evaluate_parser)
     evaluate_parser.set_defaults(func=cmd_evaluate)
 
     serve_parser = sub.add_parser(

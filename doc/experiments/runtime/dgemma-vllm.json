@@ -1,0 +1,28 @@
+{
+  "profile": "dgemma-vllm",
+  "experiments": [
+    "issue #4 (DiffusionGemma)"
+  ],
+  "model": {
+    "id": "dgemma",
+    "official": "google/diffusiongemma-26B-A4B-it",
+    "weights": {
+      "repo": "pixelkaiser/diffusiongemma-26B-A4B-it-AWQ-MLP-W4A16-G64-S32-L1024",
+      "revision": "a9557bd4714c",
+      "quantization": "4-bit AWQ (W4A16, group 64)"
+    }
+  },
+  "server": {
+    "type": "vLLM (専用の WSL2 ディストロ内)",
+    "api": "OpenAI-compatible /v1/chat/completions (:8000)",
+    "upstream": "https://github.com/vllm-project/vllm",
+    "commit": "ab5266769e702434a0968d47319d0731d8ccac35",
+    "structured_server": "examples/features/structured_diffusion/structured_server.py (同 commit。:8011、POST /v1/systemone。本リポジトリには含めない)"
+  },
+  "client": {
+    "max_edge": 1024,
+    "dgemma_json": "通常JSON(制約なし)。vLLM は拡散モデルへの json_schema を拒否するため。chat_template_kwargs.enable_thinking=false を付ける",
+    "dgemma_choice": "全軸を1リクエストで /v1/systemone に送る。単一選択=choice、複数選択=選択肢ごとの noul(P(yes)>=0.5 を採用)"
+  },
+  "notes": "両サーバーは WSL 内の 127.0.0.1 に bind し Windows から到達できないため、評価は WSL 内で実行した。vLLM の起動引数・GPU は実行者が追記すること。"
+}

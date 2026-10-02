@@ -230,7 +230,7 @@ CLI(手動確認用): `python -m classifier_demo systemone --base-url ... --mode
 .venv\Scripts\python.exe -m classifier_demo classify dataset\images\M01.png --model qwen3.5-9b --confirm --output results\demo.json
 ```
 
-- `--mode`: `choice`(1項目ずつ。既定)/ `bundled`(束ね質問)/ `json`(通常JSON)/ `json_schema`(JSONを制約付きデコードで生成。llama-server で測定)。
+- `--mode`: `choice`(1項目ずつ。既定)/ `bundled`(束ね質問)/ `json`(通常JSON)/ `json_schema`(JSONを制約付きデコードで生成。llama-server で測定)/ `dgemma_choice`・`dgemma_json`(DiffusionGemma、vLLM。[`doc/cli.md`](doc/cli.md) と [`doc/reproduce.md`](doc/reproduce.md))。
 - 複数回答可の項目(服装・キャラ)の採用: `--confirm` で上位候補ごとに yes/no を確認する。付けなければ相対スコアを閾値(`--rank-threshold`、既定0.5)で採用する。束ね質問では `--bundled-multi yn` で候補ごとの Y/N 欄にできる。
 - 出力: 画面に、項目ごとの採用タグ、エラー、判定時間、リクエスト数が出ます。`--output` を指定した先(省略時は画面)には、次を含む結果JSONが出ます。`vision_tags`(項目ごとの採用タグ)、`axis_decisions`(候補ごとの相対スコア・yes/no 確認・失敗の有無)、`metadata_evidence`(PNG の生成メタデータ)、`combined_evidence`、`timing_ms`、`request_count`、`errors`。
 - 全オプションは [`doc/cli.md`](doc/cli.md)。

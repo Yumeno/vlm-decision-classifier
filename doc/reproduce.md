@@ -176,6 +176,23 @@ LLAMACPP_DIR=<llama.cpp の置き場所> LMSC_DIR=<lmstudio-community のモデ�
 
 結果は `results/e10b/<モデル>/`。記録した結果は `doc/experiments/e10/dataset/`。記録した実行は、同じコマンドを個人パス直書きにした使い捨て版で回しました（コマンドの中身は同じ。`run.json` の `tool_commit` を参照）。
 
+### DiffusionGemma（issue #4。vLLM、WSL 内で実行）
+
+`google/diffusiongemma-26B-A4B-it` の 4bit AWQ 版（`pixelkaiser/diffusiongemma-26B-A4B-it-AWQ-MLP-W4A16-G64-S32-L1024`）を、専用の WSL2 ディストロの vLLM で `dgemma` として serve（`:8000`）し、その前段に vLLM の example「structured server」（`examples/features/structured_diffusion/structured_server.py`、`:8011`）を置きます。どちらも WSL 内の `127.0.0.1` に bind し Windows から到達できないため、**評価は WSL 内で実行**します（リポジトリは `/mnt/c/...` で参照可）。条件は [`experiments/runtime/dgemma-vllm.json`](experiments/runtime/dgemma-vllm.json)。サーバーの起動は利用者が行います。
+
+```bash
+# WSL 内(Python 3.12)。リポジトリのルートで
+python3.12 -m venv ~/dgemma-venv && ~/dgemma-venv/bin/pip install -e .
+# 単一ケースの確認(probe 相当)
+~/dgemma-venv/bin/python -m classifier_demo classify dataset/images/M01.png --mode dgemma_choice --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8011
+# (a) 標準(samples=auto)。dgemma_choice と dgemma_json を対応比較
+~/dgemma-venv/bin/python -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8011 --modes dgemma_choice,dgemma_json --warmup 0 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/dgemma-vllm.json --runtime-label dgemma-standard --note "DiffusionGemma standard (samples=auto)" --output-dir results/dgemma_standard
+# (b) samples=1(dgemma_choice のみ)
+~/dgemma-venv/bin/python -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8011 --dgemma-samples 1 --modes dgemma_choice --warmup 0 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/dgemma-vllm.json --runtime-label dgemma-samples1 --note "DiffusionGemma samples=1" --output-dir results/dgemma_samples1
+```
+
+方式の中身と記録は [`cli.md`](cli.md) の「DiffusionGemma のモード」。`--warmup 0` なので最初のケースはコールドスタートの時間を含みます（`cases.csv` で確認）。
+
 ## 実験の比較条件
 
 | 主比較 | 条件 | 測定値 |
