@@ -67,11 +67,11 @@
 
 ### DiffusionGemma のモード（`dgemma_choice` / `dgemma_json`、issue #4）
 
-vLLM で動かした DiffusionGemma（`--base-url` が vLLM 本体、`--dgemma-url` が example サーバー）用。どちらも**ケースごとに全軸を1リクエスト**で聞く。モード名に `dgemma_` を含むと、全リクエストに `chat_template_kwargs: {"enable_thinking": false}` を足す。
+vLLM で動かした DiffusionGemma（`--base-url` が vLLM 本体、`--dgemma-url` が example サーバー）用。どちらも**ケースごとに全軸を1リクエスト**で聞く。モード名に `dgemma_` を含むと、全リクエストに `chat_template_kwargs: {"enable_thinking": false}` を足し、`temperature` は送らない（vLLM が拡散モデルへの指定を拒否するため。`run.json` の `dgemma.dropped_params` に記録。JSONは temperature 0 でなくサーバー既定で動く）。
 
 | モード | 送り先 | 内容 |
 |---|---|---|
-| `dgemma_choice` | `--dgemma-url` の `POST /v1/systemone` | 単一選択軸は `choice` 質問（選択肢名=`name`、説明=`criteria`、`allow_none` の軸は `none of the above` を足す）。複数選択軸は選択肢ごとの `noul` 質問（`Is <name> (<criteria>) present in the image?`）で、P(yes) が 0.5 以上を採用（束ね質問の `yn` と同じ規則。`none` は聞かず、1つも無ければ空）。値は相対スコア / P(yes)。サーバーが返した `diagnostics.samples.n`・`timing.reads` をケース別JSONの `dgemma` に記録 |
+| `dgemma_choice` | `--dgemma-url` の `POST /v1/systemone` | 質問IDは `q0`, `q1`, … の連番（11問以上だとサーバーが「ID ラベル」を空白区切りで書き、長いIDではラベルが1トークンにならず 422 になるため）。単一選択軸は `choice` 質問（選択肢名=`name`、説明=`criteria`、`allow_none` の軸は `none of the above` を足す）。複数選択軸は選択肢ごとの `noul` 質問（`Is <name> (<criteria>) present in the image?`）で、P(yes) が 0.5 以上を採用（束ね質問の `yn` と同じ規則。`none` は聞かず、1つも無ければ空）。値は相対スコア / P(yes)。サーバーが返した `diagnostics.samples.n`・`timing.reads` をケース別JSONの `dgemma` に記録 |
 | `dgemma_json` | `--base-url` の `/chat/completions` | 通常JSON（`json` と同じ質問文・検証、制約なし）。vLLM は拡散モデルへの `json_schema` を拒否するので制約付きは使わない |
 
 - `--prime` を付けても `dgemma_choice` には準備を送らない（example サーバーが読み出しを自前で行うため）。`run.json` の `dgemma.prime_skipped_modes` に記録。`dgemma_json` には他のJSONと同じ準備を送る。

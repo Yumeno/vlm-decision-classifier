@@ -50,6 +50,13 @@ class DgemmaBackend(ChatBackend):
         )
         self.structured_url = structured_url.rstrip("/") if structured_url else None
         self.samples = samples
+        # vLLM は拡散モデルへの temperature 等を拒否(400)するため送らない。run.json に記録する。
+        self.dropped_params = ["temperature"]
+
+    def chat(self, messages: list, **params) -> tuple[dict, float]:
+        for k in self.dropped_params:
+            params.pop(k, None)
+        return super().chat(messages, **params)
 
     def systemone(self, body: dict) -> tuple[dict, float]:
         """/v1/systemone に POST する。HTTP エラーは本文付きの DecisionError にする。"""
@@ -72,10 +79,6 @@ class DgemmaBackend(ChatBackend):
         return out, (time.perf_counter_ns() - start) / 1_000_000
 
 
-def _multi_qid(axis: Axis, choice_id: str) -> str:
-    return f"{axis.id}.{choice_id}"  # サーバーの質問IDは ':' と改行が不可。軸idと選択肢idは識別子なので問題ない
-
-
 def build_request(
     taxonomy: Taxonomy, image_bytes: bytes, mime: str, model: str, samples: str | int = "auto"
 ) -> tuple[dict, dict]:
@@ -83,11 +86,17 @@ def build_request(
     {"qids"}(複数)。"""
     questions: dict[str, dict] = {}
     plan: dict[str, dict] = {}
+
+    def new_qid() -> str:
+        # 質問が11以上だとサーバーは "id label" を空白区切りで書き、"outfit.swimsuit" のような
+        # 長いIDではラベルが1トークンに分かれない(422)ため、短い q<連番> を送り plan で軸・選択肢idへ戻す。
+        return f"q{len(questions)}"
+
     for axis in taxonomy.axes:
         if axis.multi:
             qids = {}
             for c in axis.choices:
-                qid = _multi_qid(axis, c.id)
+                qid = new_qid()
                 qids[c.id] = qid
                 questions[qid] = {
                     "type": "noul",
@@ -105,8 +114,9 @@ def build_request(
                     raise DecisionError("request_error", f"axis {axis.id}: duplicate option name {name!r}")
                 criteria[name] = desc
                 names[name] = cid
-            questions[axis.id] = {"type": "choice", "instructions": axis.question, "criteria": criteria}
-            plan[axis.id] = {"qid": axis.id, "names": names}
+            qid = new_qid()
+            questions[qid] = {"type": "choice", "instructions": axis.question, "criteria": criteria}
+            plan[axis.id] = {"qid": qid, "names": names}
     body = {
         "model": model,
         "state": STATE_TEXT,

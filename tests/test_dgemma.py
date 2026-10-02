@@ -45,14 +45,14 @@ class FakeDgemmaBackend(FakeBackend):
 
 def _ok_response(**override) -> dict:
     answers = {
-        "style": {"type": "choice", "choice": "anime style", "probabilities": {"anime style": 0.8, "other": 0.2}, "confidence": 0.9},
-        "subj": {
+        "q0": {"type": "choice", "choice": "anime style", "probabilities": {"anime style": 0.8, "other": 0.2}, "confidence": 0.9},
+        "q1": {
             "type": "choice", "choice": "none of the above", "confidence": 0.5,
             "probabilities": {"person": 0.1, "object": 0.2, "none of the above": 0.7},
         },
-        "outfit.maid": {"type": "noul", "noul": 0.9},
-        "outfit.swim": {"type": "noul", "noul": 0.5},
-        "outfit.rest": {"type": "noul", "noul": 0.49},
+        "q2": {"type": "noul", "noul": 0.9},
+        "q3": {"type": "noul", "noul": 0.5},
+        "q4": {"type": "noul", "noul": 0.49},
     }
     answers.update(override)
     return {
@@ -64,15 +64,16 @@ def _ok_response(**override) -> dict:
 def test_build_request_maps_axes_to_choice_and_noul_questions():
     body, plan = dgemma.build_request(_tax(), b"img", "image/jpeg", "dgemma", 1)
     qs = body["questions"]
-    assert list(qs) == ["style", "subj", "outfit.maid", "outfit.swim", "outfit.rest"]
-    assert qs["style"] == {
+    assert list(qs) == ["q0", "q1", "q2", "q3", "q4"]  # 短い連番ID。軸・選択肢idへは plan で戻す
+    assert qs["q0"] == {
         "type": "choice", "instructions": "What style?", "criteria": {"anime style": "cel", "other": "rest"},
     }
-    assert list(qs["subj"]["criteria"]) == ["person", "object", dgemma.NONE_NAME]  # allow_none は選択肢に足す
-    assert qs["subj"]["criteria"][dgemma.NONE_NAME] == "nothing"
-    assert qs["outfit.maid"] == {"type": "noul", "instructions": "Is maid outfit (apron) present in the image?"}
+    assert list(qs["q1"]["criteria"]) == ["person", "object", dgemma.NONE_NAME]  # allow_none は選択肢に足す
+    assert qs["q1"]["criteria"][dgemma.NONE_NAME] == "nothing"
+    assert qs["q2"] == {"type": "noul", "instructions": "Is maid outfit (apron) present in the image?"}
     assert body["samples"] == 1 and body["model"] == "dgemma"
     assert body["images"][0].startswith("data:image/jpeg;base64,")
+    assert plan["outfit"]["qids"] == {"maid": "q2", "swim": "q3", "rest": "q4"}
     assert plan["subj"]["names"][dgemma.NONE_NAME] == decision.NONE_ID
     # 正解(メタデータ・LoRA名など)をモデルに渡す欄が無い
     assert set(body) == {"model", "state", "questions", "images", "samples"}
@@ -104,8 +105,8 @@ def test_parse_response_maps_back_to_choice_ids_and_thresholds_multi():
 def test_parse_response_marks_only_the_broken_axis_as_failed():
     tax = _tax()
     _, plan = dgemma.build_request(tax, b"i", "image/jpeg", "dgemma")
-    resp = _ok_response(**{"outfit.swim": None})
-    del resp["answers"]["style"]
+    resp = _ok_response(q3=None)
+    del resp["answers"]["q0"]
     res = dgemma.parse_response(tax, plan, resp)
     assert res["style"]["error"]["type"] == "dgemma_format_error"
     assert res["outfit"]["error"]["type"] == "dgemma_format_error"
@@ -116,7 +117,7 @@ def test_parse_response_rejects_unknown_choice():
     tax = _tax()
     _, plan = dgemma.build_request(tax, b"i", "image/jpeg", "dgemma")
     bad = {"type": "choice", "choice": "zzz", "probabilities": {"anime style": 0.5, "other": 0.5}}
-    res = dgemma.parse_response(tax, plan, _ok_response(style=bad))
+    res = dgemma.parse_response(tax, plan, _ok_response(q0=bad))
     assert "error" in res["style"]
 
 
@@ -165,6 +166,21 @@ def test_dgemma_modes_are_valid_and_backend_adds_thinking_off():
     b = dgemma.DgemmaBackend(base_url="http://x/v1", model="dgemma", structured_url="http://y:8011/")
     assert b.extra_body == {"chat_template_kwargs": {"enable_thinking": False}}
     assert b.structured_url == "http://y:8011"
+
+
+def test_backend_chat_drops_temperature_but_keeps_max_tokens(monkeypatch):
+    sent = {}
+
+    def fake_post(self, path, payload):
+        sent.update(payload)
+        return {}
+
+    monkeypatch.setattr(dgemma.ChatBackend, "_post", fake_post)
+    b = dgemma.DgemmaBackend(base_url="http://x/v1", model="dgemma")
+    b.chat([], temperature=0, max_tokens=256)
+    assert "temperature" not in sent and sent["max_tokens"] == 256
+    assert sent["chat_template_kwargs"] == {"enable_thinking": False}
+    assert b.dropped_params == ["temperature"]
 
 
 def test_systemone_without_url_is_a_decision_error():

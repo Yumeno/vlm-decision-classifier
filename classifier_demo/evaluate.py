@@ -476,6 +476,7 @@ def run_evaluate(
                 "structured_url": backend.structured_url,
                 "samples": backend.samples,
                 "extra_body": backend.extra_body,
+                "dropped_params": backend.dropped_params,
                 "prime_skipped_modes": ["dgemma_choice"] if prime and "dgemma_choice" in modes else [],
             }
             if hasattr(backend, "structured_url")
