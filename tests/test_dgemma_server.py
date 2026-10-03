@@ -391,3 +391,22 @@ def test_engine_upstream_failure_for_all_reads_is_502_and_partial_failure_is_per
     out = eng2.handle(_body(max_per_read=2))  # read 0 は成功、read 1 は失敗
     assert set(out["answers"]) == {"style", "outfit_maid"}
     assert out["errors"]["outfit_swim"]["type"] == "upstream_error"
+
+
+def test_malformed_upstream_shapes_degrade_to_per_sample_failures():
+    assert ds.read_slot([{"top_logprobs": ["x", None, 3]}] * 5, SLOT, ["A", "B"], 0.5)[2] == "missing_label_logprob"
+    assert ds.read_slot(["notadict"] * 5, SLOT, ["A", "B"], 0.5)[2] == "missing_label_logprob"
+    eng, fake = _engine(DIST)
+    eng.chat_fn = lambda payload: {"choices": [{"logprobs": {"content": 5}}], "usage": "bad"}
+    with pytest.raises(ds.UpstreamError):  # 全読み出しが失敗なら 502 相当
+        eng.handle(_body())
+    eng.chat_fn = lambda payload: (_ for _ in ()).throw(KeyError("zzz"))  # 想定外の例外もクラッシュしない
+    with pytest.raises(ds.UpstreamError) as e:
+        eng.handle(_body())
+    assert "KeyError" in str(e.value)
+
+
+def test_non_string_template_is_400():
+    with pytest.raises(ds.RequestError) as e:
+        ds.parse_request(_body(template=["keyed"]))
+    assert e.value.status == 400

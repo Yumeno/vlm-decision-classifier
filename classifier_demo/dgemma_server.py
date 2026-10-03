@@ -171,7 +171,7 @@ def parse_request(body) -> Request:
     ):
         raise RequestError(400, f"'images' must be 1..{MAX_IMAGES} data:image/ URLs")
     template = body.get("template", "keyed")
-    if template not in TEMPLATES:
+    if not isinstance(template, str) or template not in TEMPLATES:
         raise RequestError(400, f"'template' must be one of {TEMPLATES}")
     mpr = body.get("max_per_read")
     if mpr is not None:
@@ -303,7 +303,11 @@ def read_slot(content: list, slot: Slot, labels: list[str], min_mass: float):
     if slot.pos >= len(content):
         return None, None, "short_content"
     seen: dict[int, float] = {}
-    for entry in content[slot.pos].get("top_logprobs") or []:
+    slot_entry = content[slot.pos]
+    tops = slot_entry.get("top_logprobs") if isinstance(slot_entry, dict) else None
+    for entry in tops if isinstance(tops, list) else []:
+        if not isinstance(entry, dict):
+            continue
         tid = parse_token_id(entry.get("token"))
         if tid is not None and isinstance(entry.get("logprob"), (int, float)):
             seen[tid] = float(entry["logprob"])
@@ -439,9 +443,20 @@ class Engine:
 
         def run(task):
             try:
-                results[task] = self.run_one(req, plans[task[0]], *task)
+                res = self.run_one(req, plans[task[0]], *task)
+                resp = res["resp"]
+                if not isinstance(resp, dict):
+                    raise UpstreamError(f"upstream response is not an object: {type(resp).__name__}")
+                u = resp.get("usage")
+                if u is not None and not (
+                    isinstance(u, dict) and all(isinstance(u.get(n) or 0, (int, float)) for n in ("prompt_tokens", "completion_tokens", "total_tokens"))
+                ):
+                    raise UpstreamError("upstream 'usage' has an unexpected shape")
+                results[task] = res
             except UpstreamError as e:
                 results[task] = e
+            except Exception as e:  # 想定外の形・例外も、そのサンプルの失敗として残す(ハンドラを落とさない)
+                results[task] = UpstreamError(f"unexpected {type(e).__name__}: {e}")
 
         run(tasks[0])  # 先頭の1回で画像プレフィックスをキャッシュに載せてから残りを並列に
         if len(tasks) > 1:
@@ -588,6 +603,8 @@ def make_handler(engine: Engine):
                 self._send(e.status, {"error": e.message})
             except UpstreamError as e:
                 self._send(502, {"error": str(e)[:1000]})
+            except Exception as e:  # 想定外でも必ず JSON のエラーを返す
+                self._send(500, {"error": f"internal error: {type(e).__name__}: {e}"[:1000]})
 
         def log_message(self, fmt, *args) -> None:  # 標準エラーへ1行(既定の形式)
             super().log_message(fmt, *args)
