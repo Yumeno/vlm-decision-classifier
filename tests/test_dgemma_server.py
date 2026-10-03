@@ -479,3 +479,21 @@ def test_engine_counts_aliases_requests_their_ids_and_records_them():
     assert out["diagnostics"]["alias_ids"]["style"]["anime"] == slots["style"].alias_ids("A")
     assert out["diagnostics"]["alias_ids"]["outfit_maid"]["yes"] == slots["outfit_maid"].alias_ids("yes")
     assert out["diagnostics"]["alias_conflicts"] == {}
+
+
+def test_instruction_variants_change_only_prompt_text():
+    expected_default = (
+        "style: What style?\n  A: anime (cel)\n  B: photo (real)\n  C: other\n"
+        "outfit_maid: Maid?\n  yes / no\noutfit_swim: Swim?\n  yes / no"
+    )
+    eng, fake = _engine(DIST)
+    eng.handle(_body())
+    eng.handle(_body(instruction="strict"))
+    d, s = fake.payloads
+    assert d["messages"][0]["content"] == ds.SYSTEM_PROMPT and d["messages"][1]["content"][2]["text"] == expected_default
+    assert s["messages"][0]["content"] == ds.STRICT_SYSTEM_PROMPT != ds.SYSTEM_PROMPT
+    text = s["messages"][1]["content"][2]["text"]
+    assert "  Answer with one letter: A, B or C" in text and text.count("  Answer with yes or no") == 2
+    assert s["vllm_xargs"]["diffusion_canvas_length"] == d["vllm_xargs"]["diffusion_canvas_length"]  # テンプレートは不変
+    with pytest.raises(ds.RequestError):
+        ds.parse_request(_body(instruction="loud"))

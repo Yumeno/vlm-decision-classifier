@@ -477,6 +477,7 @@ def run_evaluate(
                 "samples": backend.samples,
                 "seed": backend.seed,
                 "template": backend.template,
+                "instruction": backend.instruction,
                 "max_per_read": backend.max_per_read,
                 "max_soft_tokens": backend.max_soft_tokens,
                 "extra_body": backend.extra_body,

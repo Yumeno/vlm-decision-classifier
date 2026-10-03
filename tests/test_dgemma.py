@@ -36,6 +36,7 @@ class FakeDgemmaBackend(FakeBackend):
     template = "keyed"
     max_per_read = 0
     max_soft_tokens = None
+    instruction = "default"
     extra_body: dict = {}
 
     def systemone(self, body):
@@ -233,3 +234,10 @@ def test_systemone_without_url_is_a_decision_error():
         assert e.error_type == "request_error"
     else:
         raise AssertionError("expected DecisionError")
+
+
+def test_build_request_sends_instruction_only_when_not_default():
+    body, _ = dgemma.build_request(_tax(), b"i", "image/jpeg", "dgemma", instruction="strict")
+    assert body["instruction"] == "strict"
+    body2, _ = dgemma.build_request(_tax(), b"i", "image/jpeg", "dgemma")
+    assert "instruction" not in body2

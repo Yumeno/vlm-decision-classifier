@@ -48,6 +48,7 @@ class DgemmaBackend(ChatBackend):
         template: str = "keyed",
         max_per_read: int = 0,
         max_soft_tokens: int | None = None,
+        instruction: str = "default",
         timeout: float = 300.0,
     ) -> None:
         super().__init__(
@@ -60,6 +61,7 @@ class DgemmaBackend(ChatBackend):
         self.samples = samples
         self.seed = seed
         self.template = template
+        self.instruction = instruction
         self.max_per_read = max_per_read
         self.max_soft_tokens = max_soft_tokens
         # vLLM は拡散モデルへの temperature 等を拒否(400)するため送らない。run.json に記録する。
@@ -107,6 +109,7 @@ def build_request(
     template: str = "keyed",
     max_per_read: int = 0,
     max_soft_tokens: int | None = None,
+    instruction: str = "default",
 ) -> tuple[dict, dict]:
     """(リクエスト本体, 返答を読むための対応表)を返す。対応表は軸id -> {"qid", "names"}(単一)か
     {"qids"}(複数)。"""
@@ -151,6 +154,8 @@ def build_request(
         "template": template,
         "max_per_read": max_per_read,
     }
+    if instruction != "default":
+        body["instruction"] = instruction
     if max_soft_tokens is not None:
         body["mm_processor_kwargs"] = {"max_soft_tokens": max_soft_tokens}
     return body, plan
@@ -222,7 +227,7 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
     """1リクエストで全軸を判定する。通信・HTTP失敗は例外(呼び出し側 pipeline が全軸の失敗として記録)。"""
     body, plan = build_request(
         taxonomy, image_bytes, mime, backend.model, backend.samples, backend.seed,
-        backend.template, backend.max_per_read, backend.max_soft_tokens,
+        backend.template, backend.max_per_read, backend.max_soft_tokens, backend.instruction,
     )
     response, elapsed_ms = backend.systemone(body)
     results = parse_response(taxonomy, plan, response)
@@ -236,6 +241,7 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
             "seed": backend.seed,
             "samples": backend.samples,
             "template": backend.template,
+            "instruction": backend.instruction,
             "max_per_read": backend.max_per_read,
             "max_soft_tokens": backend.max_soft_tokens,
             "reads_n": len(reads),

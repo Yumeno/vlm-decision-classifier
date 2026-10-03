@@ -47,6 +47,14 @@ SYSTEM_PROMPT = (
     "using only a label that question allows. Never write prose or anything else."
 )
 TEMPLATES = ("keyed", "numbered")
+INSTRUCTIONS = ("default", "strict")
+STRICT_SYSTEM_PROMPT = (
+    "You label an image by answering questions. Each question below has a key and a list of allowed labels, "
+    "and every option is written as '<label>: <description>'. Your answer for a question must be exactly one label: "
+    "a single capital letter for a multiple-choice question, or yes or no for a yes/no question. "
+    "Never write the option's name, a description or any other word. "
+    "Reply with exactly one line per question, in the order given, in the form '<key>: <label>'. Nothing else."
+)
 
 
 class RequestError(Exception):
@@ -96,6 +104,7 @@ class Request:
     template: str
     max_per_read: int | None
     mm_processor_kwargs: dict | None
+    instruction: str = "default"
 
 
 @dataclass
@@ -181,6 +190,9 @@ def parse_request(body) -> Request:
     template = body.get("template", "keyed")
     if not isinstance(template, str) or template not in TEMPLATES:
         raise RequestError(400, f"'template' must be one of {TEMPLATES}")
+    instruction = body.get("instruction", "default")
+    if not isinstance(instruction, str) or instruction not in INSTRUCTIONS:
+        raise RequestError(400, f"'instruction' must be one of {INSTRUCTIONS}")
     mpr = body.get("max_per_read")
     if mpr is not None:
         mpr = _int_field(body, "max_per_read", 0, 0)
@@ -198,6 +210,7 @@ def parse_request(body) -> Request:
         template=template,
         max_per_read=mpr,
         mm_processor_kwargs=mm,
+        instruction=instruction,
     )
 
 
@@ -395,15 +408,20 @@ def aggregate_question(q: Question, samples: list[tuple]) -> tuple[dict | None, 
 # ---------------------------------------------------------------- プロンプト
 
 
-def question_block(keys: list[str], questions: list[Question]) -> str:
+def question_block(keys: list[str], questions: list[Question], instruction: str = "default") -> str:
     lines = []
     for key, q in zip(keys, questions):
         lines.append(f"{key}: {q.instructions}")
         if q.kind == "choice":
             for lab, (name, desc) in zip(q.labels, q.options):
                 lines.append(f"  {lab}: {name} ({desc})" if desc else f"  {lab}: {name}")
+            if instruction == "strict":
+                letters = q.labels
+                lines.append(f"  Answer with one letter: {', '.join(letters[:-1])} or {letters[-1]}")
         else:
             lines.append("  yes / no")
+            if instruction == "strict":
+                lines.append("  Answer with yes or no")
     return "\n".join(lines)
 
 
@@ -417,7 +435,8 @@ def build_messages(req: Request, block: str) -> list[dict]:
     content = [{"type": "image_url", "image_url": {"url": u}} for u in req.images]
     content.append({"type": "text", "text": req.state})
     content.append({"type": "text", "text": block})
-    return [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": content}]
+    system = STRICT_SYSTEM_PROMPT if req.instruction == "strict" else SYSTEM_PROMPT
+    return [{"role": "system", "content": system}, {"role": "user", "content": content}]
 
 
 # ---------------------------------------------------------------- エンジン本体
@@ -450,7 +469,7 @@ class Engine:
             ids = sorted({i for s in template.slots for i in s.all_ids()})
             if len(ids) > MAX_LOGPROB_TOKEN_IDS:
                 raise RequestError(422, f"too many distinct label token ids ({len(ids)} > {MAX_LOGPROB_TOKEN_IDS})")
-            plans.append(ReadPlan(group, template, width, ids, question_block(keys, group)))
+            plans.append(ReadPlan(group, template, width, ids, question_block(keys, group, req.instruction)))
         return plans
 
     def run_one(self, req: Request, plan: ReadPlan, read_idx: int, k: int) -> dict:

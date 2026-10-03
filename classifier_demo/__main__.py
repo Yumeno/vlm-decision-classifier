@@ -107,6 +107,10 @@ def _add_dgemma_args(p: argparse.ArgumentParser) -> None:
         help="回答テンプレート。keyed=`<質問id>: <ラベル>`(既定)、numbered=`Q<n>: <ラベル>`",
     )
     p.add_argument(
+        "--dgemma-instruction", choices=["default", "strict"], default="default",
+        help="プロンプト文面。strict=ラベル(記号・yes/no)だけで答えるよう強く指示(テンプレートは同じ)。default 以外のときだけ送る",
+    )
+    p.add_argument(
         "--dgemma-max-per-read", type=_int_min(0), default=0,
         help="1回の読み出しに入れる質問数の上限(診断用。0=全質問を1回で)",
     )
@@ -130,6 +134,7 @@ def _make_backend(args: argparse.Namespace, modes: list[str]) -> ChatBackend | N
             samples=args.dgemma_samples,
             seed=args.dgemma_seed,
             template=args.dgemma_template,
+            instruction=args.dgemma_instruction,
             max_per_read=args.dgemma_max_per_read,
             max_soft_tokens=args.dgemma_max_soft_tokens,
         )
