@@ -341,3 +341,30 @@ def test_catchall_style_list_joining_and_edge_cases():
     assert body["questions"]["ax_a"]["instructions"] == "Is aa (1) present in the image?"
     plain = [Choice(id="a", name="aa", criteria="1"), Choice(id="z", name="bb", criteria="2")]
     assert dgemma.build_request(axis(plain), b"i", "image/jpeg", "m", catchall_style="list")[0] == dgemma.build_request(axis(plain), b"i", "image/jpeg", "m")[0]
+
+
+def test_catchall_style_criteria_replaces_none_of_the_above():
+    import pathlib
+
+    from classifier_demo.taxonomy import load
+
+    tax = load(str(pathlib.Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml"))
+    default, _ = dgemma.build_request(tax, b"i", "image/jpeg", "m")
+    crit, _ = dgemma.build_request(tax, b"i", "image/jpeg", "m", catchall_style="criteria")
+    qs = crit["questions"]
+    assert {k for k in default["questions"] if default["questions"][k] != qs[k]} == {"outfit_other", "character_other_original"}
+    assert qs["outfit_other"]["instructions"] == (
+        "Does the image show clothing whose type is recognizable but fits none of these: sailor school uniform, "
+        "school uniform, office wear, swimsuit, maid outfit, shrine maiden outfit and nun's habit?"
+    )
+    assert qs["character_other_original"]["instructions"] == (
+        "Does the image show any person or humanoid character who is neither Alisa nor the second original character?"
+    )  # none of the above が無ければ criteria のまま
+    assert qs["character_other_original"]["subject"] == "any person or humanoid character who is neither Alisa nor the second original character"
+    assert qs["outfit_other"]["subject"].startswith("clothing whose type is recognizable but fits none of these: sailor")
+    assert "Apart from" not in str(qs)
+    assert dgemma.build_request(tax, b"i", "image/jpeg", "m", catchall_style="default")[0] == default
+    ax = Axis(id="ax", question="q", multi=True, allow_none=False, choices=[
+        Choice(id="a", name="aa", criteria="1"), Choice(id="z", name="Rest", criteria="Anything None Of The Above here", catch_all=True)])
+    body, _ = dgemma.build_request(Taxonomy(version="t", axes=[ax], sha256="s"), b"i", "image/jpeg", "m", catchall_style="criteria")
+    assert body["questions"]["ax_z"]["instructions"] == "Does the image show Anything none of these: aa here?"  # 大小無視で置換

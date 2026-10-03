@@ -115,8 +115,8 @@ def _add_dgemma_args(p: argparse.ArgumentParser) -> None:
         help="複数選択の yes/no 質問の描き方。slash=`yes / no`(既定)、lines=`yes: present...`/`no: not present...`、letters=A/B、yn=`Y: yes`/`N: no`(質問文はそのまま)。slash 以外のときだけ送る",
     )
     p.add_argument(
-        "--dgemma-catchall-style", choices=["default", "list"], default="default",
-        help="「その他」系(catch_all)の選択肢の質問文。list=同じ軸の他の選択肢を挙げて「それらを除いて他にあるか」と聞く(クライアント側。taxonomy は変えない)",
+        "--dgemma-catchall-style", choices=["default", "list", "criteria"], default="default",
+        help="「その他」系(catch_all)の選択肢の質問文。list=同じ軸の他の選択肢を挙げて「それらを除いて他にあるか」、criteria=criteria の none of the above を他の選択肢の列挙に置き換えて「写っているか」(クライアント側。taxonomy は変えない)",
     )
     p.add_argument(
         "--dgemma-steps", type=_int_min(1), default=1,

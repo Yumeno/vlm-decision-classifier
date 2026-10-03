@@ -160,7 +160,12 @@ def build_request(
                 subject = c.name if same else f"{c.name} ({c.criteria})"
                 instructions = f"Is {c.name} ({c.criteria}) present in the image?"
                 others = [o.name for o in axis.choices if o is not c and not o.catch_all]
-                if catchall_style == "list" and c.catch_all and others:
+                if catchall_style == "criteria" and c.catch_all and others:
+                    # criteria 中の "none of the above" を、同じ軸の他の選択肢の列挙に置き換えて「写っているか」と聞く
+                    crit = re.sub("none of the above", f"none of these: {_join_names(others)}", c.criteria, flags=re.IGNORECASE)
+                    instructions = f"Does the image show {crit}?"
+                    subject = crit
+                elif catchall_style == "list" and c.catch_all and others:
                     # 「その他」系の選択肢だけ、同じ軸の他の選択肢を除くと明示する(taxonomy の中身は変えない)
                     listed = _join_names(others)
                     instructions = f"Apart from {listed}, is there at least one {subject} in the image?"
