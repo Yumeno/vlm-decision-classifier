@@ -147,3 +147,65 @@ sharpness(答えた質問の正規化エントロピー): steps 1 は平均 0.03
 - GPU 計算の非決定性により、同条件の再測でも失敗数や完全一致がずれる。
 - リクエスト単位の `mm_processor_kwargs` は vLLM が既定で拒否するため、画像トークンは起動時の指定のみで比べた。
 - 0.94 が遅くなった理由は推測。並列・キャッシュの測定は、各条件1回。
+
+## 6. 「その他」の質問文(`--dgemma-catchall-style`)
+
+出典: issue #12 のコメント(2026-10-03「seed による失敗の原因調べ」「「その他」の質問文の言い換え」「その2」。オーケストレータの測定)。分類体系の中身は変えず、`catch_all` の選択肢の質問文の組み立て方だけを変えた。生の記録は [`catchall/`](catchall/)(`<書き方>_s<seed>/`)。**`list` の実行は、のちに削除したコード(ブランチ上の `ce91e13`)で行った**(結果だけを失敗した試みとして残す。現在の CLI には `default` と `criteria` だけがある)。
+
+### 6.1 seed による失敗の原因調べ
+
+- 失敗(`label_mass_low`)は、ほぼすべて「その他」の質問で起きていた。`dgemma_mst280_seed1` は9件中 `outfit_other` 8件・`character_other_original` 1件、`dgemma_own_seed1` は8件中7件・1件、`dgemma_own_seed2` は5件すべて `outfit_other`、`dgemma_steps_1` は2件とも `outfit_other`。
+- 特殊トークンの混入は否定的(tokenizer の added tokens は24個で、どの答えの位置にも入っていなかった)。
+- `outfit_other` の位置では、` own`、`-`、意味の通らないトークンに確率が流れる(`N`/`Y` 以外を書こうとしている)。
+- まったく同じキャンバスでも、読むたびにラベル質量が大きく揺れる(例: S04(JPEG 画質 96)は 0.571 / 0.536 / 0.734 / 0.364、C01(画質 90)は 0.097 → 0.697)。キャッシュの有無だけでは説明できない。
+- 暫定の結論: 失敗の主因は seed のノイズそのものではなく、**「その他」の質問はもともとラベル以外に確率が流れやすく、それがエンジン側の計算の非決定性で 0.5 の境目をまたぐ**こと。非決定性の出どころ(非同期スケジューリング、CUDA graph、バッチの組み方など)は未調査。
+
+### 6.2 言い換えた質問文
+
+- `list`: 服装 `Apart from sailor school uniform, school uniform, office wear, swimsuit, maid outfit, shrine maiden outfit and nun's habit, is there at least one other clothing (clothing whose type is recognizable but fits none of the above) in the image?`、キャラ `Apart from Alisa and Second original character, is there at least one other character (any person or humanoid character who is neither Alisa nor the second original character) in the image?`
+- `criteria`: 服装 `Does the image show clothing whose type is recognizable but fits none of these: sailor school uniform, school uniform, office wear, swimsuit, maid outfit, shrine maiden outfit and nun's habit?`、キャラ `Does the image show any person or humanoid character who is neither Alisa nor the second original character?`
+
+条件: 本番設定(keyed / `Y: yes`・`N: no` / default 指示 / 名寄せ / 16問1回 / 1ステップ / samples 1、読み増しなし)。画像トークン 140、0.88。条件ごとに vLLM を起動し直した(キャッシュは空)。元画像31件、各条件1回の測定。
+
+### 6.3 結果
+
+| 条件 | 単一5軸(/155) | キャラ完全一致 | 服装完全一致 | キャラ TP/FP/FN | 服装 TP/FP/FN | 失敗した質問 | 時間 mean ms |
+|---|---|---|---|---|---|---|---|
+| default seed0 | 143 | 27/31 | 21/31 | 24/1/3 | 25/13/0 | outfit_other | 452 |
+| list seed0 | 143 | 24/31 | 20/31 | 21/1/6 | 26/14/0 | なし | 459 |
+| **criteria seed0** | 143 | **29/31** | 22/31 | 26/1/0 | 25/9/1 | character_second_original | 453 |
+| default seed1 | 143 | 27/31 | 20/31 | 24/1/3 | 25/11/0 | outfit_other | 464 |
+| list seed1 | 143 | 23/31 | 21/31 | 20/1/7 | 26/13/0 | なし | 456 |
+| **criteria seed1** | 143 | **30/31** | 20/31 | 27/1/0 | 25/11/1 | なし | 475 |
+
+「その他」2問のラベル質量(名寄せ込み、seed 0 で31枚を自前サーバーに投げて別途集計。default と list は list の初回測定とは別の再測):
+
+| 書き方 | 質問 | 中央値 | 最小 | 0.5未満 | 0.8未満 |
+|---|---|---|---|---|---|
+| default | outfit_other | 0.950 | 0.423 | 2 | 8 |
+| default | character_other_original | 0.980 | 0.782 | 0 | 1 |
+| list | outfit_other | 0.993 | 0.942 | 0 | 0 |
+| list | character_other_original | 0.993 | 0.788 | 0 | 1 |
+| criteria | outfit_other | 0.995 | 0.868 | 0 | 0 |
+| criteria | character_other_original | 0.986 | 0.862 | 0 | 0 |
+
+(list の初回測定では、default は outfit_other が中央値 0.912・最小 0.272・0.5未満 3・0.8未満 6、character_other_original が 0.981・0.732・0・2、list は outfit_other が 0.994・0.945・0・0、character_other_original が 0.990・0.819・0・0。)
+
+キャラの見落とし(FN)の中身(`list` と `default`):
+- default seed0: O02(P(yes)=0.001)、O03(0.18)、O05(0.164)
+- list seed0: G05(0.297)、O02・O03・O04・O05・O07(いずれも 0.0)
+- list seed1: G05(0.011)、M02(0.051)、O02・O03・O04・O05・O07(いずれも 0.0)
+
+`criteria` の間違いの中身:
+- seed0 の見落とし: M03 の服装 other、O01 の other_original。余計に付けたもの: school_uniform 7件(A01〜A04、N01〜N03。亜里紗の服)、A02 の other_original、M01 と N01 の服装 other。
+- seed1 の見落とし: M03 の服装 other。余計に付けたもの: school_uniform 8件(上と同じ7件と M02)、A02 の other_original、M01・N01・O03 の服装 other。
+
+- `list` は、ラベル質量を大きく上げ(outfit_other の最小 0.272 → 0.945)失敗を 0 にしたが、**キャラが悪くなった(27 → 23〜24)**。「その他のキャラ」が1人だけ写っている O 系の画像(O02〜O07)で、自信を持って N(P(yes)=0.0)と答えるようになった。`Apart from Alisa and Second original character, ...` が「アリサと2人目がいる」ことを前提にしたと読まれている可能性がある(推測)。
+- `criteria` は、キャラの見落としが 0 になり、キャラ完全一致が 27 → 29〜30/31 と、これまでで一番高い。「その他」2問のラベル質量も高いまま(0.5 未満が 0 件)。服装は default と同程度(20〜22/31)で、残る誤りの大半は亜里紗の服を school_uniform と判定するもの。失敗は、criteria seed0 で別の質問(character_second_original)に1件だけ出た。
+
+### 6.4 結論
+
+- **推奨は `--dgemma-catchall-style criteria`**(既定は従来の `default` のまま)。
+- `list` の「Apart from」は、他の選択肢の存在を前提にする書き方が害になった。失敗した試みとして結果だけを残し、コードは削除した。
+- 各条件1回(seed 2つ)の測定で、31枚での差は数件。強い結論は書かない。
+

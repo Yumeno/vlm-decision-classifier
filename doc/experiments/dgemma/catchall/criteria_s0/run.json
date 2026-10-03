@@ -1,0 +1,135 @@
+{
+  "started": "2026-10-03T09:07:43.135691+00:00",
+  "finished": "2026-10-03T09:08:01.914059+00:00",
+  "tool_commit": {
+    "commit": "7cd2731b19de2404c37ecd75193f14c6fe2e595b",
+    "dirty": false
+  },
+  "manifest": {
+    "path": "dataset/manifest.jsonl",
+    "sha256": "941faf84f0c1e3f027748766b6ce2ec4181cc8749b0c1ad70ec8113b528baab0"
+  },
+  "taxonomy": {
+    "version": "0.4.1",
+    "sha256": "6f7038cbd525af1552af1c95158090ebc38a1cd1303191af8cff8c7fdfb7564f"
+  },
+  "dataset_version": "v1.0.0",
+  "model": "dgemma",
+  "base_url": "http://127.0.0.1:8000/v1",
+  "dgemma": {
+    "structured_url": "http://127.0.0.1:8012",
+    "samples": 1,
+    "seed": 0,
+    "template": "keyed",
+    "instruction": "default",
+    "yn_style": "yn",
+    "order": "taxonomy",
+    "steps": 1,
+    "catchall_style": "criteria",
+    "adaptive_threshold": null,
+    "adaptive_max": null,
+    "max_per_read": 0,
+    "max_soft_tokens": null,
+    "extra_body": {
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      }
+    },
+    "dropped_params": [
+      "temperature"
+    ],
+    "prime_skipped_modes": []
+  },
+  "modes": [
+    "dgemma_choice"
+  ],
+  "max_edge": 1024,
+  "image_format": "jpeg",
+  "jpeg_quality": 90,
+  "warmup": {
+    "count": 0,
+    "case_id": null,
+    "axis_id": null,
+    "elapsed_ms": [],
+    "errors": 0
+  },
+  "prime": false,
+  "prime_scope": null,
+  "prime_parallel": null,
+  "axis_concurrency": 1,
+  "confirm": false,
+  "rank_threshold": 0.5,
+  "bundled_multi": "rank",
+  "runtime_label": "dgemma_catchall_criteria_s0",
+  "runtime_info": {
+    "profile": "dgemma-vllm",
+    "experiments": [
+      "issue #4 (DiffusionGemma)"
+    ],
+    "model": {
+      "id": "dgemma",
+      "official": "google/diffusiongemma-26B-A4B-it",
+      "weights": {
+        "repo": "pixelkaiser/diffusiongemma-26B-A4B-it-AWQ-MLP-W4A16-G64-S32-L1024",
+        "revision": "a9557bd4714c",
+        "quantization": "4-bit AWQ (W4A16, group 64)"
+      }
+    },
+    "server": {
+      "type": "vLLM (専用の WSL2 ディストロ内)",
+      "api": "OpenAI-compatible /v1/chat/completions (:8000)",
+      "upstream": "https://github.com/vllm-project/vllm",
+      "commit": "ab5266769e702434a0968d47319d0731d8ccac35",
+      "vision_prefix_lm patch": "applied",
+      "vision_prefix_lm patch source": "https://github.com/razorback16/openjev/blob/dcd20947b5ddad5be4a8f5aed6aa6dd245653823/docker/patches/vision_prefix_lm.py",
+      "launch_flags_recorded": {
+        "gpu": "RTX 3090 単独(24GB)",
+        "canvas_length": 256,
+        "max-num-seqs": 2,
+        "enable-prefix-caching": true,
+        "enable-prompt-tokens-details": true,
+        "gpu-memory-utilization": "0.80(報告した全件評価 results/dgemma_own_seed0〜2 の値。KV キャッシュは 2.9 GiB / 13,772 tokens。評価後に 0.94 へ上げた分は 6.26 GiB / 29,730 tokens で、本評価には使っていない。いずれも vLLM のログの値)"
+      }
+    },
+    "dgemma_server": "本リポジトリの classifier_demo/dgemma_server.py (python -m classifier_demo dgemma-server。:8012、POST /v1/systemone)。最終の全件評価(dgemma_own_seed0〜2)はこの自前サーバーのみで実行。vLLM の example の構造化サーバーは使っていない(results/dgemma_standard は旧コード5ebf329+example サーバーでの参考実行で、doc/experiments/dgemma/standard/ に記録)",
+    "client": {
+      "max_edge": 1024,
+      "dgemma_json": "通常JSON(制約なし)。vLLM は拡散モデルへの json_schema を拒否するため。chat_template_kwargs.enable_thinking=false を付ける",
+      "dgemma_choice": "全軸を1リクエストで dgemma-server の /v1/systemone に送り、サーバーが全質問を1キャンバス・1回の読み出しで聞く。単一選択=choice、複数選択=選択肢ごとの noul(P(yes)>=0.5 を採用)"
+    },
+    "notes": "両サーバーは WSL 内の 127.0.0.1 に bind し Windows から到達できないため、評価は WSL 内で実行した。vision_prefix_lm パッチは全実行で適用済み。vLLM の起動引数は scripts/dgemma/serve_vllm.sh に正確な値がある(gpu-memory-utilization は報告した実行では 0.80)。"
+  },
+  "runtime_info_file": {
+    "name": "dgemma-vllm.json",
+    "sha256": "40ccb7ab46b91f1efc8d865d61eeba0d83fce1c9b3c72a555fb5df68dfa830c8"
+  },
+  "note": "#12 adaptive re-read: dgemma_catchall_criteria_s0 (--dgemma-samples 1 --dgemma-catchall-style criteria), max_soft_tokens 140 server-wide, gpu-memory-utilization 0.88, vLLM restarted (empty cache)",
+  "platform": {
+    "platform": "Linux-6.18.40.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python_version": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]"
+  },
+  "case_counts": {
+    "total": 35,
+    "evaluated": 35,
+    "excluded": 0,
+    "manifest_by_scenario": {
+      "alisa_lora": 8,
+      "conflict": 2,
+      "general": 8,
+      "multi": 3,
+      "alisa_no_lora": 3,
+      "outfit_scene": 7,
+      "similar": 4
+    },
+    "evaluated_by_scenario": {
+      "alisa_lora": 8,
+      "conflict": 2,
+      "general": 8,
+      "multi": 3,
+      "alisa_no_lora": 3,
+      "outfit_scene": 7,
+      "similar": 4
+    }
+  },
+  "excluded_cases": []
+}

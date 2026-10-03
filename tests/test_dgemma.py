@@ -42,6 +42,7 @@ class FakeDgemmaBackend(FakeBackend):
     adaptive_threshold = None
     adaptive_max = 3
     steps = 1
+    catchall_style = "default"
     extra_body: dict = {}
 
     def systemone(self, body):
@@ -294,3 +295,53 @@ def test_parse_response_carries_uncertain_flags_without_changing_selection():
     assert res["style"]["uncertain"] is True and res["style"]["entropy"] == 0.9
     assert res["style"]["selected"] == plain["style"]["selected"]
     assert res["outfit"]["uncertain_options"] == ["swim"] and res["outfit"]["tags"] == plain["outfit"]["tags"]
+
+
+def test_catchall_style_criteria_joining_and_edge_cases():
+    def axis(choices):
+        return Taxonomy(version="t", axes=[Axis(id="ax", question="q", multi=True, allow_none=False, choices=choices)], sha256="s")
+
+    def q(choices):
+        body, _ = dgemma.build_request(axis(choices), b"i", "image/jpeg", "m", catchall_style="criteria")
+        return body["questions"]["ax_z"]["instructions"]
+
+    rest = Choice(id="z", name="Rest", criteria="fits none of the above", catch_all=True)
+    one = [Choice(id="a", name="aa", criteria="1"), rest]
+    two = [Choice(id="a", name="aa", criteria="1"), Choice(id="b", name="bb", criteria="2"), rest]
+    three = two + [Choice(id="c", name="cc", criteria="3")]
+    assert q(one) == "Does the image show fits none of these: aa?"
+    assert q(two) == "Does the image show fits none of these: aa and bb?"
+    assert q(three) == "Does the image show fits none of these: aa, bb and cc?"
+    # catch_all でない選択肢だけの軸、catch_all に兄弟が無い軸は従来の文面
+    plain = [Choice(id="a", name="aa", criteria="1"), Choice(id="z", name="bb", criteria="2")]
+    assert dgemma.build_request(axis(plain), b"i", "image/jpeg", "m", catchall_style="criteria")[0] == dgemma.build_request(axis(plain), b"i", "image/jpeg", "m")[0]
+    alone = [Choice(id="z", name="Rest", criteria="none of the above", catch_all=True)]
+    body, _ = dgemma.build_request(axis(alone), b"i", "image/jpeg", "m", catchall_style="criteria")
+    assert body["questions"]["ax_z"]["instructions"] == "Is Rest (none of the above) present in the image?"
+
+
+def test_catchall_style_criteria_replaces_none_of_the_above():
+    import pathlib
+
+    from classifier_demo.taxonomy import load
+
+    tax = load(str(pathlib.Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml"))
+    default, _ = dgemma.build_request(tax, b"i", "image/jpeg", "m")
+    crit, _ = dgemma.build_request(tax, b"i", "image/jpeg", "m", catchall_style="criteria")
+    qs = crit["questions"]
+    assert {k for k in default["questions"] if default["questions"][k] != qs[k]} == {"outfit_other", "character_other_original"}
+    assert qs["outfit_other"]["instructions"] == (
+        "Does the image show clothing whose type is recognizable but fits none of these: sailor school uniform, "
+        "school uniform, office wear, swimsuit, maid outfit, shrine maiden outfit and nun's habit?"
+    )
+    assert qs["character_other_original"]["instructions"] == (
+        "Does the image show any person or humanoid character who is neither Alisa nor the second original character?"
+    )  # none of the above が無ければ criteria のまま
+    assert qs["character_other_original"]["subject"] == "any person or humanoid character who is neither Alisa nor the second original character"
+    assert qs["outfit_other"]["subject"].startswith("clothing whose type is recognizable but fits none of these: sailor")
+    assert "Apart from" not in str(qs)
+    assert dgemma.build_request(tax, b"i", "image/jpeg", "m", catchall_style="default")[0] == default
+    ax = Axis(id="ax", question="q", multi=True, allow_none=False, choices=[
+        Choice(id="a", name="aa", criteria="1"), Choice(id="z", name="Rest", criteria="Anything None Of The Above here", catch_all=True)])
+    body, _ = dgemma.build_request(Taxonomy(version="t", axes=[ax], sha256="s"), b"i", "image/jpeg", "m", catchall_style="criteria")
+    assert body["questions"]["ax_z"]["instructions"] == "Does the image show Anything none of these: aa here?"  # 大小無視で置換
