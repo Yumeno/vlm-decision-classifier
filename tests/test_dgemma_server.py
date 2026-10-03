@@ -557,3 +557,23 @@ def test_strict_sys_changes_only_system_text_and_keeps_default_and_strict():
     text = ss["messages"][1]["content"][2]["text"]
     assert "Answer with" not in text and text == d["messages"][1]["content"][2]["text"]
     assert "Answer with" in s["messages"][1]["content"][2]["text"]
+
+
+def test_yn_style_yn_rendering_labels_and_mapping():
+    req = ds.parse_request(_yn_body("yn"))
+    assert _block(req).endswith(
+        "outfit_maid: Is maid present?\n  Y: yes\n  N: no\noutfit_swim: Is swim present?\n  Y: yes\n  N: no"
+    )  # 質問文は instructions(subject は使わない)
+    q = req.questions[1]
+    assert q.labels == ["Y", "N"] and q.yes_label == "Y"
+    strict = ds.parse_request(_yn_body("yn", instruction="strict"))
+    assert _block(strict).count("  Answer with one letter: Y or N") == 2
+    eng, _ = _engine({"style": {"A": 0.6, "B": 0.3}, "outfit_maid": {"Y": 0.7, "N": 0.1}, "outfit_swim": {"Y": 0.1, "N": 0.7}})
+    out = eng.handle(_yn_body("yn"))
+    slot = {s.qid: s for s in eng.last_plans[0].template.slots}["outfit_maid"]
+    tok = lambda w: eng.tok("outfit_maid: " + w + chr(10))[3]
+    assert set(slot.label_ids) == {"Y", "N"}
+    assert slot.alias_ids("Y") == sorted({tok("Y"), tok("yes"), tok("Yes"), tok("YES")})
+    assert slot.alias_ids("N") == sorted({tok("N"), tok("no"), tok("No"), tok("NO")})
+    assert out["answers"]["outfit_maid"]["noul"] == pytest.approx(0.7 / 0.8)
+    assert out["answers"]["outfit_swim"]["noul"] == pytest.approx(0.1 / 0.8)

@@ -111,8 +111,8 @@ def _add_dgemma_args(p: argparse.ArgumentParser) -> None:
         help="プロンプト文面。strict=system と各質問末尾の指示、strict_sys=system のみ強い文面(テンプレートは同じ)。default 以外のときだけ送る",
     )
     p.add_argument(
-        "--dgemma-yn-style", choices=["slash", "lines", "letters"], default="slash",
-        help="複数選択の yes/no 質問の描き方。slash=`yes / no`(既定)、lines=`yes: present...`/`no: not present...`、letters=A/B。slash 以外のときだけ送る",
+        "--dgemma-yn-style", choices=["slash", "lines", "letters", "yn"], default="slash",
+        help="複数選択の yes/no 質問の描き方。slash=`yes / no`(既定)、lines=`yes: present...`/`no: not present...`、letters=A/B、yn=`Y: yes`/`N: no`(質問文はそのまま)。slash 以外のときだけ送る",
     )
     p.add_argument(
         "--dgemma-order", choices=["taxonomy", "character_first"], default="taxonomy",

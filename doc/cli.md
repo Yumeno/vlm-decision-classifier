@@ -28,7 +28,7 @@
 | `--dgemma-samples` | `1` | `dgemma_choice` のノイズ draw の回数（整数のみ。1回目を先に読み、残りは同時2本まで） |
 | `--dgemma-seed` | `0` | ノイズの seed。同じ seed・同じ入力なら同じノイズ（サンプル k は `seed:読み出し番号:k` の乱数列） |
 | `--dgemma-template` | `keyed` | 回答テンプレート。`keyed`=`<質問id>: <ラベル>`、`numbered`=`Q<n>: <ラベル>`（形式と質問数の効果を切り分ける診断用） |
-| `--dgemma-yn-style` | `slash` | 複数選択の yes/no 質問の描き方。`slash`=`yes / no`、`lines`=`yes: present in the image` / `no: not present in the image`、`letters`=`A:`/`B:`（A=yes。スロットのラベルも A/B、名寄せは A に yes/Yes/YES、B に no/No/NO）。`lines`/`letters` の質問文は選択肢の `<name> (<criteria>)`（criteria が name と同じなら name だけ）。`slash` のときは送らない |
+| `--dgemma-yn-style` | `slash` | 複数選択の yes/no 質問の描き方。`slash`=`yes / no`、`lines`=`yes: present in the image` / `no: not present in the image`、`yn`=`Y: yes` / `N: no`（質問文は `instructions` のまま、subject は使わない。スロットのラベルは Y/N、Y=yes、名寄せは Y に yes/Yes/YES、N に no/No/NO。`strict` なら `Answer with one letter: Y or N` を足す）、`letters`=`A:`/`B:`（A=yes。スロットのラベルも A/B、名寄せは A に yes/Yes/YES、B に no/No/NO）。`lines`/`letters` の質問文は選択肢の `<name> (<criteria>)`（criteria が name と同じなら name だけ）。`slash` のときは送らない |
 | `--dgemma-order` | `taxonomy` | 質問の並び。`character_first`=character 軸の質問を最初の複数選択軸の前へ移す（クライアント側） |
 | `--dgemma-instruction` | `default` | プロンプト文面。`strict_sys`=system のみ強い文面（質問末尾の `Answer with ...` 行なし）。`strict`=system に「選択肢名ではなくラベルだけで答える」と強く書き、質問ブロックに `Answer with one letter: A, B or C` / `Answer with yes or no` を足す（テンプレート・キャンバスは同じ。名寄せは併用）。`default` のときは送らない |
 | `--dgemma-max-per-read` | `0` | 1回の読み出しに入れる質問数の上限（診断用）。0=全質問を1回で。>0 なら質問の並び順に連続して分割 |

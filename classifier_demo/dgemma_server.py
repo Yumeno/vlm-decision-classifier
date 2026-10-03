@@ -48,7 +48,7 @@ SYSTEM_PROMPT = (
 )
 TEMPLATES = ("keyed", "numbered")
 INSTRUCTIONS = ("default", "strict", "strict_sys")
-YN_STYLES = ("slash", "lines", "letters")
+YN_STYLES = ("slash", "lines", "letters", "yn")
 STRICT_SYS_ONLY_PROMPT = (
     "You label an image by answering questions. Each question below has a key, and its options are listed as "
     "'<label>: <meaning>'. Answer every question with exactly one label and nothing else: "
@@ -97,17 +97,19 @@ class Question:
     instructions: str
     options: list[tuple[str, str]]  # choice: (名前, 説明)。noul は空
     subject: str = ""  # noul: 在否を聞く対象(lines/letters の質問文に使う)
-    yn_style: str = "slash"  # noul の描き方(slash|lines|letters)
+    yn_style: str = "slash"  # noul の描き方(slash|lines|letters|yn)
 
     @property
     def labels(self) -> list[str]:
         if self.kind == "choice":
             return CHOICE_LABELS[: len(self.options)]
-        return ["A", "B"] if self.yn_style == "letters" else NOUL_LABELS
+        if self.yn_style == "letters":
+            return ["A", "B"]
+        return ["Y", "N"] if self.yn_style == "yn" else NOUL_LABELS
 
     @property
     def yes_label(self) -> str:
-        return self.labels[0]  # noul の「ある」側(letters では A)
+        return self.labels[0]  # noul の「ある」側(letters では A、yn では Y)
 
 
 @dataclass
@@ -300,6 +302,8 @@ def label_variants(q: Question) -> dict[str, list[str]]:
     if q.kind == "noul":
         if q.yn_style == "letters":
             return {"A": ["A", "yes", "Yes", "YES"], "B": ["B", "no", "No", "NO"]}
+        if q.yn_style == "yn":
+            return {"Y": ["Y", "yes", "Yes", "YES"], "N": ["N", "no", "No", "NO"]}
         return {"yes": ["yes", "Yes", "YES"], "no": ["no", "No", "NO"]}
     out = {}
     for lab, (name, _) in zip(q.labels, q.options):
@@ -436,7 +440,7 @@ def aggregate_question(q: Question, samples: list[tuple]) -> tuple[dict | None, 
 def question_block(keys: list[str], questions: list[Question], instruction: str = "default") -> str:
     lines = []
     for key, q in zip(keys, questions):
-        styled = q.kind == "noul" and q.yn_style != "slash"
+        styled = q.kind == "noul" and q.yn_style in ("lines", "letters")  # yn は質問文のまま
         lines.append(f"{key}: {(q.subject or q.instructions) if styled else q.instructions}")
         if q.kind == "choice":
             for lab, (name, desc) in zip(q.labels, q.options):
@@ -448,6 +452,11 @@ def question_block(keys: list[str], questions: list[Question], instruction: str 
             lines.append("  yes / no")
             if instruction == "strict":
                 lines.append("  Answer with yes or no")
+        elif q.yn_style == "yn":
+            lines.append("  Y: yes")
+            lines.append("  N: no")
+            if instruction == "strict":
+                lines.append("  Answer with one letter: Y or N")
         else:
             yes_l, no_l = q.labels[0], q.labels[1]
             lines.append(f"  {yes_l}: present in the image")
