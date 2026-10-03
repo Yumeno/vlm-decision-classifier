@@ -102,7 +102,15 @@ class Request:
 class Slot:
     qid: str
     pos: int
-    label_ids: dict[str, int]
+    label_ids: dict[str, int]  # ラベル(A/B/..、yes/no) -> 正規トークン id
+    aliases: dict[str, list[int]] | None = None  # ラベル -> 数える id(正規 id + 名寄せの別表記)。None なら正規 id のみ
+    conflicts: list[int] | None = None  # 複数の選択肢に取り合われて外した id
+
+    def alias_ids(self, label: str) -> list[int]:
+        return self.aliases[label] if self.aliases else [self.label_ids[label]]
+
+    def all_ids(self) -> list[int]:
+        return sorted({i for lab in self.label_ids for i in self.alias_ids(lab)})
 
 
 @dataclass
@@ -251,6 +259,46 @@ def line_tokens(tok: Tokenizer, key: str, labels: list[str]) -> tuple[list[int],
     return base, pos, label_ids
 
 
+def label_variants(q: Question) -> dict[str, list[str]]:
+    """ラベルごとの別表記(文字列)。モデルが記号の代わりに選択肢名や yes/Yes を書く場合を数える(名寄せ)。"""
+    if q.kind == "noul":
+        return {"yes": ["yes", "Yes", "YES"], "no": ["no", "No", "NO"]}
+    out = {}
+    for lab, (name, _) in zip(q.labels, q.options):
+        forms = [lab, name, name.lower(), name.capitalize()]
+        out[lab] = list(dict.fromkeys(forms))
+    return out
+
+
+def build_aliases(
+    tok: Tokenizer, key: str, q: Question, base: list[int], pos: int, label_ids: dict[str, int]
+) -> tuple[dict[str, list[int]], list[int]]:
+    """(ラベル -> 数える id, 取り合いで外した id)。別表記は「同じ行文脈でスロット位置に来る最初のトークン」。
+    スロットより前のトークンがベース行と違う表記は使わない。別の選択肢にも属する id は全員から外す
+    (他ラベルの正規 id は、その持ち主だけが残す)。"""
+    claims: dict[int, set[str]] = {}
+    for lab, forms in label_variants(q).items():
+        claims.setdefault(label_ids[lab], set()).add(lab)
+        for v in forms:
+            ids = tok(line_text(key, v))
+            if len(ids) > pos and ids[:pos] == base[:pos]:
+                claims.setdefault(ids[pos], set()).add(lab)
+    canonical_owner = {tid: lab for lab, tid in label_ids.items()}
+    aliases: dict[str, set[int]] = {lab: set() for lab in label_ids}
+    conflicts = []
+    for tid, labs in claims.items():
+        owner = canonical_owner.get(tid)
+        if owner is not None:
+            aliases[owner].add(tid)
+            if len(labs) > 1:
+                conflicts.append(tid)
+        elif len(labs) == 1:
+            aliases[next(iter(labs))].add(tid)
+        else:
+            conflicts.append(tid)
+    return {lab: sorted(ids) for lab, ids in aliases.items()}, sorted(conflicts)
+
+
 def build_template(tok: Tokenizer, keys: list[str], questions: list[Question]) -> Template:
     head = tok(SCAFFOLD_TEXT)
     turn = tok(TURN_CLOSE_TEXT)
@@ -260,7 +308,8 @@ def build_template(tok: Tokenizer, keys: list[str], questions: list[Question]) -
     slots: list[Slot] = []
     for key, q in zip(keys, questions):
         ids, pos, label_ids = line_tokens(tok, key, q.labels)
-        slots.append(Slot(q.qid, len(tokens) + pos, label_ids))
+        aliases, conflicts = build_aliases(tok, key, q, ids, pos, label_ids)
+        slots.append(Slot(q.qid, len(tokens) + pos, label_ids, aliases, conflicts))
         tokens.extend(ids)
     tokens.extend(turn)
     # 行ごとの連結が全文の一括トークナイズと一致すること(BPE の境界ずれの検出)。
@@ -311,13 +360,11 @@ def read_slot(content: list, slot: Slot, labels: list[str], min_mass: float):
         tid = parse_token_id(entry.get("token"))
         if tid is not None and isinstance(entry.get("logprob"), (int, float)):
             seen[tid] = float(entry["logprob"])
-    lps = {}
+    weights = {}
     for lab in labels:
-        lp = seen.get(slot.label_ids[lab])
-        if lp is None:
+        if slot.label_ids[lab] not in seen:  # 正規ラベルの id は必ず要る(別表記の欠けは 0 とみなす)
             return None, None, "missing_label_logprob"
-        lps[lab] = lp
-    weights = {lab: math.exp(lp) for lab, lp in lps.items()}
+        weights[lab] = sum(math.exp(seen[i]) for i in slot.alias_ids(lab) if i in seen)
     mass = sum(weights.values())
     if mass < min_mass:
         return None, mass, "label_mass_low"
@@ -400,7 +447,7 @@ class Engine:
             keys = read_keys(req.template, group)
             template = build_template(self.tok, keys, group)
             width = canvas_width(len(template.tokens), self.cfg.canvas)
-            ids = sorted({i for s in template.slots for i in s.label_ids.values()})
+            ids = sorted({i for s in template.slots for i in s.all_ids()})
             if len(ids) > MAX_LOGPROB_TOKEN_IDS:
                 raise RequestError(422, f"too many distinct label token ids ({len(ids)} > {MAX_LOGPROB_TOKEN_IDS})")
             plans.append(ReadPlan(group, template, width, ids, question_block(keys, group)))
@@ -525,6 +572,14 @@ class Engine:
             if sample_errors:
                 diag["sample_errors"] = sample_errors
             reads_diag.append(diag)
+        aliases_diag: dict = {}
+        conflicts_diag: dict = {}
+        for plan in plans:
+            for q, slot in zip(plan.questions, plan.template.slots):
+                names = {lab: n for lab, (n, _) in zip(q.labels, q.options)} if q.kind == "choice" else {}
+                aliases_diag[q.qid] = {names.get(lab, lab): slot.alias_ids(lab) for lab in q.labels}
+                if slot.conflicts:
+                    conflicts_diag[q.qid] = slot.conflicts
         return {
             "model": req.model or self.cfg.model,
             "answers": {q.qid: answers[q.qid] for q in req.questions if q.qid in answers},
@@ -535,6 +590,8 @@ class Engine:
                 "seed": req.seed,
                 "samples": req.samples,
                 "reads": reads_diag,
+                "alias_ids": aliases_diag,
+                "alias_conflicts": conflicts_diag,
                 "label_mass": label_mass,
                 "per_sample": per_sample,
                 "tokenize_ms": tokenize_ms,

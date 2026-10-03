@@ -410,3 +410,72 @@ def test_non_string_template_is_400():
     with pytest.raises(ds.RequestError) as e:
         ds.parse_request(_body(template=["keyed"]))
     assert e.value.status == 400
+
+
+# ---- 名寄せ(別表記のトークンも数える)
+
+
+def _alias_slot(options, tokenizer=None):
+    tok = ds.Tokenizer(tokenizer or FakeTokenizer())
+    q = ds.Question("art_style", "choice", "?", options)
+    t = ds.build_template(tok, ["art_style"], [q])
+    return tok, t.slots[0]
+
+
+def test_aliases_include_letter_name_and_case_variants_and_yes_no_forms():
+    tok, slot = _alias_slot([("anime", ""), ("photo", "")])
+    ids = lambda *words: sorted(tok(f"art_style: {w}\n")[slot.pos - len(tok(ds.SCAFFOLD_TEXT))] for w in words)
+    assert slot.aliases["A"] == ids("A", "anime", "Anime")
+    assert slot.aliases["B"] == ids("B", "photo", "Photo")
+    assert slot.label_ids["A"] in slot.aliases["A"] and slot.conflicts == []
+    n = ds.Question("o", "noul", "?", [])
+    t = ds.build_template(tok, ["o"], [n]).slots[0]
+    assert len(t.aliases["yes"]) == 3 and len(t.aliases["no"]) == 3
+    assert set(t.aliases["yes"]).isdisjoint(t.aliases["no"])
+
+
+def test_alias_ids_claimed_by_several_options_are_dropped_and_recorded():
+    tok, slot = _alias_slot([("photo", ""), ("Photo", ""), ("other", "")])
+    photo = tok("x: photo\n")[3]
+    assert photo not in slot.aliases["A"] and photo not in slot.aliases["B"] and photo in slot.conflicts
+    assert slot.label_ids["A"] in slot.aliases["A"] and slot.label_ids["C"] in slot.aliases["C"]
+    # 名前が別選択肢の記号と同じ(選択肢 B の名前が "A")なら、記号の持ち主 A だけが残す
+    tok2, slot2 = _alias_slot([("first", ""), ("A", "")])
+    assert slot2.label_ids["A"] in slot2.aliases["A"] and slot2.label_ids["A"] not in slot2.aliases["B"]
+    assert slot2.label_ids["A"] in slot2.conflicts
+
+
+def test_alias_with_different_prefix_tokens_is_skipped():
+    base = FakeTokenizer()
+
+    def tokenize(text):
+        ids = base(text)
+        return [999] + ids if "zzname" in text else ids  # スロットより前が変わる表記
+
+    _, slot = _alias_slot([("zzname", ""), ("plain", "")], tokenize)
+    assert base.ids["zzname"] not in slot.aliases["A"]  # 前が変わる表記は使わない(Zzname は前が同じなので残る)
+    assert slot.label_ids["A"] in slot.aliases["A"]
+    assert len(slot.aliases["B"]) == 3
+
+
+def test_read_slot_sums_alias_mass_per_option():
+    slot = ds.Slot("q", 3, {"A": 11, "B": 12}, {"A": [11, 21], "B": [12, 22]})
+    lps = {11: math.log(0.05), 21: math.log(0.6), 12: math.log(0.1), 22: math.log(0.05)}
+    probs, mass, reason = ds.read_slot(_content({3: lps}), slot, ["A", "B"], 0.5)
+    assert reason is None and mass == pytest.approx(0.8)
+    assert probs["A"] == pytest.approx(0.65 / 0.8) and probs["B"] == pytest.approx(0.15 / 0.8)
+    # 別表記の欠けは 0。正規ラベルの欠けは無効
+    probs, mass, _ = ds.read_slot(_content({3: {11: math.log(0.6), 12: math.log(0.2)}}), slot, ["A", "B"], 0.5)
+    assert mass == pytest.approx(0.8)
+    assert ds.read_slot(_content({3: {21: -0.1, 12: -0.1}}), slot, ["A", "B"], 0.5)[2] == "missing_label_logprob"
+
+
+def test_engine_counts_aliases_requests_their_ids_and_records_them():
+    eng, fake = _engine(DIST)
+    out = eng.handle(_body())
+    slots = {s.qid: s for s in eng.last_plans[0].template.slots}
+    asked = set(fake.payloads[0]["logprob_token_ids"])
+    assert set(slots["style"].all_ids()) <= asked and len(asked) > len(slots["style"].label_ids) + 2
+    assert out["diagnostics"]["alias_ids"]["style"]["anime"] == slots["style"].alias_ids("A")
+    assert out["diagnostics"]["alias_ids"]["outfit_maid"]["yes"] == slots["outfit_maid"].alias_ids("yes")
+    assert out["diagnostics"]["alias_conflicts"] == {}
