@@ -692,3 +692,14 @@ def test_adaptive_runs_to_max_when_samples_disagree_and_lists_unresolved():
     assert ad["unresolved"] == ["outfit_maid"] and len(ad["entropy_trace"]["outfit_maid"]) == 4
     assert ad["entropy_trace"]["outfit_maid"][1] == pytest.approx(1.0)  # 0.9 と 0.1 の平均 0.5
     assert out["answers"]["outfit_maid"]["noul"] == pytest.approx((0.9 + 0.1 + 0.1 + 0.1) / 4)
+
+
+def test_adaptive_question_failing_in_every_read_is_unresolved_error_and_not_replaced():
+    bad = {"style": None, "outfit_maid": {"yes": 0.99, "no": 0.01}, "outfit_swim": SURE_SWIM}
+    eng, fake = _seq_engine([bad])
+    out = eng.handle(_body(adaptive_threshold=0.5, adaptive_max=3))
+    ad = out["diagnostics"]["adaptive"]
+    assert len(fake.payloads) == 3 and ad["unresolved"] == ["style"] and ad["replaced"] == []
+    assert ad["trigger_questions"] == {"style": "failed"} and ad["entropy_trace"]["style"] == [None, None, None]
+    assert "style" not in out["answers"] and out["errors"]["style"]["type"] == "missing_label_logprob"
+

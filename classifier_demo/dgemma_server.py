@@ -632,7 +632,6 @@ class Engine:
                         trace[q.qid] = [h]
                 if not targets:
                     continue
-                replaced.extend(q.qid for q in targets)
                 still = set(q.qid for q in targets)
                 for k in range(1, req.adaptive_max):  # 1回ずつ読み、対象が全員しきい値未満になったら止める
                     run((r, k))
@@ -654,6 +653,7 @@ class Engine:
                             still.add(q.qid)
                     if not still:
                         break
+                replaced.extend(q.qid for q in targets if valid[q.qid])  # 有効サンプルが無いままの質問は置き換わらない(エラーのまま)
                 unresolved.extend(q.qid for q in targets if q.qid in still)
             adaptive_diag = {
                 "threshold": thr,
