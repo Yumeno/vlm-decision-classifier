@@ -19,10 +19,12 @@ class ChatBackend:
         base_url: str = "http://127.0.0.1:1234/v1",
         model: str = "",
         timeout: float = 120.0,
+        extra_body: dict | None = None,  # 全リクエストに足すフィールド(例: DiffusionGemma の chat_template_kwargs)
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout = timeout
+        self.extra_body = dict(extra_body or {})
         self.request_count = 0
         self.dropped_reasoning_effort = False
         # E9: 軸を並列送信すると複数スレッドから同時に加算されうるため、カウンタをロックで保護する。
@@ -45,7 +47,7 @@ class ChatBackend:
             return json.loads(resp.read().decode("utf-8"))
 
     def chat(self, messages: list, **params) -> tuple[dict, float]:
-        payload = {"model": self.model, "messages": messages, "reasoning_effort": "none", **params}
+        payload = {"model": self.model, "messages": messages, "reasoning_effort": "none", **self.extra_body, **params}
         start = time.perf_counter_ns()
         try:
             response = self._post("/chat/completions", payload)

@@ -23,7 +23,16 @@
 | オプション | 既定値 | 意味 |
 |---|---|---|
 | `image`（位置引数） | （必須） | 分類する画像のパス |
-| `--mode` | `choice` | `choice`（1軸ずつの選択式）/ `json`（通常JSON）/ `bundled`（束ね質問）/ `json_schema`（通常JSONと同じ質問を制約付きデコードのJSONスキーマで生成。llama-server で測定。E10） |
+| `--mode` | `choice` | `choice`（1軸ずつの選択式）/ `json`（通常JSON）/ `bundled`（束ね質問）/ `json_schema`（通常JSONと同じ質問を制約付きデコードのJSONスキーマで生成。llama-server で測定。E10）/ `dgemma_choice`・`dgemma_json`（DiffusionGemma。下記） |
+| `--dgemma-url` | なし | `dgemma_choice` で必須。自前の dgemma-server のURL（例 `http://127.0.0.1:8012`。`/v1/systemone` を使う。起動は下記 `dgemma-server`）。`--base-url` は vLLM 本体（例 `http://127.0.0.1:8000/v1`） |
+| `--dgemma-samples` | `1` | `dgemma_choice` のノイズ draw の回数（整数のみ。1回目を先に読み、残りは同時2本まで） |
+| `--dgemma-seed` | `0` | ノイズの seed。同じ seed・同じ入力なら同じノイズ（サンプル k は `seed:読み出し番号:k` の乱数列） |
+| `--dgemma-template` | `keyed` | 回答テンプレート。`keyed`=`<質問id>: <ラベル>`、`numbered`=`Q<n>: <ラベル>`（形式と質問数の効果を切り分ける診断用） |
+| `--dgemma-yn-style` | `slash` | 複数選択の yes/no 質問の描き方。`slash`=`yes / no`、`lines`=`yes: present in the image` / `no: not present in the image`、`yn`=`Y: yes` / `N: no`（質問文は `instructions` のまま、subject は使わない。スロットのラベルは Y/N、Y=yes、名寄せは Y に yes/Yes/YES、N に no/No/NO。`strict` なら `Answer with one letter: Y or N` を足す）、`letters`=`A:`/`B:`（A=yes。スロットのラベルも A/B、名寄せは A に yes/Yes/YES、B に no/No/NO）。`lines`/`letters` の質問文は選択肢の `<name> (<criteria>)`（criteria が name と同じなら name だけ）。`slash` のときは送らない |
+| `--dgemma-order` | `taxonomy` | 質問の並び。`character_first`=character 軸の質問を最初の複数選択軸の前へ移す（クライアント側） |
+| `--dgemma-instruction` | `default` | プロンプト文面。`strict_sys`=system のみ強い文面（質問末尾の `Answer with ...` 行なし）。`strict`=system に「選択肢名ではなくラベルだけで答える」と強く書き、質問ブロックに `Answer with one letter: A, B or C` / `Answer with yes or no` を足す（テンプレート・キャンバスは同じ。名寄せは併用）。`default` のときは送らない |
+| `--dgemma-max-per-read` | `0` | 1回の読み出しに入れる質問数の上限（診断用）。0=全質問を1回で。>0 なら質問の並び順に連続して分割 |
+| `--dgemma-max-soft-tokens` | なし | 画像トークン予算（vLLM の `mm_processor_kwargs.max_soft_tokens`。例 70/140/280）。指定したときだけ送る |
 | `--taxonomy` | `taxonomy/default.yaml` | 分類体系のYAML |
 | `--max-edge` | `1024` | モデルへ送る画像の長辺（px） |
 | `--image-format` | `jpeg` | `jpeg`（quality 90）/ `png`。E1〜E9の再現には `png` |
@@ -46,7 +55,7 @@
 | オプション | 既定値 | 意味 |
 |---|---|---|
 | `--manifest` | `dataset/manifest.jsonl` | 評価するmanifest |
-| `--modes` | `choice,json` | カンマ区切りで `choice` / `json` / `bundled` / `json_schema`（制約付きデコードのJSON。E10）（重複不可）。2モードはケースごとに順序を交互に、3モード以上は回転して実行 |
+| `--modes` | `choice,json` | カンマ区切りで `choice` / `json` / `bundled` / `json_schema`（制約付きデコードのJSON。E10）/ `dgemma_choice` / `dgemma_json`（重複不可）。2モードはケースごとに順序を交互に、3モード以上は回転して実行 |
 | `--taxonomy` | `taxonomy/default.yaml` | 分類体系 |
 | `--max-edge` | `1024` | 送信画像の長辺 |
 | `--image-format` | `jpeg` | `jpeg` / `png` |
@@ -61,6 +70,46 @@
 | `--confirm` | オフ | `classify` と同じ |
 | `--rank-threshold` | `0.5` | `classify` と同じ |
 | `--bundled-multi` | `rank` | `classify` と同じ |
+| `--dgemma-url` / `--dgemma-samples` / `--dgemma-seed` / `--dgemma-template` / `--dgemma-yn-style` / `--dgemma-order` / `--dgemma-instruction` / `--dgemma-max-per-read` / `--dgemma-max-soft-tokens` | なし / `1` / `0` / `keyed` / `slash` / `taxonomy` / `default` / `0` / なし | `classify` と同じ |
+
+### DiffusionGemma のモード（`dgemma_choice` / `dgemma_json`、issue #4）
+
+vLLM で動かした DiffusionGemma（`--base-url` が vLLM 本体、`--dgemma-url` が自前の dgemma-server）用。どちらも**ケースごとに全軸を1リクエスト**で聞く。モード名に `dgemma_` を含むと、全リクエストに `chat_template_kwargs: {"enable_thinking": false}` を足し、`temperature` は送らない（vLLM が拡散モデルへの指定を拒否するため。`run.json` の `dgemma.dropped_params` に記録。JSONは temperature 0 でなくサーバー既定で動く）。
+
+| モード | 送り先 | 内容 |
+|---|---|---|
+| `dgemma_choice` | `--dgemma-url` の `POST /v1/systemone` | 質問IDは単一選択=軸id、複数選択の選択肢=`<軸id>_<選択肢id>`（`^[a-z][a-z0-9_]{0,47}$` に合わない taxonomy の id は明示エラー）。単一選択軸は `choice` 質問（選択肢名=`name`、説明=`criteria`、`allow_none` の軸は `none of the above` を足す）。複数選択軸は選択肢ごとの `noul` 質問（`Is <name> (<criteria>) present in the image?`）で、P(yes) が 0.5 以上を採用（束ね質問の `yn` と同じ規則。`none` は聞かず、1つも無ければ空）。値は相対スコア / P(yes)。サーバーの `errors` にある質問はその軸の失敗（複数選択は選択肢が1つでも失敗なら軸ごと）。ケース別JSONの `dgemma` に seed・samples・template・max_per_read・読み出し数・読み出しごとの ms・cached_tokens・サーバー total_ms を記録 |
+| `dgemma_json` | `--base-url` の `/chat/completions` | 通常JSON（`json` と同じ質問文・検証、制約なし）。vLLM は拡散モデルへの `json_schema` を拒否するので制約付きは使わない |
+
+- `--prime` を付けても `dgemma_choice` には準備を送らない（dgemma-server が読み出しを自前で行うため）。`run.json` の `dgemma.prime_skipped_modes` に記録。`dgemma_json` には他のJSONと同じ準備を送る。
+- `--warmup` の準備リクエストは logprobs 付きの選択式質問を vLLM に送るため、DiffusionGemma では `--warmup 0` にする。
+- vLLM の commit と `vision_prefix_lm` パッチの適用は `--runtime-info`（例 `doc/experiments/runtime/dgemma-vllm.json`）に書く。
+
+## `dgemma-server`
+
+DiffusionGemma（vLLM）用の自前の判定サーバー。標準ライブラリのみ。画像1枚の全質問を**1キャンバス・1回の読み出し**で聞く（拡散LMなので1回の順伝播で全スロットの分布が出る）。
+
+```
+python -m classifier_demo dgemma-server --vllm http://127.0.0.1:8000 --model dgemma --host 127.0.0.1 --port 8012 [--canvas 256] [--max-per-read 0] [--min-label-mass 0.5] [--vocab-size 262144] [--pad-id 0]
+```
+
+| オプション | 既定値 | 意味 |
+|---|---|---|
+| `--vllm` | `http://127.0.0.1:8000` | vLLM のベースURL（`/tokenize` と `/v1/chat/completions` を使う） |
+| `--model` | `dgemma` | vLLM に送る model 名 |
+| `--host` / `--port` | `127.0.0.1` / `8012` | 待ち受け。`POST /v1/systemone` のみ |
+| `--canvas` | `256` | vLLM 側の `canvas_length`（serve 時の値）。テンプレートがこれに収まらなければ 422（黙って分割しない） |
+| `--max-per-read` | `0` | 1回に入れる質問数の上限（診断用）。0=全質問を1回で。リクエストの `max_per_read` で上書き可 |
+| `--min-label-mass` | `0.5` | 質問のラベル質量（`Σexp(logprob)`）がこの値未満のサンプルは無効 |
+| `--vocab-size` | `262144` | ノイズを引く語彙サイズ |
+| `--pad-id` | `0` | キャンバス末尾の PAD の id |
+
+- キャンバス = 空の思考ブロック + 質問ごとの1行（`keyed`: `<質問id>: <ラベル>`、`numbered`: `Q<n>: <ラベル>`）+ ターン終端 + PAD。ラベルの位置だけ語彙一様のノイズにして1ステップ（`diffusion_max_steps=1`、`diffusion_read_only`）で読み、各質問のラベル集合内で再正規化した値を**相対スコア**として返す。ラベルは choice=`A`〜`Z`（最大26）、noul=`yes`/`no`。ラベルのトークンは起動時でなく初回リクエスト時に vLLM の `/tokenize` で検証する（トークン数の一致・差分が1か所・id が互いに異なる・行ごとの連結が全文のトークナイズと一致。違えば 422）。
+- リクエストの `instruction`（`default`|`strict`|`strict_sys`）と `yn_style`（`slash`|`lines`|`letters`|`yn`）は文面・書式だけを変える（クライアントの `--dgemma-instruction` / `--dgemma-yn-style` が送る）。質問順 `--dgemma-order` はクライアント側で並べ替える。
+- 名寄せ（別表記の合算）: 実機では、スロットに記号（`A`）でなく選択肢名（` anime`）や `yes`/`Yes` を書くことがあるため、質問ごとに選択肢の別表記のトークン（choice=記号・名前・小文字・先頭大文字、noul=`yes`/`Yes`/`YES` と `no`/`No`/`NO`。同じ行文脈でスロット位置に来る最初のトークン）の確率も、その選択肢に合算する。別表記が複数の選択肢に取り合われる id は全員から外す（記号の持ち主だけが残る）。`label_mass` は全選択肢の別表記を合わせた質量、相対スコアは「選択肢の合計 / label_mass」。正規の記号の logprob が欠けたサンプルは従来どおり無効。数えた id は `diagnostics.alias_ids`、外した id は `diagnostics.alias_conflicts` に記録する。
+- リクエスト（Jev 形）: `model`, `state`, `questions`（`{id: {type: "choice"|"noul", instructions, criteria}}`）, `images`（data URL）, `samples`（既定1）, `seed`（既定0）, `template`（`keyed`|`numbered`）, `instruction`, `yn_style`, `max_per_read`, `mm_processor_kwargs`（そのまま vLLM へ）。送らないもの: temperature / top_k / top_p / seed / min_p（拒否される、またはラベルの質量を歪める）。
+- 応答: `answers`（choice は `choice` と `probabilities`、noul は `noul`=P(yes)。`probabilities` は Jev API の外部仕様のフィールド名で、中身は相対スコア）、`errors`（有効サンプルが 0 の質問。理由つき。任意の選択肢には強制しない）、`usage`、`diagnostics`（`reads` ごとの `canvas_width`・`ms_per_sample`・`prompt_tokens`・`cached_tokens`、質問ごとの `label_mass`・`per_sample`、`tokenize_ms`、`total_ms`）。入力不正は 400、容量超過・トークン検証失敗は 422、上流（vLLM）の失敗は 502。
+- サンプル: 1回目を先に読み（画像のプレフィックスキャッシュ用）、残りは同時2本まで。サンプル k は自分のノイズを使う。
 
 ## `serve`
 

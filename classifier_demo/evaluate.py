@@ -26,7 +26,7 @@ from .pipeline import _git_commit
 from .taxonomy import Taxonomy
 from .taxonomy import load as load_taxonomy
 
-VALID_MODES = {"choice", "json", "bundled", "json_schema"}
+VALID_MODES = {"choice", "json", "bundled", "json_schema", "dgemma_choice", "dgemma_json"}
 
 
 def case_mode_order(modes: list[str], i: int) -> list[str]:
@@ -326,7 +326,7 @@ def _run_prime(
     """
     parallel = max(1, parallel)
     prime_fn = decision.prime
-    if mode in ("json", "json_schema"):
+    if mode in ("json", "json_schema", "dgemma_json"):
         prime_fn, parallel = json_baseline.prime, 1
     start = time.perf_counter_ns()
     try:
@@ -440,9 +440,10 @@ def run_evaluate(
             # prime は各モードの計測の直前に、そのモード自身の先頭(system文+画像)で送る
             # (キャッシュは先頭一致のため。選択式の準備ではJSONに効かない)。
             # classification_wall_ms には含めない(別記録)。
+            # dgemma_choice は自前の dgemma-server が読み出しを自前で行い、先頭だけを載せる手段が無いので準備しない。
             prime_info = (
                 _run_prime(case, backend, max_edge, axis_concurrency if axis_concurrency >= 2 else 1, image_format, mode)
-                if prime
+                if prime and mode != "dgemma_choice"
                 else None
             )
             result = _classify_safe(
@@ -469,6 +470,25 @@ def run_evaluate(
         "dataset_version": dataset_version,
         "model": backend.model,
         "base_url": backend.base_url,
+        # DiffusionGemma(issue #4)の run のみ。vLLM の commit 等は --runtime-info / --note に書く。
+        "dgemma": (
+            {
+                "structured_url": backend.structured_url,
+                "samples": backend.samples,
+                "seed": backend.seed,
+                "template": backend.template,
+                "instruction": backend.instruction,
+                "yn_style": backend.yn_style,
+                "order": backend.order,
+                "max_per_read": backend.max_per_read,
+                "max_soft_tokens": backend.max_soft_tokens,
+                "extra_body": backend.extra_body,
+                "dropped_params": backend.dropped_params,
+                "prime_skipped_modes": ["dgemma_choice"] if prime and "dgemma_choice" in modes else [],
+            }
+            if hasattr(backend, "structured_url")
+            else None
+        ),
         "modes": modes,
         "max_edge": max_edge,
         "image_format": image_format,

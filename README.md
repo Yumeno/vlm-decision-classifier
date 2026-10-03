@@ -59,6 +59,8 @@ python3 -m venv .venv
 | Qwen3.5 9B | `lmstudio-community/Qwen3.5-9B-GGUF` | `Qwen3.5-9B-Q4_K_M.gguf` | `mmproj-Qwen3.5-9B-BF16.gguf` |
 | Gemma 4 12B | `lmstudio-community/gemma-4-12B-it-GGUF` | `gemma-4-12B-it-Q4_K_M.gguf` | `mmproj-gemma-4-12B-it-BF16.gguf` |
 
+実験的に、拡散言語モデル DiffusionGemma(4bit AWQ)を WSL2 の vLLM で動かす方式(画像1枚・全質問を1回の読み出し、`dgemma_choice`)も試しています。GGUF ではなく別の手順で、結果と条件は [`doc/experiments/dgemma/README.md`](doc/experiments/dgemma/README.md)、手順は [`doc/reproduce.md`](doc/reproduce.md) にあります。
+
 小型モデルは `lmstudio-community` の `Qwen3.5-4B/2B/0.8B-GGUF`、`gemma-4-E4B/E2B-it-GGUF`(ファイル名は [`doc/experiments/runtime/small-S*.json`](doc/experiments/runtime/))。
 
 ダウンロードしたファイルは、[`doc/experiments/runtime/*.json`](doc/experiments/runtime/) に記録した SHA256 と照合してから使ってください(実験で使ったファイルと同じかの確認にもなります)。
@@ -230,7 +232,7 @@ CLI(手動確認用): `python -m classifier_demo systemone --base-url ... --mode
 .venv\Scripts\python.exe -m classifier_demo classify dataset\images\M01.png --model qwen3.5-9b --confirm --output results\demo.json
 ```
 
-- `--mode`: `choice`(1項目ずつ。既定)/ `bundled`(束ね質問)/ `json`(通常JSON)/ `json_schema`(JSONを制約付きデコードで生成。llama-server で測定)。
+- `--mode`: `choice`(1項目ずつ。既定)/ `bundled`(束ね質問)/ `json`(通常JSON)/ `json_schema`(JSONを制約付きデコードで生成。llama-server で測定)/ `dgemma_choice`・`dgemma_json`(DiffusionGemma、vLLM。[`doc/cli.md`](doc/cli.md) と [`doc/reproduce.md`](doc/reproduce.md))。
 - 複数回答可の項目(服装・キャラ)の採用: `--confirm` で上位候補ごとに yes/no を確認する。付けなければ相対スコアを閾値(`--rank-threshold`、既定0.5)で採用する。束ね質問では `--bundled-multi yn` で候補ごとの Y/N 欄にできる。
 - 出力: 画面に、項目ごとの採用タグ、エラー、判定時間、リクエスト数が出ます。`--output` を指定した先(省略時は画面)には、次を含む結果JSONが出ます。`vision_tags`(項目ごとの採用タグ)、`axis_decisions`(候補ごとの相対スコア・yes/no 確認・失敗の有無)、`metadata_evidence`(PNG の生成メタデータ)、`combined_evidence`、`timing_ms`、`request_count`、`errors`。
 - 全オプションは [`doc/cli.md`](doc/cli.md)。
@@ -336,7 +338,7 @@ foreach ($j in Get-ChildItem results\batch\*.json) {
 
 | パス | 役割 |
 |---|---|
-| `classifier_demo/` | コア(メタデータ抽出、選択式判定、JSONベースライン、束ね質問、評価器)、CLI、デモ画面のサーバー(`server.py`、`web/index.html`)、Jev 風クライアント(`systemone.py`) |
+| `classifier_demo/` | コア(メタデータ抽出、選択式判定、JSONベースライン、束ね質問、評価器)、CLI、デモ画面のサーバー(`server.py`、`web/index.html`)、Jev 風クライアント(`systemone.py`)、DiffusionGemma 用の方式と判定サーバー(`dgemma.py`、`dgemma_server.py`) |
 | `taxonomy/default.yaml` | 分類体系 0.4.1(7項目)と自作キャラの定義 |
 | `dataset/` | 評価用データセット v1.0.0(画像、`manifest.jsonl`、`DATASET_CARD.md`、正解・生成記録) |
 | `scripts/` | データセット生成・組み立て、実験の実行ループ・集計(`run_final_matrix.sh` など。[`doc/reproduce.md`](doc/reproduce.md)) |

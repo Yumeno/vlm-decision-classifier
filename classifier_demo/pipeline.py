@@ -12,7 +12,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from . import decision, json_baseline
+from . import decision, dgemma, json_baseline
 from .image import JPEG_QUALITY, file_sha256, prepare_image
 from .metadata import extract_evidence
 from .taxonomy import Axis, Taxonomy
@@ -181,6 +181,45 @@ def _classify_bundled(
     return {"axis_decisions": axis_decisions, "vision_tags": vision_tags, "errors": errors, "bundled": bundled_info}
 
 
+def _classify_dgemma(taxonomy: Taxonomy, backend, image_bytes: bytes, mime: str, on_progress):
+    """dgemma_choice: 自前の dgemma-server へ1リクエストで全軸を投げ、choice と同じ形の結果・イベントにする。
+    通信・HTTP失敗は全軸の失敗、回答の欠落・形式不正はその軸だけの失敗として記録する。"""
+    axis_decisions: dict = {}
+    vision_tags: dict[str, list[str]] = {}
+    errors: list[dict] = []
+    info: dict = {"request_ms": None}
+
+    try:
+        res = dgemma.decide_dgemma(backend, image_bytes, mime, taxonomy)
+        axis_results, info, request_error = res["axes"], res["info"], None
+    except decision.DecisionError as e:
+        axis_results, request_error = {}, {"type": e.error_type, "detail": e.detail}
+    except decision.REQUEST_EXCEPTIONS as e:
+        axis_results, request_error = {}, {"type": "request_error", "detail": f"{type(e).__name__}: {e}"}
+
+    for axis in taxonomy.axes:
+        event: dict = {
+            "type": "axis", "axis_id": axis.id, "multi": axis.multi, "error": None, "bundled": True,
+            "elapsed_ms": info["request_ms"],
+        }
+        r = axis_results.get(axis.id)
+        err = request_error if request_error is not None else (r or {}).get("error")
+        if err is not None:
+            errors.append({"axis": axis.id, "type": err["type"], "detail": err["detail"]})
+            event["error"] = err
+        elif axis.multi:
+            axis_decisions[axis.id] = r
+            vision_tags[axis.id] = r["tags"]
+            event.update({**r, "confirm": True, "rank_threshold": decision.YES_THRESHOLD})
+        else:
+            axis_decisions[axis.id] = {"relative_scores": r["relative_scores"], "selected": r["selected"]}
+            vision_tags[axis.id] = [] if r["selected"] == decision.NONE_ID else [r["selected"]]
+            event.update({"relative_scores": r["relative_scores"], "selected": r["selected"]})
+        if on_progress is not None:
+            on_progress(event)
+    return {"axis_decisions": axis_decisions, "vision_tags": vision_tags, "errors": errors, "dgemma": info}
+
+
 def classify(
     image_path: str,
     taxonomy: Taxonomy,
@@ -211,6 +250,7 @@ def classify(
     vision_tags: dict[str, list[str]] = {}
     json_baseline_result = None
     bundled_info = None
+    dgemma_info = None
     per_axis_timing: dict[str, float] = {}
 
     image_bytes = mime = None
@@ -283,7 +323,16 @@ def classify(
             bundled_info = out["bundled"]
             if bundled_info["request_ms"] is not None:
                 per_axis_timing["bundled_request_ms"] = bundled_info["request_ms"]
-        elif mode in ("json", "json_schema"):
+        elif mode == "dgemma_choice":
+            out = _classify_dgemma(taxonomy, backend, image_bytes, mime, on_progress)
+            axis_decisions = out["axis_decisions"]
+            vision_tags = out["vision_tags"]
+            errors.extend(out["errors"])
+            dgemma_info = out["dgemma"]
+            if dgemma_info["request_ms"] is not None:
+                per_axis_timing["dgemma_request_ms"] = dgemma_info["request_ms"]
+        elif mode in ("json", "json_schema", "dgemma_json"):
+            # dgemma_json は vLLM(拡散モデル)向けの通常JSON。json_schema を拒否するので制約付きは使わない。
             json_baseline_result = json_baseline.classify_json(
                 backend, image_bytes, mime, taxonomy, constrained=(mode == "json_schema")
             )
@@ -348,10 +397,12 @@ def classify(
         "request_count": request_count,
         "errors": errors,
     }
-    if mode in ("choice", "bundled"):
+    if mode in ("choice", "bundled", "dgemma_choice"):
         result["axis_decisions"] = axis_decisions
         if mode == "bundled":
             result["bundled"] = bundled_info
+        if mode == "dgemma_choice":
+            result["dgemma"] = dgemma_info
     else:
         result["json_baseline"] = json_baseline_result
     return result

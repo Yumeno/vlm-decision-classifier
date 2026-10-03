@@ -4,6 +4,8 @@
 
 ## ★ 現在地と引き継ぎ(2026-09-27 更新。compact 後はまずここを読む)
 
+**状態(2026-10-03 更新、issue #4)**: DiffusionGemma の全件評価と結論はブランチ `feat/dgemma-eval`(`doc/experiments/dgemma/`、PR は未作成)。詳細は下の「2026-10-03 — 全件評価と結論」。
+
 **状態(2026-10-01 更新、公開)**: 公開リポジトリ `Yumeno/vlm-decision-classifier` として公開した。以後の更新はこのリポジトリで PR を作って merge する(main は ruleset で PR 必須)。非公開の開発リポジトリ(`vlm-decision-classifier-dev`)の履歴は洗浄して移し、旧コミット ID との対応は `doc/commit-map.tsv`。ダッシュボードは GitHub Pages(Actions は普段停止、手順は `doc/maintenance.md`)。次: note 記事の公開(作者)、issue(DiffusionGemma を WSL2 の vLLM で試す)、項目数を増やしたときの速度(未測定)。
 
 **状態(2026-09-30 更新、E10)**: ブランチ `exp/e10` に E10(ノイズ100枚)・E10b(実データ31枚)の結果(`doc/experiments/e10/`)、`scripts/run_e10b.sh`、report §1.4・README §12/§13 の更新を積んだ(PR で merge 待ち)。通常JSONの形式不正は `json_schema` で実データ全モデル0になった。次は、この結果を反映した記事・図解の直し、issue #21 など。
@@ -30,6 +32,33 @@
 **運用ルール(CLAUDE.md / メモリにもある)**: Sonnet が実装し、Codex(gpt-6-luna)がレビュー(5ラウンドで収束しなければ作者を呼ぶ)。VRAM を使う前に作者を呼ぶ。区切りごとに worklog に書く。コンテキストが 75〜85% になったら待機する。
 
 **artifact**(非公開): 狙い一覧 (非公開の作業用ページ) 、正解付与シート (非公開の作業用ページ) (db の `labels` コレクション。最終版は `dataset/labels/labels_final.json` に固定済み)。
+
+## 2026-10-03 — 全件評価と結論(issue #4、ブランチ feat/dgemma-eval)
+
+- やったこと: 最終設定(keyed / `Y: yes`・`N: no` / default 指示 / 名寄せ / 16問1回読み / samples 1)で、元画像31件の全件評価を seed 0・1・2 で実行(seed0 は `dgemma_json` と画像ごと交互、vLLM 再起動直後。gpu-memory-utilization 0.80)。結論と全表は `doc/experiments/dgemma/README.md`、実行記録(`summary.md`・`run.json`、個人パス除去済み)は同フォルダの `seed0/` `seed1/` `seed2/` `standard/`。
+- 結果(各1回): 単一5軸 142 / 143 / 142(json 136)、キャラ完全一致 28 / 28 / 27(json 28)、服装 19 / 19 / 18(json 23)、時間 mean 466 / 500 / 481 ms(json 1186 ms)、json の形式不正 2/31。choice は outfit の yes バイアスによる誤検出(school_uniform・other)が残る。seed1・2 は outfit 軸の失敗が 6・5。
+- 未解決: seed1・2 でキャッシュ済みのはずの時間が下がらない原因、並列スループット(未測定)、example サーバーのエントロピー定義。画像のプレフィックスキャッシュは 0.80 だと KV 13,772 tokens(約10枚分)で追い出される可能性(0.94 では 29,730 tokens。評価後に変更、報告実行には未使用)。
+- 判断: taxonomy は意図して変えない(キャラ説明の短縮は将来の新版で別実験)。`doc/reproduce.md`・`doc/cli.md`・README・`runtime/dgemma-vllm.json` を実装に揃えた。
+- 次の一手: 作者の確認後、PR を出す。
+
+## 2026-10-03 — dgemma-server の実機 probe とプロンプト書式の検討(ブランチ feat/dgemma-eval)
+
+- 条件: RTX 3090 単独、vLLM ab5266769 + openjev `vision_prefix_lm` パッチ、`--enable-prefix-caching --enable-prompt-tokens-details --max-num-seqs 2`、canvas 256、元画像31枚、taxonomy v0.4.1、16問(単一5 + outfit yes/no 8 + character yes/no 3)、samples 1。いずれも各1回の測定(小標本)。
+- 分かったこと:
+  - example サーバーで 10問超が崩れた主因は回答欄の書式。keyed(`<key>: <label>`)なら16問1回の読み出しでキャラ完全一致 25/31(example は 7/31)。numbered(`Q1: <label>`)は全滅(0/31)。
+  - 失敗(`label_mass_low`)の原因は、モデルが記号でなく選択肢名を書こうとしていたこと(art_style で ` anime` 0.915 / ` A` 0.073 など)。名寄せ(記号・選択肢名の先頭トークン・大小表記の確率を合算)を入れ、16問1回で単一5軸の正答 128→142/155、失敗 19→4。
+  - 指示の強化(strict)は、16問1回では キャラ 25→27、服装 19→22、単一 141→144、失敗 4→2。4問×4回では キャラ 30→29、服装 25→20 と逆向き(原因は未確認。FP/FN を分けて確認する)。
+  - 時間(画像処理込み、31枚、方式の順をローテーション): 1回読み 447ms、8問×2回 464ms、4問×4回 534ms。キャッシュ済みの画像は 151/234/271ms。画像の2回目以降はエンコードが省かれる(cached_tokens 1248/1262)。
+  - 詳細な表と条件は note の probe メモ(リポジトリ管理外)にあり、評価の本番結果は `doc/experiments/` に置く予定。
+- プロンプト書式の検討: Gemini 3.8 Flash(agy 経由)に所感を聞いた。yes/no 質問だけ書式が違う点(作者の指摘)は Gemini も問題と判断。次の比較で yes/no の見せ方・繰り返し指示の集約・質問順を変える。
+- **意図して今回触らないもの(作者判断、2026-10-03)**: `taxonomy/default.yaml` の中身(キャラの説明文・質問文・選択肢の意味)は変えない。Gemini の「キャラの説明を特徴の列挙に縮める」案は、評価途中で分類体系を変えることになるため今回は採らない。変えるのはサーバーがプロンプトを組み立てる書式だけ(yes/no の見せ方、`Answer with …` の集約、質問順、名前と説明が同じときの括弧の省略)。キャラの説明を縮める案は**将来やる可能性がある**(作者)。やるときは分類体系の新しい版(例 v0.5.0)の別実験とし、旧版の結果は残す。
+- 服装の school_uniform の誤検出(亜里紗の服が学校の制服と紙一重)は、分類を変えず「判定ミスの出やすいところ」として許容する(作者判断。実用時はメタタグも併用する想定)。
+
+## 2026-10-03 — 自前 dgemma-server の実装(ブランチ feat/dgemma-eval、実機未検証)
+
+- やったこと: vLLM の example サーバーを使わず、自前の `classifier_demo/dgemma_server.py`(`python -m classifier_demo dgemma-server`、stdlib のみ)を実装。クライアント(`dgemma.py`)を新サーバー向けに更新(質問IDを読みやすい形に戻す、samples/seed/template/max_per_read/max_soft_tokens を送る、`errors` を軸の失敗として扱う)。純粋ロジックのテスト(偽 /tokenize・偽 vLLM 応答)を追加。
+- 判断: 目的は「画像1枚・全質問を1キャンバス・1回の読み出しで」(拡散LMの利点)。`max_per_read` は診断用のつまみで既定0(全質問1回)。テンプレートは `<qid>: <ラベル>` の行(keyed)を既定、`Q<n>: <ラベル>`(numbered)は形式と質問数の効果を切り分ける probe 用。容量超過は黙って分割せず 422。ラベルトークンは /tokenize で検証し、行連結と全文トークナイズの不一致はエラー。vLLM example のコードは参照していない(エンジン側のソースと仕様文書のみ)。
+- 未解決・次の一手: 実機で probe(ラベルの単一トークン性、空の思考ブロックの形、`logprobs.content` の位置対応、`max_tokens=キャンバス幅` の挙動、label_mass の分布、cached_tokens の可視性)。VRAM を使う前に作者を呼ぶ。
 
 ## 2026-10-01 — 公開
 

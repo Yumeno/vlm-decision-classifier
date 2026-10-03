@@ -241,7 +241,7 @@ def build_case_row(case: dict, mode: str, order_index: int, result: dict, taxono
     error_types = [e.get("type", "") for e in result.get("errors") or []]
     row["error_types"] = ";".join(dict.fromkeys(error_types))
 
-    if mode in ("json", "json_schema"):
+    if mode in ("json", "json_schema", "dgemma_json"):
         jb = result.get("json_baseline") or {}
         row["json_attempts"] = len(jb.get("attempts") or [])
         row["json_first_attempt_ms"] = jb.get("first_attempt_ms", "")
@@ -393,7 +393,7 @@ def _latency_block(recs: list[dict], mode: str) -> list[str]:
         if combined_ms:
             lines.append(f"  - prime + 判定(N={len(combined_ms)}): mean={statistics.mean(combined_ms):.1f}ms")
 
-    if mode in ("json", "json_schema") and recs:
+    if mode in ("json", "json_schema", "dgemma_json") and recs:
         fmt_errors = sum(1 for r in recs if (r["result"].get("json_baseline") or {}).get("tags") is None)
         attempts = [len((r["result"].get("json_baseline") or {}).get("attempts") or []) for r in recs]
         lines.append(f"  - 形式不正率: {_pct_str(fmt_errors, len(recs))}")

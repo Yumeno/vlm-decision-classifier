@@ -10,9 +10,10 @@ import sys
 
 from PIL import Image
 
-from . import evaluate, pipeline, server, systemone
+from . import dgemma_server, evaluate, pipeline, server, systemone
 from .backend import ChatBackend
 from .decision import Choice, DecisionError, choose
+from .dgemma import DgemmaBackend
 from .taxonomy import load as load_taxonomy
 
 
@@ -79,9 +80,82 @@ def cmd_probe(args: argparse.Namespace) -> int:
     return 0
 
 
+def _int_min(minimum: int):
+    def parse(value: str) -> int:
+        try:
+            n = int(value)
+        except ValueError:
+            n = minimum - 1
+        if n < minimum:
+            raise argparse.ArgumentTypeError(f"must be an integer >= {minimum}")
+        return n
+
+    return parse
+
+
+def _add_dgemma_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--dgemma-url",
+        default=None,
+        help="DiffusionGemma(issue #4): 自前の dgemma-server のURL(例 http://127.0.0.1:8012。/v1/systemone を使う)。"
+        "dgemma_choice で必須。--base-url は vLLM 本体(例 http://127.0.0.1:8000/v1)",
+    )
+    p.add_argument("--dgemma-samples", type=_int_min(1), default=1, help="dgemma_choice のノイズ draw の回数(整数、既定1)")
+    p.add_argument("--dgemma-seed", type=int, default=0, help="dgemma_choice のノイズの seed(既定0)")
+    p.add_argument(
+        "--dgemma-template", choices=["keyed", "numbered"], default="keyed",
+        help="回答テンプレート。keyed=`<質問id>: <ラベル>`(既定)、numbered=`Q<n>: <ラベル>`",
+    )
+    p.add_argument(
+        "--dgemma-instruction", choices=["default", "strict", "strict_sys"], default="default",
+        help="プロンプト文面。strict=system と各質問末尾の指示、strict_sys=system のみ強い文面(テンプレートは同じ)。default 以外のときだけ送る",
+    )
+    p.add_argument(
+        "--dgemma-yn-style", choices=["slash", "lines", "letters", "yn"], default="slash",
+        help="複数選択の yes/no 質問の描き方。slash=`yes / no`(既定)、lines=`yes: present...`/`no: not present...`、letters=A/B、yn=`Y: yes`/`N: no`(質問文はそのまま)。slash 以外のときだけ送る",
+    )
+    p.add_argument(
+        "--dgemma-order", choices=["taxonomy", "character_first"], default="taxonomy",
+        help="質問の並び。character_first=character 軸の質問を最初の複数選択軸の前へ(クライアント側)",
+    )
+    p.add_argument(
+        "--dgemma-max-per-read", type=_int_min(0), default=0,
+        help="1回の読み出しに入れる質問数の上限(診断用。0=全質問を1回で)",
+    )
+    p.add_argument(
+        "--dgemma-max-soft-tokens", type=_int_min(1), default=None,
+        help="画像トークン予算(vLLM の mm_processor_kwargs.max_soft_tokens。例 70/140/280)。未指定なら送らない",
+    )
+
+
+def _make_backend(args: argparse.Namespace, modes: list[str]) -> ChatBackend | None:
+    """dgemma_* のモードを含むときは DgemmaBackend(thinking 無効を全リクエストに足す)、
+    それ以外は従来の ChatBackend。dgemma_choice に --dgemma-url が無ければ None。"""
+    if any(m.startswith("dgemma_") for m in modes):
+        if "dgemma_choice" in modes and not args.dgemma_url:
+            print("--dgemma-url is required for dgemma_choice", file=sys.stderr)
+            return None
+        return DgemmaBackend(
+            base_url=args.base_url,
+            model=args.model,
+            structured_url=args.dgemma_url,
+            samples=args.dgemma_samples,
+            seed=args.dgemma_seed,
+            template=args.dgemma_template,
+            instruction=args.dgemma_instruction,
+            yn_style=args.dgemma_yn_style,
+            order=args.dgemma_order,
+            max_per_read=args.dgemma_max_per_read,
+            max_soft_tokens=args.dgemma_max_soft_tokens,
+        )
+    return ChatBackend(base_url=args.base_url, model=args.model)
+
+
 def cmd_classify(args: argparse.Namespace) -> int:
     taxonomy = load_taxonomy(args.taxonomy)
-    backend = ChatBackend(base_url=args.base_url, model=args.model)
+    backend = _make_backend(args, [args.mode])
+    if backend is None:
+        return 1
     result = pipeline.classify(
         args.image,
         taxonomy,
@@ -143,7 +217,9 @@ def _modes_type(value: str) -> list[str]:
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
-    backend = ChatBackend(base_url=args.base_url, model=args.model)
+    backend = _make_backend(args, args.modes)
+    if backend is None:
+        return 1
     return evaluate.run_evaluate(
         manifest_path=args.manifest,
         taxonomy_path=args.taxonomy,
@@ -208,7 +284,7 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("image")
     classify_parser.add_argument("--base-url", default="http://127.0.0.1:1234/v1")
     classify_parser.add_argument("--model", required=True)
-    classify_parser.add_argument("--mode", choices=["choice", "json", "bundled", "json_schema"], default="choice")
+    classify_parser.add_argument("--mode", choices=sorted(evaluate.VALID_MODES), default="choice")
     classify_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     classify_parser.add_argument("--max-edge", type=int, default=1024)
     classify_parser.add_argument(
@@ -235,6 +311,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="rank",
         help="束ね質問(bundled)での複数選択軸の扱い。rank=相対スコアと閾値(既定)、yn=候補ごとのYes/No欄(E7e)",
     )
+    _add_dgemma_args(classify_parser)
     classify_parser.add_argument("--output")
     classify_parser.set_defaults(func=cmd_classify)
 
@@ -255,7 +332,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--modes",
         default="choice,json",
         type=_modes_type,
-        help="comma-separated choice/json/bundled/json_schema, no duplicates (default: choice,json). 3モード指定時はケースごとに実行順を回転する",
+        help="comma-separated choice/json/bundled/json_schema/dgemma_choice/dgemma_json, no duplicates (default: choice,json). 3モード指定時はケースごとに実行順を回転する",
     )
     evaluate_parser.add_argument("--taxonomy", default="taxonomy/default.yaml")
     evaluate_parser.add_argument("--max-edge", type=int, default=1024)
@@ -311,6 +388,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="rank",
         help="束ね質問(bundled)での複数選択軸の扱い。rank=相対スコアと閾値(既定)、yn=候補ごとのYes/No欄(E7e)",
     )
+    _add_dgemma_args(evaluate_parser)
     evaluate_parser.set_defaults(func=cmd_evaluate)
 
     serve_parser = sub.add_parser(
@@ -333,6 +411,12 @@ def build_parser() -> argparse.ArgumentParser:
     so_parser.add_argument("--image-format", choices=["jpeg", "png"], default="jpeg")
     so_parser.add_argument("--prime", action="store_true", help="send one prefix-only request first")
     so_parser.set_defaults(func=cmd_systemone)
+
+    ds_parser = sub.add_parser(
+        "dgemma-server", help="DiffusionGemma(vLLM)用の判定サーバー。POST /v1/systemone(issue #4)"
+    )
+    dgemma_server.add_arguments(ds_parser)
+    ds_parser.set_defaults(func=dgemma_server.serve)
 
     return parser
 
