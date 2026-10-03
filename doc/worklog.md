@@ -31,6 +31,19 @@
 
 **artifact**(非公開): 狙い一覧 (非公開の作業用ページ) 、正解付与シート (非公開の作業用ページ) (db の `labels` コレクション。最終版は `dataset/labels/labels_final.json` に固定済み)。
 
+## 2026-10-03 — dgemma-server の実機 probe とプロンプト書式の検討(ブランチ feat/dgemma-eval)
+
+- 条件: RTX 3090 単独、vLLM ab5266769 + openjev `vision_prefix_lm` パッチ、`--enable-prefix-caching --enable-prompt-tokens-details --max-num-seqs 2`、canvas 256、元画像31枚、taxonomy v0.4.1、16問(単一5 + outfit yes/no 8 + character yes/no 3)、samples 1。いずれも各1回の測定(小標本)。
+- 分かったこと:
+  - example サーバーで 10問超が崩れた主因は回答欄の書式。keyed(`<key>: <label>`)なら16問1回の読み出しでキャラ完全一致 25/31(example は 7/31)。numbered(`Q1: <label>`)は全滅(0/31)。
+  - 失敗(`label_mass_low`)の原因は、モデルが記号でなく選択肢名を書こうとしていたこと(art_style で ` anime` 0.915 / ` A` 0.073 など)。名寄せ(記号・選択肢名の先頭トークン・大小表記の確率を合算)を入れ、16問1回で単一5軸の正答 128→142/155、失敗 19→4。
+  - 指示の強化(strict)は、16問1回では キャラ 25→27、服装 19→22、単一 141→144、失敗 4→2。4問×4回では キャラ 30→29、服装 25→20 と逆向き(原因は未確認。FP/FN を分けて確認する)。
+  - 時間(画像処理込み、31枚、方式の順をローテーション): 1回読み 447ms、8問×2回 464ms、4問×4回 534ms。キャッシュ済みの画像は 151/234/271ms。画像の2回目以降はエンコードが省かれる(cached_tokens 1248/1262)。
+  - 詳細な表と条件は note の probe メモ(リポジトリ管理外)にあり、評価の本番結果は `doc/experiments/` に置く予定。
+- プロンプト書式の検討: Gemini 3.8 Flash(agy 経由)に所感を聞いた。yes/no 質問だけ書式が違う点(作者の指摘)は Gemini も問題と判断。次の比較で yes/no の見せ方・繰り返し指示の集約・質問順を変える。
+- **意図して今回触らないもの(作者判断、2026-10-03)**: `taxonomy/default.yaml` の中身(キャラの説明文・質問文・選択肢の意味)は変えない。Gemini の「キャラの説明を特徴の列挙に縮める」案は、評価途中で分類体系を変えることになるため今回は採らない。変えるのはサーバーがプロンプトを組み立てる書式だけ(yes/no の見せ方、`Answer with …` の集約、質問順、名前と説明が同じときの括弧の省略)。キャラの説明を縮める案を試すなら、分類体系の新しい版(例 v0.5.0)の別実験として行う。
+- 服装の school_uniform の誤検出(亜里紗の服が学校の制服と紙一重)は、分類を変えず「判定ミスの出やすいところ」として許容する(作者判断。実用時はメタタグも併用する想定)。
+
 ## 2026-10-03 — 自前 dgemma-server の実装(ブランチ feat/dgemma-eval、実機未検証)
 
 - やったこと: vLLM の example サーバーを使わず、自前の `classifier_demo/dgemma_server.py`(`python -m classifier_demo dgemma-server`、stdlib のみ)を実装。クライアント(`dgemma.py`)を新サーバー向けに更新(質問IDを読みやすい形に戻す、samples/seed/template/max_per_read/max_soft_tokens を送る、`errors` を軸の失敗として扱う)。純粋ロジックのテスト(偽 /tokenize・偽 vLLM 応答)を追加。
