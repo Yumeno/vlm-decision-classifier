@@ -2,7 +2,16 @@
 
 新しい順。compact 後の文脈復元用。詳細は各 PR と `doc/` を参照。
 
+## 2026-10-03 — #12 の追加検証と adaptive
+
+- やったこと: `--gpu-memory-utilization`(0.80/0.94/0.88)、並列(1/2/4)、キャッシュの持ち、画像トークン(280/140/70 × seed 0/1)、adaptive A〜E を測った。記録は `doc/experiments/dgemma/followup-12.md`、実行記録は `doc/experiments/dgemma/adaptive/` と `mst/`。
+- 結果の要点(各1回、31枚): 0.94 はキャッシュなしの画像が約8倍遅い。0.88・画像トークン 140 を推奨。並列はほぼ効かない。しきい値 0.87・上限 3 の adaptive で服装完全一致 19 → 22/31、失敗した軸 1 → 0、+51 ms。キャラは 27 → 26/31(揺れの範囲)。
+- 判断: adaptive は既定にせずオプション。しきい値は同じ画像を見て決めたので探索的として書いた。`scripts/dgemma/run_eval.sh` は5番目以降の引数を evaluate に渡すようにした。
+- 次: #12 用の PR を作る。#11 は open。
+
 ## ★ 現在地と引き継ぎ(2026-09-27 更新。compact 後はまずここを読む)
+
+**状態(2026-10-03 更新、issue #12)**: ブランチ `feat/dgemma-adaptive` に適応的再読み出しの実装と #12 の追加検証の記録(`doc/experiments/dgemma/followup-12.md`)を積んだ。#12 用の PR は未作成(作成待ち)、#11 は open のまま。
 
 **状態(2026-10-03 更新、issue #4)**: DiffusionGemma の全件評価と結論はブランチ `feat/dgemma-eval`(`doc/experiments/dgemma/`、PR は未作成)。詳細は下の「2026-10-03 — 全件評価と結論」。
 
