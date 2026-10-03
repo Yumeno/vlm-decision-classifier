@@ -2,6 +2,12 @@
 
 新しい順。compact 後の文脈復元用。詳細は各 PR と `doc/` を参照。
 
+## 2026-10-03 — #12: 「その他」の質問文(catchall_style)
+
+- やったこと: `--dgemma-catchall-style`(default|criteria)を追加。seed による失敗の原因調べ(失敗はほぼ「その他」の質問、エンジンの非決定性で 0.5 をまたぐ)から、「その他」の質問文だけを言い換える実験をした(記録は `doc/experiments/dgemma/catchall/`、まとめは `followup-12.md` §6)。
+- 結果の要点(各1回、31枚): `criteria` はキャラ完全一致 27 → 29〜30/31(FN 0)、「その他」のラベル質量の失敗なし。`list`(Apart from)は前提を置く書き方が害になりキャラが 23〜24 に悪化(コードは削除、結果だけ記録)。
+- 判断: 既定は `default` のまま、推奨は `criteria`。taxonomy の中身は変えない。
+
 ## 2026-10-03 — #12: steps の測定と、迷いの印(uncertain)
 
 - やったこと: 複数ステップ読み出し(`--dgemma-steps`)を実装し、steps 1/2/4/8 を測った(記録は `doc/experiments/dgemma/steps/`、まとめは `followup-12.md` §3.6)。adaptive が有効なとき、答えに `uncertain`・`entropy` を付ける(単一選択軸は `uncertain`、複数選択軸は `uncertain_options`)。

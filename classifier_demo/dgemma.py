@@ -165,11 +165,6 @@ def build_request(
                     crit = re.sub("none of the above", f"none of these: {_join_names(others)}", c.criteria, flags=re.IGNORECASE)
                     instructions = f"Does the image show {crit}?"
                     subject = crit
-                elif catchall_style == "list" and c.catch_all and others:
-                    # 「その他」系の選択肢だけ、同じ軸の他の選択肢を除くと明示する(taxonomy の中身は変えない)
-                    listed = _join_names(others)
-                    instructions = f"Apart from {listed}, is there at least one {subject} in the image?"
-                    subject = f"{subject}, apart from {listed}"
                 qids[c.id] = add(f"{axis.id}_{c.id}", {"type": "noul", "instructions": instructions, "subject": subject})
             plan[axis.id] = {"qids": qids}
         else:

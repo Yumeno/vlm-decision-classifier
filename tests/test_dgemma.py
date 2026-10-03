@@ -297,50 +297,27 @@ def test_parse_response_carries_uncertain_flags_without_changing_selection():
     assert res["outfit"]["uncertain_options"] == ["swim"] and res["outfit"]["tags"] == plain["outfit"]["tags"]
 
 
-def test_catchall_style_list_rewrites_only_catch_all_questions():
-    import pathlib
-
-    from classifier_demo.taxonomy import load
-
-    tax = load(str(pathlib.Path(__file__).resolve().parent.parent / "taxonomy" / "default.yaml"))
-    default, _ = dgemma.build_request(tax, b"i", "image/jpeg", "m")
-    listed, _ = dgemma.build_request(tax, b"i", "image/jpeg", "m", catchall_style="list")
-    assert dgemma.build_request(tax, b"i", "image/jpeg", "m", catchall_style="default")[0] == default  # 既定は従来どおり
-    diff = {k for k in default["questions"] if default["questions"][k] != listed["questions"][k]}
-    assert diff == {"outfit_other", "character_other_original"}  # catch_all だけが変わる
-    assert listed["questions"]["outfit_other"]["instructions"] == (
-        "Apart from sailor school uniform, school uniform, office wear, swimsuit, maid outfit, "
-        "shrine maiden outfit and nun's habit, is there at least one other clothing "
-        "(clothing whose type is recognizable but fits none of the above) in the image?"
-    )
-    assert listed["questions"]["character_other_original"]["instructions"] == (
-        "Apart from Alisa and Second original character, is there at least one other character "
-        "(any person or humanoid character who is neither Alisa nor the second original character) in the image?"
-    )
-    assert listed["questions"]["outfit_other"]["subject"].endswith(", apart from sailor school uniform, school uniform, office wear, swimsuit, maid outfit, shrine maiden outfit and nun's habit")
-
-
-def test_catchall_style_list_joining_and_edge_cases():
+def test_catchall_style_criteria_joining_and_edge_cases():
     def axis(choices):
         return Taxonomy(version="t", axes=[Axis(id="ax", question="q", multi=True, allow_none=False, choices=choices)], sha256="s")
 
     def q(choices):
-        body, _ = dgemma.build_request(axis(choices), b"i", "image/jpeg", "m", catchall_style="list")
+        body, _ = dgemma.build_request(axis(choices), b"i", "image/jpeg", "m", catchall_style="criteria")
         return body["questions"]["ax_z"]["instructions"]
 
-    rest = Choice(id="z", name="Rest", criteria="rest", catch_all=True)
+    rest = Choice(id="z", name="Rest", criteria="fits none of the above", catch_all=True)
     one = [Choice(id="a", name="aa", criteria="1"), rest]
     two = [Choice(id="a", name="aa", criteria="1"), Choice(id="b", name="bb", criteria="2"), rest]
     three = two + [Choice(id="c", name="cc", criteria="3")]
-    assert q(one) == "Apart from aa, is there at least one Rest in the image?"
-    assert q(two).startswith("Apart from aa and bb, is there")
-    assert q(three).startswith("Apart from aa, bb and cc, is there")
-    # catch_all 同士は列挙しない。兄弟が無ければ従来の文面
-    only = [Choice(id="a", name="aa", criteria="1", catch_all=True), Choice(id="z", name="Rest2", criteria="r", catch_all=True)]
-    body, _ = dgemma.build_request(axis(only), b"i", "image/jpeg", "m", catchall_style="list")
-    assert body["questions"]["ax_a"]["instructions"] == "Is aa (1) present in the image?"
+    assert q(one) == "Does the image show fits none of these: aa?"
+    assert q(two) == "Does the image show fits none of these: aa and bb?"
+    assert q(three) == "Does the image show fits none of these: aa, bb and cc?"
+    # catch_all でない選択肢だけの軸、catch_all に兄弟が無い軸は従来の文面
     plain = [Choice(id="a", name="aa", criteria="1"), Choice(id="z", name="bb", criteria="2")]
-    assert dgemma.build_request(axis(plain), b"i", "image/jpeg", "m", catchall_style="list")[0] == dgemma.build_request(axis(plain), b"i", "image/jpeg", "m")[0]
+    assert dgemma.build_request(axis(plain), b"i", "image/jpeg", "m", catchall_style="criteria")[0] == dgemma.build_request(axis(plain), b"i", "image/jpeg", "m")[0]
+    alone = [Choice(id="z", name="Rest", criteria="none of the above", catch_all=True)]
+    body, _ = dgemma.build_request(axis(alone), b"i", "image/jpeg", "m", catchall_style="criteria")
+    assert body["questions"]["ax_z"]["instructions"] == "Is Rest (none of the above) present in the image?"
 
 
 def test_catchall_style_criteria_replaces_none_of_the_above():
