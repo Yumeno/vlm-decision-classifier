@@ -47,7 +47,16 @@ SYSTEM_PROMPT = (
     "using only a label that question allows. Never write prose or anything else."
 )
 TEMPLATES = ("keyed", "numbered")
-INSTRUCTIONS = ("default", "strict")
+INSTRUCTIONS = ("default", "strict", "strict_sys")
+YN_STYLES = ("slash", "lines", "letters")
+STRICT_SYS_ONLY_PROMPT = (
+    "You label an image by answering questions. Each question below has a key, and its options are listed as "
+    "'<label>: <meaning>'. Answer every question with exactly one label and nothing else: "
+    "a single capital letter for a multiple-choice question, and for a presence question the label shown "
+    "(yes or no, or a letter when the options are lettered). "
+    "Never write an option's name, its description or any other word. "
+    "Reply with exactly one line per question, in the order given, in the form '<key>: <label>'."
+)
 STRICT_SYSTEM_PROMPT = (
     "You label an image by answering questions. Each question below has a key and a list of allowed labels, "
     "and every option is written as '<label>: <description>'. Your answer for a question must be exactly one label: "
@@ -87,10 +96,18 @@ class Question:
     kind: str  # "choice" | "noul"
     instructions: str
     options: list[tuple[str, str]]  # choice: (名前, 説明)。noul は空
+    subject: str = ""  # noul: 在否を聞く対象(lines/letters の質問文に使う)
+    yn_style: str = "slash"  # noul の描き方(slash|lines|letters)
 
     @property
     def labels(self) -> list[str]:
-        return CHOICE_LABELS[: len(self.options)] if self.kind == "choice" else NOUL_LABELS
+        if self.kind == "choice":
+            return CHOICE_LABELS[: len(self.options)]
+        return ["A", "B"] if self.yn_style == "letters" else NOUL_LABELS
+
+    @property
+    def yes_label(self) -> str:
+        return self.labels[0]  # noul の「ある」側(letters では A)
 
 
 @dataclass
@@ -105,6 +122,7 @@ class Request:
     max_per_read: int | None
     mm_processor_kwargs: dict | None
     instruction: str = "default"
+    yn_style: str = "slash"
 
 
 @dataclass
@@ -153,6 +171,9 @@ def parse_request(body) -> Request:
     raw_q = body.get("questions")
     if not isinstance(raw_q, dict) or not raw_q:
         raise RequestError(400, "'questions' must be a non-empty object")
+    yn_style = body.get("yn_style", "slash")
+    if not isinstance(yn_style, str) or yn_style not in YN_STYLES:
+        raise RequestError(400, f"'yn_style' must be one of {YN_STYLES}")
     questions: list[Question] = []
     for qid, spec in raw_q.items():
         if not KEY_RE.match(qid):
@@ -177,7 +198,8 @@ def parse_request(body) -> Request:
                 raise RequestError(400, f"question {qid!r}: duplicate option names after cleaning")
             questions.append(Question(qid, "choice", instructions, options))
         elif kind == "noul":
-            questions.append(Question(qid, "noul", instructions, []))
+            subject = clean_text(spec.get("subject", ""), 600, f"question {qid!r} subject")
+            questions.append(Question(qid, "noul", instructions, [], subject, yn_style))
         else:
             raise RequestError(400, f"question {qid!r}: type must be 'choice' or 'noul'")
     images = body.get("images")
@@ -211,6 +233,7 @@ def parse_request(body) -> Request:
         max_per_read=mpr,
         mm_processor_kwargs=mm,
         instruction=instruction,
+        yn_style=yn_style,
     )
 
 
@@ -275,6 +298,8 @@ def line_tokens(tok: Tokenizer, key: str, labels: list[str]) -> tuple[list[int],
 def label_variants(q: Question) -> dict[str, list[str]]:
     """ラベルごとの別表記(文字列)。モデルが記号の代わりに選択肢名や yes/Yes を書く場合を数える(名寄せ)。"""
     if q.kind == "noul":
+        if q.yn_style == "letters":
+            return {"A": ["A", "yes", "Yes", "YES"], "B": ["B", "no", "No", "NO"]}
         return {"yes": ["yes", "Yes", "YES"], "no": ["no", "No", "NO"]}
     out = {}
     for lab, (name, _) in zip(q.labels, q.options):
@@ -395,7 +420,7 @@ def aggregate_question(q: Question, samples: list[tuple]) -> tuple[dict | None, 
         return None, {"type": top, "detail": f"no valid sample out of {len(samples)}: {dict(reasons)}"}
     avg = {lab: sum(p[lab] for p in valid) / len(valid) for lab in valid[0]}
     if q.kind == "noul":
-        return {"type": "noul", "noul": avg["yes"]}, None
+        return {"type": "noul", "noul": avg[q.yes_label]}, None
     best = max(q.labels, key=lambda lab: avg[lab])  # 同点は先頭
     names = {lab: name for lab, (name, _) in zip(q.labels, q.options)}
     return {
@@ -411,17 +436,24 @@ def aggregate_question(q: Question, samples: list[tuple]) -> tuple[dict | None, 
 def question_block(keys: list[str], questions: list[Question], instruction: str = "default") -> str:
     lines = []
     for key, q in zip(keys, questions):
-        lines.append(f"{key}: {q.instructions}")
+        styled = q.kind == "noul" and q.yn_style != "slash"
+        lines.append(f"{key}: {(q.subject or q.instructions) if styled else q.instructions}")
         if q.kind == "choice":
             for lab, (name, desc) in zip(q.labels, q.options):
                 lines.append(f"  {lab}: {name} ({desc})" if desc else f"  {lab}: {name}")
             if instruction == "strict":
                 letters = q.labels
                 lines.append(f"  Answer with one letter: {', '.join(letters[:-1])} or {letters[-1]}")
-        else:
+        elif q.yn_style == "slash":
             lines.append("  yes / no")
             if instruction == "strict":
                 lines.append("  Answer with yes or no")
+        else:
+            yes_l, no_l = q.labels[0], q.labels[1]
+            lines.append(f"  {yes_l}: present in the image")
+            lines.append(f"  {no_l}: not present in the image")
+            if instruction == "strict":
+                lines.append(f"  Answer with {'one letter: A or B' if q.yn_style == 'letters' else 'yes or no'}")
     return "\n".join(lines)
 
 
@@ -435,7 +467,7 @@ def build_messages(req: Request, block: str) -> list[dict]:
     content = [{"type": "image_url", "image_url": {"url": u}} for u in req.images]
     content.append({"type": "text", "text": req.state})
     content.append({"type": "text", "text": block})
-    system = STRICT_SYSTEM_PROMPT if req.instruction == "strict" else SYSTEM_PROMPT
+    system = {"strict": STRICT_SYSTEM_PROMPT, "strict_sys": STRICT_SYS_ONLY_PROMPT}.get(req.instruction, SYSTEM_PROMPT)
     return [{"role": "system", "content": system}, {"role": "user", "content": content}]
 
 
@@ -578,7 +610,7 @@ class Engine:
                     errors[q.qid] = error
                 label_mass[q.qid] = [s[1] for s in per_q[q.qid]]
                 per_sample[q.qid] = [
-                    None if s[0] is None else (s[0]["yes"] if q.kind == "noul" else dict(zip([n for n, _ in q.options], [s[0][lab] for lab in q.labels])))
+                    None if s[0] is None else (s[0][q.yes_label] if q.kind == "noul" else dict(zip([n for n, _ in q.options], [s[0][lab] for lab in q.labels])))
                     for s in per_q[q.qid]
                 ]
             diag = {

@@ -478,6 +478,8 @@ def run_evaluate(
                 "seed": backend.seed,
                 "template": backend.template,
                 "instruction": backend.instruction,
+                "yn_style": backend.yn_style,
+                "order": backend.order,
                 "max_per_read": backend.max_per_read,
                 "max_soft_tokens": backend.max_soft_tokens,
                 "extra_body": backend.extra_body,

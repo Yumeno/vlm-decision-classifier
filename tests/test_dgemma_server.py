@@ -497,3 +497,63 @@ def test_instruction_variants_change_only_prompt_text():
     assert s["vllm_xargs"]["diffusion_canvas_length"] == d["vllm_xargs"]["diffusion_canvas_length"]  # テンプレートは不変
     with pytest.raises(ds.RequestError):
         ds.parse_request(_body(instruction="loud"))
+
+
+def _yn_body(style, **kw):
+    q = {
+        "style": {"type": "choice", "instructions": "What style?", "criteria": {"anime": "cel", "photo": "real"}},
+        "outfit_maid": {"type": "noul", "instructions": "Is maid present?", "subject": "maid outfit (apron)"},
+        "outfit_swim": {"type": "noul", "instructions": "Is swim present?"},
+    }
+    return _body(questions=q, yn_style=style, **kw)
+
+
+def _block(req):
+    return ds.question_block(ds.read_keys("keyed", req.questions), req.questions, req.instruction)
+
+
+def test_yn_style_rendering_and_labels():
+    slash = ds.parse_request(_yn_body("slash"))
+    assert _block(slash) == (
+        "style: What style?\n  A: anime (cel)\n  B: photo (real)\n"
+        "outfit_maid: Is maid present?\n  yes / no\noutfit_swim: Is swim present?\n  yes / no"
+    )
+    assert ds.parse_request(_yn_body("slash")).questions[1].labels == ["yes", "no"]
+    lines = ds.parse_request(_yn_body("lines"))
+    assert _block(lines).endswith(
+        "outfit_maid: maid outfit (apron)\n  yes: present in the image\n  no: not present in the image\n"
+        "outfit_swim: Is swim present?\n  yes: present in the image\n  no: not present in the image"
+    )  # subject が無ければ instructions
+    assert lines.questions[1].labels == ["yes", "no"]
+    letters = ds.parse_request(_yn_body("letters"))
+    assert "outfit_maid: maid outfit (apron)\n  A: present in the image\n  B: not present in the image" in _block(letters)
+    assert letters.questions[1].labels == ["A", "B"] and letters.questions[1].yes_label == "A"
+    assert ds.parse_request(_yn_body("slash")).yn_style == "slash"
+    for bad in ("dots", 3, None):
+        with pytest.raises(ds.RequestError) as e:
+            ds.parse_request(_yn_body(bad))
+        assert e.value.status == 400
+
+
+def test_letters_yn_aliases_and_answer_maps_a_to_yes():
+    eng, fake = _engine({"style": {"A": 0.6, "B": 0.3}, "outfit_maid": {"A": 0.7, "B": 0.1}, "outfit_swim": {"A": 0.1, "B": 0.7}})
+    out = eng.handle(_yn_body("letters"))
+    slot = {s.qid: s for s in eng.last_plans[0].template.slots}["outfit_maid"]
+    tok = lambda w: eng.tok("outfit_maid: " + w + chr(10))[3]  # key, ":", " ", label
+    assert set(slot.label_ids) == {"A", "B"}
+    assert slot.alias_ids("A") == sorted({tok("A"), tok("yes"), tok("Yes"), tok("YES")})
+    assert slot.alias_ids("B") == sorted({tok("B"), tok("no"), tok("No"), tok("NO")})
+    assert out["answers"]["outfit_maid"]["noul"] == pytest.approx(0.7 / 0.8)
+    assert out["answers"]["outfit_swim"]["noul"] == pytest.approx(0.1 / 0.8)
+
+
+def test_strict_sys_changes_only_system_text_and_keeps_default_and_strict():
+    eng, fake = _engine(DIST)
+    for ins in ("default", "strict", "strict_sys"):
+        eng.handle(_body(instruction=ins))
+    d, s, ss = fake.payloads
+    assert d["messages"][0]["content"] == ds.SYSTEM_PROMPT and s["messages"][0]["content"] == ds.STRICT_SYSTEM_PROMPT
+    assert ss["messages"][0]["content"] == ds.STRICT_SYS_ONLY_PROMPT not in (ds.SYSTEM_PROMPT, ds.STRICT_SYSTEM_PROMPT)
+    text = ss["messages"][1]["content"][2]["text"]
+    assert "Answer with" not in text and text == d["messages"][1]["content"][2]["text"]
+    assert "Answer with" in s["messages"][1]["content"][2]["text"]

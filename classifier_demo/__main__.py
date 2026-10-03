@@ -107,8 +107,16 @@ def _add_dgemma_args(p: argparse.ArgumentParser) -> None:
         help="回答テンプレート。keyed=`<質問id>: <ラベル>`(既定)、numbered=`Q<n>: <ラベル>`",
     )
     p.add_argument(
-        "--dgemma-instruction", choices=["default", "strict"], default="default",
-        help="プロンプト文面。strict=ラベル(記号・yes/no)だけで答えるよう強く指示(テンプレートは同じ)。default 以外のときだけ送る",
+        "--dgemma-instruction", choices=["default", "strict", "strict_sys"], default="default",
+        help="プロンプト文面。strict=system と各質問末尾の指示、strict_sys=system のみ強い文面(テンプレートは同じ)。default 以外のときだけ送る",
+    )
+    p.add_argument(
+        "--dgemma-yn-style", choices=["slash", "lines", "letters"], default="slash",
+        help="複数選択の yes/no 質問の描き方。slash=`yes / no`(既定)、lines=`yes: present...`/`no: not present...`、letters=A/B。slash 以外のときだけ送る",
+    )
+    p.add_argument(
+        "--dgemma-order", choices=["taxonomy", "character_first"], default="taxonomy",
+        help="質問の並び。character_first=character 軸の質問を最初の複数選択軸の前へ(クライアント側)",
     )
     p.add_argument(
         "--dgemma-max-per-read", type=_int_min(0), default=0,
@@ -135,6 +143,8 @@ def _make_backend(args: argparse.Namespace, modes: list[str]) -> ChatBackend | N
             seed=args.dgemma_seed,
             template=args.dgemma_template,
             instruction=args.dgemma_instruction,
+            yn_style=args.dgemma_yn_style,
+            order=args.dgemma_order,
             max_per_read=args.dgemma_max_per_read,
             max_soft_tokens=args.dgemma_max_soft_tokens,
         )

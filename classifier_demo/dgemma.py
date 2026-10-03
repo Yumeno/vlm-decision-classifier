@@ -49,6 +49,8 @@ class DgemmaBackend(ChatBackend):
         max_per_read: int = 0,
         max_soft_tokens: int | None = None,
         instruction: str = "default",
+        yn_style: str = "slash",
+        order: str = "taxonomy",
         timeout: float = 300.0,
     ) -> None:
         super().__init__(
@@ -62,6 +64,8 @@ class DgemmaBackend(ChatBackend):
         self.seed = seed
         self.template = template
         self.instruction = instruction
+        self.yn_style = yn_style
+        self.order = order
         self.max_per_read = max_per_read
         self.max_soft_tokens = max_soft_tokens
         # vLLM は拡散モデルへの temperature 等を拒否(400)するため送らない。run.json に記録する。
@@ -110,6 +114,8 @@ def build_request(
     max_per_read: int = 0,
     max_soft_tokens: int | None = None,
     instruction: str = "default",
+    yn_style: str = "slash",
+    order: str = "taxonomy",
 ) -> tuple[dict, dict]:
     """(リクエスト本体, 返答を読むための対応表)を返す。対応表は軸id -> {"qid", "names"}(単一)か
     {"qids"}(複数)。"""
@@ -122,13 +128,21 @@ def build_request(
         questions[qid] = spec
         return qid
 
-    for axis in taxonomy.axes:
+    axes = list(taxonomy.axes)
+    if order == "character_first":
+        # character 軸を、最初の複数選択軸の直前へ移す(他の並びは変えない)
+        chars = [a for a in axes if a.id == "character" and a.multi]
+        rest = [a for a in axes if a not in chars]
+        first_multi = next((i for i, a in enumerate(rest) if a.multi), len(rest))
+        axes = rest[:first_multi] + chars + rest[first_multi:]
+    for axis in axes:
         if axis.multi:
             qids = {}
             for c in axis.choices:
+                subject = c.name if c.criteria.strip().lower() == c.name.strip().lower() else f"{c.name} ({c.criteria})"
                 qids[c.id] = add(
                     f"{axis.id}_{c.id}",
-                    {"type": "noul", "instructions": f"Is {c.name} ({c.criteria}) present in the image?"},
+                    {"type": "noul", "instructions": f"Is {c.name} ({c.criteria}) present in the image?", "subject": subject},
                 )
             plan[axis.id] = {"qids": qids}
         else:
@@ -156,6 +170,8 @@ def build_request(
     }
     if instruction != "default":
         body["instruction"] = instruction
+    if yn_style != "slash":
+        body["yn_style"] = yn_style
     if max_soft_tokens is not None:
         body["mm_processor_kwargs"] = {"max_soft_tokens": max_soft_tokens}
     return body, plan
@@ -228,6 +244,7 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
     body, plan = build_request(
         taxonomy, image_bytes, mime, backend.model, backend.samples, backend.seed,
         backend.template, backend.max_per_read, backend.max_soft_tokens, backend.instruction,
+        backend.yn_style, backend.order,
     )
     response, elapsed_ms = backend.systemone(body)
     results = parse_response(taxonomy, plan, response)
@@ -242,6 +259,8 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
             "samples": backend.samples,
             "template": backend.template,
             "instruction": backend.instruction,
+            "yn_style": backend.yn_style,
+            "order": backend.order,
             "max_per_read": backend.max_per_read,
             "max_soft_tokens": backend.max_soft_tokens,
             "reads_n": len(reads),

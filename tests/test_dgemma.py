@@ -37,6 +37,8 @@ class FakeDgemmaBackend(FakeBackend):
     max_per_read = 0
     max_soft_tokens = None
     instruction = "default"
+    yn_style = "slash"
+    order = "taxonomy"
     extra_body: dict = {}
 
     def systemone(self, body):
@@ -80,7 +82,7 @@ def test_build_request_maps_axes_to_choice_and_noul_questions():
     }
     assert list(qs["subj"]["criteria"]) == ["person", "object", dgemma.NONE_NAME]  # allow_none は選択肢に足す
     assert qs["subj"]["criteria"][dgemma.NONE_NAME] == "nothing"
-    assert qs["outfit_maid"] == {"type": "noul", "instructions": "Is maid outfit (apron) present in the image?"}
+    assert qs["outfit_maid"] == {"type": "noul", "instructions": "Is maid outfit (apron) present in the image?", "subject": "maid outfit (apron)"}
     assert body["samples"] == 2 and body["seed"] == 7 and body["template"] == "numbered" and body["max_per_read"] == 3
     assert body["model"] == "dgemma" and body["mm_processor_kwargs"] == {"max_soft_tokens": 140}
     assert body["images"][0].startswith("data:image/jpeg;base64,")
@@ -241,3 +243,22 @@ def test_build_request_sends_instruction_only_when_not_default():
     assert body["instruction"] == "strict"
     body2, _ = dgemma.build_request(_tax(), b"i", "image/jpeg", "dgemma")
     assert "instruction" not in body2
+
+
+def test_build_request_subject_dedupe_yn_style_and_order():
+    ax_single = Axis(id="s", question="q", multi=False, allow_none=False,
+                     choices=[Choice(id="x", name="a", criteria="1"), Choice(id="y", name="b", criteria="2")])
+    outfit = Axis(id="outfit", question="q", multi=True, allow_none=False,
+                  choices=[Choice(id="swim", name="Swimsuit", criteria="swimsuit"), Choice(id="maid", name="maid", criteria="apron")])
+    char = Axis(id="character", question="q", multi=True, allow_none=False, choices=[Choice(id="alisa", name="Alisa", criteria="a girl")])
+    tax = Taxonomy(version="t", axes=[ax_single, outfit, char], sha256="s")
+    body, _ = dgemma.build_request(tax, b"i", "image/jpeg", "m", yn_style="letters", order="character_first")
+    assert list(body["questions"]) == ["s", "character_alisa", "outfit_swim", "outfit_maid"]
+    assert body["yn_style"] == "letters"
+    qs = body["questions"]
+    assert qs["outfit_swim"]["subject"] == "Swimsuit"  # criteria が name と同じ(大小無視)なら name だけ
+    assert qs["outfit_maid"]["subject"] == "maid (apron)"
+    assert qs["outfit_maid"]["instructions"] == "Is maid (apron) present in the image?"  # 従来の文面のまま
+    body2, plan = dgemma.build_request(tax, b"i", "image/jpeg", "m")
+    assert list(body2["questions"]) == ["s", "outfit_swim", "outfit_maid", "character_alisa"] and "yn_style" not in body2
+    assert set(plan) == {"s", "outfit", "character"}
