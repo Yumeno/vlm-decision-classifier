@@ -32,7 +32,9 @@
 | `--dgemma-order` | `taxonomy` | 質問の並び。`character_first`=character 軸の質問を最初の複数選択軸の前へ移す（クライアント側） |
 | `--dgemma-instruction` | `default` | プロンプト文面。`strict_sys`=system のみ強い文面（質問末尾の `Answer with ...` 行なし）。`strict`=system に「選択肢名ではなくラベルだけで答える」と強く書き、質問ブロックに `Answer with one letter: A, B or C` / `Answer with yes or no` を足す（テンプレート・キャンバスは同じ。名寄せは併用）。`default` のときは送らない |
 | `--dgemma-max-per-read` | `0` | 1回の読み出しに入れる質問数の上限（診断用）。0=全質問を1回で。>0 なら質問の並び順に連続して分割 |
-| `--dgemma-max-soft-tokens` | なし | 画像トークン予算（vLLM の `mm_processor_kwargs.max_soft_tokens`。例 70/140/280）。指定したときだけ送る |
+| `--dgemma-max-soft-tokens` | なし | 画像トークン予算（リクエスト単位の `mm_processor_kwargs.max_soft_tokens`。例 70/140/280）。指定したときだけ送る。**vLLM は既定ではリクエスト単位の `mm_processor_kwargs` を拒否する**（`--trust-request-mm-kwargs` が要る）ので、通常は vLLM 起動時の `--mm-processor-kwargs`（`serve_vllm.sh` の環境変数 `MST`）で全体に設定する（issue #12） |
+| `--dgemma-adaptive-threshold` | なし | 適応的な再読み出し（issue #12）。1回目の読み出しで、質問の相対スコアの正規化エントロピー（0=確定、1=一様。yes/no ではビット数のエントロピー）がこの値以上の質問がある、または1回目に失敗した質問があるときだけ、キャンバス全体をもう一度（総回数が `--dgemma-adaptive-max` まで）読む。**対象の質問だけ**が全サンプルの平均で置き換わり、他の質問は1回目の値のまま。指定時のみ送る（`--dgemma-samples` が2以上とは併用不可、サーバーが 400）。診断は `diagnostics.adaptive`（`threshold`・`max`・`triggered`・`trigger_questions`・`first_read_entropy`・`reads_used`・`replaced`）。複数の読み出しに分けた（`--dgemma-max-per-read`）ときは読み出しグループごとに独立に判定 |
+| `--dgemma-adaptive-max` | `3` | 適応的再読み出しの総読み出し回数の上限（2以上）。閾値指定時のみ送る |
 | `--taxonomy` | `taxonomy/default.yaml` | 分類体系のYAML |
 | `--max-edge` | `1024` | モデルへ送る画像の長辺（px） |
 | `--image-format` | `jpeg` | `jpeg`（quality 90）/ `png`。E1〜E9の再現には `png` |
@@ -70,7 +72,7 @@
 | `--confirm` | オフ | `classify` と同じ |
 | `--rank-threshold` | `0.5` | `classify` と同じ |
 | `--bundled-multi` | `rank` | `classify` と同じ |
-| `--dgemma-url` / `--dgemma-samples` / `--dgemma-seed` / `--dgemma-template` / `--dgemma-yn-style` / `--dgemma-order` / `--dgemma-instruction` / `--dgemma-max-per-read` / `--dgemma-max-soft-tokens` | なし / `1` / `0` / `keyed` / `slash` / `taxonomy` / `default` / `0` / なし | `classify` と同じ |
+| `--dgemma-url` / `--dgemma-samples` / `--dgemma-seed` / `--dgemma-template` / `--dgemma-yn-style` / `--dgemma-order` / `--dgemma-instruction` / `--dgemma-max-per-read` / `--dgemma-max-soft-tokens` / `--dgemma-adaptive-threshold` / `--dgemma-adaptive-max` | なし / `1` / `0` / `keyed` / `slash` / `taxonomy` / `default` / `0` / なし / なし / `3` | `classify` と同じ |
 
 ### DiffusionGemma のモード（`dgemma_choice` / `dgemma_json`、issue #4）
 

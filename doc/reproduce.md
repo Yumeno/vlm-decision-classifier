@@ -188,6 +188,8 @@ LLAMACPP_DIR=<llama.cpp の置き場所> LMSC_DIR=<lmstudio-community のモデ�
 4. **dgemma-server** を `scripts/dgemma/serve_dgemma.sh` で起動（`VENV_EVAL`=本リポジトリを入れた venv、`REPO_DIR`=リポジトリのルート。`--vllm http://127.0.0.1:8000 --model dgemma --port 8012`、canvas は既定の 256）。
 5. **evaluate** を実行（下記）。
 
+**推奨設定（issue #12）**: PR #13 の報告した実行は `GPU_MEM_UTIL=0.80`・画像トークン予算 280（既定）で測った。その後の測定（issue #12 のコメント）では、`GPU_MEM_UTIL=0.94` は画像キャッシュなしのリクエストが約8倍遅く（3,734 ms 対 約500 ms。GPU の空きが 0.75 GB）、`0.88` なら速度を保てた（約500 ms、KV 22,891 トークン）ので **`GPU_MEM_UTIL=0.88`** を推奨する。画像トークンはサーバー全体の `--mm-processor-kwargs`（`serve_vllm.sh` の `MST`）で設定し、**`MST=140`** は精度が 280 とほぼ同じで、キャッシュなしの画像で約20%速かった（70 は outfit・color が落ちる）。リクエスト単位の `mm_processor_kwargs`（クライアントの `--dgemma-max-soft-tokens`）は、vLLM が `--trust-request-mm-kwargs` なしでは拒否する。例: `GPU_MEM_UTIL=0.88 MST=140 bash scripts/dgemma/serve_vllm.sh`（未指定の既定は 0.80 / 予算指定なし）。
+
 ```bash
 # WSL 内(Python 3.12)。評価用 venv を作る
 python3.12 -m venv ~/dgemma-eval-venv && ~/dgemma-eval-venv/bin/pip install -e .

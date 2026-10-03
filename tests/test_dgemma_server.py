@@ -262,7 +262,9 @@ class FakeVllm:
         slots = next(pl for pl in eng.last_plans if pl.block == block).template.slots
         content = [{"token": "token_id:5", "logprob": -0.1, "top_logprobs": []} for _ in range(width)]
         for slot in slots:
-            probs = self.dist[slot.qid]
+            probs = self.dist.get(slot.qid)
+            if probs is None:
+                continue
             content[slot.pos]["top_logprobs"] = [
                 {"token": f"token_id:{slot.label_ids[lab]}", "logprob": math.log(p)} for lab, p in probs.items()
             ]
@@ -577,3 +579,84 @@ def test_yn_style_yn_rendering_labels_and_mapping():
     assert slot.alias_ids("N") == sorted({tok("N"), tok("no"), tok("No"), tok("NO")})
     assert out["answers"]["outfit_maid"]["noul"] == pytest.approx(0.7 / 0.8)
     assert out["answers"]["outfit_swim"]["noul"] == pytest.approx(0.1 / 0.8)
+
+
+# ---- 適応的な再読み出し(issue #12)
+
+
+def test_normalized_entropy():
+    assert ds.normalized_entropy([0.5, 0.5]) == pytest.approx(1.0)
+    assert ds.normalized_entropy([1 / 3] * 3) == pytest.approx(1.0)
+    assert ds.normalized_entropy([1.0, 0.0]) == pytest.approx(0.0)
+    assert ds.normalized_entropy([1.0, 0.0, 0.0]) == pytest.approx(0.0)
+    assert 0 < ds.normalized_entropy([0.9, 0.1]) < 0.5  # 2値ではビット数のエントロピーに等しい
+    assert ds.normalized_entropy([0.9, 0.1]) == pytest.approx(-(0.9 * math.log2(0.9) + 0.1 * math.log2(0.1)))
+
+
+def _seq_engine(seq):
+    """呼び出し n 回目に seq[min(n, 最後)] の分布を返す偽 vLLM。"""
+    eng, fake = _engine(seq[0])
+    orig = fake.__call__
+    n = {"i": 0}
+
+    def call(payload):
+        fake.dist = seq[min(n["i"], len(seq) - 1)]
+        n["i"] += 1
+        return orig(payload)
+
+    eng.chat_fn = call
+    return eng, fake
+
+
+def test_adaptive_validation():
+    for bad in (0, -0.1, 1.5, "x", True):
+        with pytest.raises(ds.RequestError) as e:
+            ds.parse_request(_body(adaptive_threshold=bad))
+        assert e.value.status == 400
+    with pytest.raises(ds.RequestError):
+        ds.parse_request(_body(adaptive_threshold=0.5, samples=2))
+    with pytest.raises(ds.RequestError):
+        ds.parse_request(_body(adaptive_threshold=0.5, adaptive_max=1))
+    r = ds.parse_request(_body(adaptive_threshold=1))
+    assert r.adaptive_threshold == 1.0 and r.adaptive_max == 3
+    assert ds.parse_request(_body()).adaptive_threshold is None
+
+
+def test_adaptive_not_triggered_reads_once():
+    eng, fake = _engine(DIST)
+    out = eng.handle(_body(adaptive_threshold=0.95))
+    ad = out["diagnostics"]["adaptive"]
+    assert len(fake.payloads) == 1 and ad["triggered"] is False and ad["reads_used"] == 1
+    assert ad["trigger_questions"] == {} and ad["replaced"] == []
+    assert set(ad["first_read_entropy"]) == {"style", "outfit_maid", "outfit_swim"}
+    assert "adaptive" not in _engine(DIST)[0].handle(_body())["diagnostics"]
+
+
+def test_adaptive_replaces_only_triggered_questions_with_average():
+    first = {"style": {"A": 0.4, "B": 0.35, "C": 0.25}, "outfit_maid": {"yes": 0.9, "no": 0.1}, "outfit_swim": {"yes": 0.2, "no": 0.8}}
+    second = {"style": {"A": 0.1, "B": 0.8, "C": 0.1}, "outfit_maid": {"yes": 0.5, "no": 0.5}, "outfit_swim": {"yes": 0.5, "no": 0.5}}
+    eng, fake = _seq_engine([first, second])
+    out = eng.handle(_body(adaptive_threshold=0.9, adaptive_max=2))
+    ad = out["diagnostics"]["adaptive"]
+    assert len(fake.payloads) == 2 and ad["triggered"] is True and ad["reads_used"] == 2
+    assert set(ad["trigger_questions"]) == {"style"} and ad["replaced"] == ["style"]
+    assert all(0 <= h <= 1 for h in ad["first_read_entropy"].values())
+    probs = out["answers"]["style"]["probabilities"]
+    assert probs["anime"] == pytest.approx((0.4 / 1.0 + 0.1 / 1.0) / 2)
+    assert probs["photo"] == pytest.approx((0.35 + 0.8) / 2)  # 置き換え: 全サンプルの平均
+    assert out["answers"]["outfit_maid"]["noul"] == pytest.approx(0.9)  # 非対象は1回目のまま(2回目が違っても)
+    assert out["answers"]["outfit_swim"]["noul"] == pytest.approx(0.2)
+    assert len(out["diagnostics"]["per_sample"]["outfit_maid"]) == 2  # 透明性のため全サンプルを残す
+
+
+def test_adaptive_failed_first_read_triggers_and_counts_reads_used():
+    first = {"style": None, "outfit_maid": {"yes": 0.9, "no": 0.1}, "outfit_swim": {"yes": 0.9, "no": 0.1}}
+    second = {"style": {"A": 0.7, "B": 0.2, "C": 0.1}, "outfit_maid": {"yes": 0.1, "no": 0.9}, "outfit_swim": {"yes": 0.1, "no": 0.9}}
+    eng, fake = _seq_engine([first, second])
+    out = eng.handle(_body(adaptive_threshold=1.0, adaptive_max=3))
+    ad = out["diagnostics"]["adaptive"]
+    assert ad["triggered"] is True and ad["reads_used"] == 3 and len(fake.payloads) == 3
+    assert ad["replaced"] == ["style"] and ad["trigger_questions"] == {}
+    assert out["answers"]["style"]["choice"] == "anime" and out["errors"] == {}
+    assert out["answers"]["outfit_maid"]["noul"] == pytest.approx(0.9)  # 1回目のまま
+    assert out["diagnostics"]["reads"][0]["canvas_width"] % 32 == 0 and len(out["diagnostics"]["reads"][0]["ms_per_sample"]) == 3

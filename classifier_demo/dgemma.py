@@ -51,6 +51,8 @@ class DgemmaBackend(ChatBackend):
         instruction: str = "default",
         yn_style: str = "slash",
         order: str = "taxonomy",
+        adaptive_threshold: float | None = None,
+        adaptive_max: int = 3,
         timeout: float = 300.0,
     ) -> None:
         super().__init__(
@@ -66,6 +68,8 @@ class DgemmaBackend(ChatBackend):
         self.instruction = instruction
         self.yn_style = yn_style
         self.order = order
+        self.adaptive_threshold = adaptive_threshold
+        self.adaptive_max = adaptive_max
         self.max_per_read = max_per_read
         self.max_soft_tokens = max_soft_tokens
         # vLLM は拡散モデルへの temperature 等を拒否(400)するため送らない。run.json に記録する。
@@ -116,6 +120,8 @@ def build_request(
     instruction: str = "default",
     yn_style: str = "slash",
     order: str = "taxonomy",
+    adaptive_threshold: float | None = None,
+    adaptive_max: int = 3,
 ) -> tuple[dict, dict]:
     """(リクエスト本体, 返答を読むための対応表)を返す。対応表は軸id -> {"qid", "names"}(単一)か
     {"qids"}(複数)。"""
@@ -172,6 +178,9 @@ def build_request(
         body["instruction"] = instruction
     if yn_style != "slash":
         body["yn_style"] = yn_style
+    if adaptive_threshold is not None:
+        body["adaptive_threshold"] = adaptive_threshold
+        body["adaptive_max"] = adaptive_max
     if max_soft_tokens is not None:
         body["mm_processor_kwargs"] = {"max_soft_tokens": max_soft_tokens}
     return body, plan
@@ -244,12 +253,13 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
     body, plan = build_request(
         taxonomy, image_bytes, mime, backend.model, backend.samples, backend.seed,
         backend.template, backend.max_per_read, backend.max_soft_tokens, backend.instruction,
-        backend.yn_style, backend.order,
+        backend.yn_style, backend.order, backend.adaptive_threshold, backend.adaptive_max,
     )
     response, elapsed_ms = backend.systemone(body)
     results = parse_response(taxonomy, plan, response)
     diag = response.get("diagnostics") or {}
     reads = diag.get("reads") or []
+    adaptive = diag.get("adaptive") or {}
     return {
         "axes": results,
         "elapsed_ms": elapsed_ms,
@@ -261,6 +271,12 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
             "instruction": backend.instruction,
             "yn_style": backend.yn_style,
             "order": backend.order,
+            "adaptive_threshold": backend.adaptive_threshold,
+            "adaptive_max": backend.adaptive_max if backend.adaptive_threshold is not None else None,
+            "adaptive_triggered": adaptive.get("triggered"),
+            "adaptive_reads_used": adaptive.get("reads_used"),
+            "adaptive_trigger_questions": adaptive.get("trigger_questions"),
+            "adaptive_replaced": adaptive.get("replaced"),
             "max_per_read": backend.max_per_read,
             "max_soft_tokens": backend.max_soft_tokens,
             "reads_n": len(reads),

@@ -125,6 +125,8 @@ class Request:
     mm_processor_kwargs: dict | None
     instruction: str = "default"
     yn_style: str = "slash"
+    adaptive_threshold: float | None = None
+    adaptive_max: int = 3
 
 
 @dataclass
@@ -223,6 +225,12 @@ def parse_request(body) -> Request:
     mm = body.get("mm_processor_kwargs")
     if mm is not None and not isinstance(mm, dict):
         raise RequestError(400, "'mm_processor_kwargs' must be an object")
+    thr = body.get("adaptive_threshold")
+    if thr is not None and (isinstance(thr, bool) or not isinstance(thr, (int, float)) or not 0 < thr <= 1):
+        raise RequestError(400, "'adaptive_threshold' must be a number in (0, 1]")
+    amax = _int_field(body, "adaptive_max", 3, 2)
+    if thr is not None and body.get("samples", 1) != 1:
+        raise RequestError(400, "'adaptive_threshold' cannot be combined with samples > 1")
     model = body.get("model")
     return Request(
         model=model if isinstance(model, str) else None,
@@ -236,6 +244,8 @@ def parse_request(body) -> Request:
         mm_processor_kwargs=mm,
         instruction=instruction,
         yn_style=yn_style,
+        adaptive_threshold=float(thr) if thr is not None else None,
+        adaptive_max=amax,
     )
 
 
@@ -415,6 +425,12 @@ def read_slot(content: list, slot: Slot, labels: list[str], min_mass: float):
     return {lab: w / mass for lab, w in weights.items()}, mass, None
 
 
+def normalized_entropy(probs: list[float]) -> float:
+    """相対スコア分布の正規化エントロピー(0=確定、1=一様)。ラベル数は2以上。"""
+    h = -sum(p * math.log(p) for p in probs if p > 0)
+    return max(0.0, h / math.log(len(probs)))
+
+
 def aggregate_question(q: Question, samples: list[tuple]) -> tuple[dict | None, dict | None]:
     """有効サンプルを平均して (answer, error) のどちらかを返す。"""
     valid = [s[0] for s in samples if s[0] is not None]
@@ -545,7 +561,6 @@ class Engine:
         plans = self.plan_reads(req)
         tokenize_ms = self.tok.total_ms - tok_before
 
-        tasks = [(r, k) for r in range(len(plans)) for k in range(req.samples)]
         results: dict[tuple[int, int], dict | Exception] = {}
 
         def run(task):
@@ -565,10 +580,65 @@ class Engine:
             except Exception as e:  # 想定外の形・例外も、そのサンプルの失敗として残す(ハンドラを落とさない)
                 results[task] = UpstreamError(f"unexpected {type(e).__name__}: {e}")
 
-        run(tasks[0])  # 先頭の1回で画像プレフィックスをキャッシュに載せてから残りを並列に
-        if len(tasks) > 1:
-            with ThreadPoolExecutor(max_workers=2) as pool:
-                list(pool.map(run, tasks[1:]))
+        def run_all(tasks):
+            run(tasks[0])  # 先頭の1回で画像プレフィックスをキャッシュに載せてから残りを並列に
+            if len(tasks) > 1:
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    list(pool.map(run, tasks[1:]))
+
+        def evaluate(res, plan):
+            """1サンプルの結果 -> (質問ごとの (probs, mass, reason), sample_error)。"""
+            if isinstance(res, Exception):
+                return {q.qid: (None, None, "upstream_error") for q in plan.questions}, str(res)[:300]
+            try:
+                content = res["resp"]["choices"][0]["logprobs"]["content"]
+                if not isinstance(content, list):
+                    raise TypeError("content is not a list")
+            except (KeyError, IndexError, TypeError) as e:
+                return {q.qid: (None, None, "no_logprobs") for q in plan.questions}, f"no logprobs.content in response ({type(e).__name__})"
+            return {
+                q.qid: read_slot(content, slot, q.labels, self.cfg.min_label_mass)
+                for q, slot in zip(plan.questions, plan.template.slots)
+            }, None
+
+        n_samples = [req.samples] * len(plans)
+        run_all([(r, k) for r in range(len(plans)) for k in range(req.samples)])
+        adaptive_diag = None
+        if req.adaptive_threshold is not None:
+            first_entropy: dict = {}
+            trigger: dict = {}
+            extra: list = []
+            replaced: list = []
+            for r, plan in enumerate(plans):
+                tuples, _ = evaluate(results[(r, 0)], plan)
+                failed = False
+                group_trigger = {}
+                for q in plan.questions:
+                    probs = tuples[q.qid][0]
+                    if probs is None:
+                        failed = True
+                        replaced.append(q.qid)
+                        continue
+                    h = normalized_entropy([probs[lab] for lab in q.labels])
+                    first_entropy[q.qid] = h
+                    if h >= req.adaptive_threshold:
+                        group_trigger[q.qid] = h
+                trigger.update(group_trigger)
+                replaced.extend(group_trigger)
+                if group_trigger or failed:
+                    n_samples[r] = req.adaptive_max
+                    extra.extend((r, k) for k in range(1, req.adaptive_max))
+            if extra:
+                run_all(extra)
+            adaptive_diag = {
+                "threshold": req.adaptive_threshold,
+                "max": req.adaptive_max,
+                "triggered": bool(extra),
+                "trigger_questions": trigger,
+                "first_read_entropy": first_entropy,
+                "reads_used": sum(n_samples),
+                "replaced": replaced if extra else [],  # 再読み出しの平均で置き換えた質問(他は1回目の値のまま)
+            }
         if all(isinstance(v, Exception) for v in results.values()):
             raise UpstreamError(str(next(iter(results.values()))))
 
@@ -582,37 +652,30 @@ class Engine:
             per_q: dict[str, list[tuple]] = {q.qid: [] for q in plan.questions}
             ms_list, cached, sample_errors = [], [], {}
             prompt_tokens = None
-            for k in range(req.samples):
+            for k in range(n_samples[r]):
                 res = results[(r, k)]
+                tuples, err = evaluate(res, plan)
+                if err is not None:
+                    sample_errors[k] = err
+                for q in plan.questions:
+                    per_q[q.qid].append(tuples[q.qid])
                 if isinstance(res, Exception):
                     ms_list.append(None)
                     cached.append(None)
-                    sample_errors[k] = str(res)[:300]
-                    for q in plan.questions:
-                        per_q[q.qid].append((None, None, "upstream_error"))
                     continue
-                resp, ms = res["resp"], res["ms"]
-                ms_list.append(ms)
+                resp = res["resp"]
+                ms_list.append(res["ms"])
                 u = resp.get("usage") or {}
                 for name in usage:
                     usage[name] += u.get(name) or 0
                 if prompt_tokens is None:
                     prompt_tokens = u.get("prompt_tokens")
                 cached.append((u.get("prompt_tokens_details") or {}).get("cached_tokens"))
-                try:
-                    content = resp["choices"][0]["logprobs"]["content"]
-                    if not isinstance(content, list):
-                        raise TypeError("content is not a list")
-                except (KeyError, IndexError, TypeError) as e:
-                    content = None
-                    sample_errors[k] = f"no logprobs.content in response ({type(e).__name__})"
-                for q, slot in zip(plan.questions, plan.template.slots):
-                    if content is None:
-                        per_q[q.qid].append((None, None, "no_logprobs"))
-                    else:
-                        per_q[q.qid].append(read_slot(content, slot, q.labels, self.cfg.min_label_mass))
             for q in plan.questions:
-                answer, error = aggregate_question(q, per_q[q.qid])
+                use = per_q[q.qid]
+                if adaptive_diag is not None and q.qid not in adaptive_diag["replaced"]:
+                    use = use[:1]  # 適応: 置き換え対象でない質問は1回目の値
+                answer, error = aggregate_question(q, use)
                 if answer is not None:
                     answers[q.qid] = answer
                 else:
@@ -655,6 +718,7 @@ class Engine:
                 "label_mass": label_mass,
                 "per_sample": per_sample,
                 "tokenize_ms": tokenize_ms,
+                **({"adaptive": adaptive_diag} if adaptive_diag is not None else {}),
                 "total_ms": (time.perf_counter_ns() - t0) / 1e6,
             },
         }

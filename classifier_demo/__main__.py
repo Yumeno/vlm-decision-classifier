@@ -115,6 +115,14 @@ def _add_dgemma_args(p: argparse.ArgumentParser) -> None:
         help="複数選択の yes/no 質問の描き方。slash=`yes / no`(既定)、lines=`yes: present...`/`no: not present...`、letters=A/B、yn=`Y: yes`/`N: no`(質問文はそのまま)。slash 以外のときだけ送る",
     )
     p.add_argument(
+        "--dgemma-adaptive-threshold", type=float, default=None,
+        help="適応的な再読み出し(issue #12)。1回目で正規化エントロピーがこの値以上の質問がある(または失敗した)ときだけ追加で読む。指定時のみ送る(samples は1のまま)",
+    )
+    p.add_argument(
+        "--dgemma-adaptive-max", type=_int_min(2), default=3,
+        help="適応的再読み出しの総読み出し回数の上限(既定3)",
+    )
+    p.add_argument(
         "--dgemma-order", choices=["taxonomy", "character_first"], default="taxonomy",
         help="質問の並び。character_first=character 軸の質問を最初の複数選択軸の前へ(クライアント側)",
     )
@@ -145,6 +153,8 @@ def _make_backend(args: argparse.Namespace, modes: list[str]) -> ChatBackend | N
             instruction=args.dgemma_instruction,
             yn_style=args.dgemma_yn_style,
             order=args.dgemma_order,
+            adaptive_threshold=args.dgemma_adaptive_threshold,
+            adaptive_max=args.dgemma_adaptive_max,
             max_per_read=args.dgemma_max_per_read,
             max_soft_tokens=args.dgemma_max_soft_tokens,
         )

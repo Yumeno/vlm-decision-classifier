@@ -39,6 +39,8 @@ class FakeDgemmaBackend(FakeBackend):
     instruction = "default"
     yn_style = "slash"
     order = "taxonomy"
+    adaptive_threshold = None
+    adaptive_max = 3
     extra_body: dict = {}
 
     def systemone(self, body):
@@ -262,3 +264,10 @@ def test_build_request_subject_dedupe_yn_style_and_order():
     body2, plan = dgemma.build_request(tax, b"i", "image/jpeg", "m")
     assert list(body2["questions"]) == ["s", "outfit_swim", "outfit_maid", "character_alisa"] and "yn_style" not in body2
     assert set(plan) == {"s", "outfit", "character"}
+
+
+def test_build_request_adaptive_fields_only_when_threshold_given():
+    body, _ = dgemma.build_request(_tax(), b"i", "image/jpeg", "m", adaptive_threshold=0.6, adaptive_max=4)
+    assert body["adaptive_threshold"] == 0.6 and body["adaptive_max"] == 4 and body["samples"] == 1
+    body2, _ = dgemma.build_request(_tax(), b"i", "image/jpeg", "m")
+    assert "adaptive_threshold" not in body2 and "adaptive_max" not in body2
