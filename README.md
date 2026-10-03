@@ -336,7 +336,7 @@ foreach ($j in Get-ChildItem results\batch\*.json) {
 
 | パス | 役割 |
 |---|---|
-| `classifier_demo/` | コア(メタデータ抽出、選択式判定、JSONベースライン、束ね質問、評価器)、CLI、デモ画面のサーバー(`server.py`、`web/index.html`)、Jev 風クライアント(`systemone.py`) |
+| `classifier_demo/` | コア(メタデータ抽出、選択式判定、JSONベースライン、束ね質問、評価器)、CLI、デモ画面のサーバー(`server.py`、`web/index.html`)、Jev 風クライアント(`systemone.py`)、DiffusionGemma 用の方式と判定サーバー(`dgemma.py`、`dgemma_server.py`) |
 | `taxonomy/default.yaml` | 分類体系 0.4.1(7項目)と自作キャラの定義 |
 | `dataset/` | 評価用データセット v1.0.0(画像、`manifest.jsonl`、`DATASET_CARD.md`、正解・生成記録) |
 | `scripts/` | データセット生成・組み立て、実験の実行ループ・集計(`run_final_matrix.sh` など。[`doc/reproduce.md`](doc/reproduce.md)) |

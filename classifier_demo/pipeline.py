@@ -182,7 +182,7 @@ def _classify_bundled(
 
 
 def _classify_dgemma(taxonomy: Taxonomy, backend, image_bytes: bytes, mime: str, on_progress):
-    """dgemma_choice: example サーバーへ1リクエストで全軸を投げ、choice と同じ形の結果・イベントにする。
+    """dgemma_choice: 自前の dgemma-server へ1リクエストで全軸を投げ、choice と同じ形の結果・イベントにする。
     通信・HTTP失敗は全軸の失敗、回答の欠落・形式不正はその軸だけの失敗として記録する。"""
     axis_decisions: dict = {}
     vision_tags: dict[str, list[str]] = {}

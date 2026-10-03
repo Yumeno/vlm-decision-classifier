@@ -31,6 +31,12 @@
 
 **artifact**(非公開): 狙い一覧 (非公開の作業用ページ) 、正解付与シート (非公開の作業用ページ) (db の `labels` コレクション。最終版は `dataset/labels/labels_final.json` に固定済み)。
 
+## 2026-10-03 — 自前 dgemma-server の実装(ブランチ feat/dgemma-eval、実機未検証)
+
+- やったこと: vLLM の example サーバーを使わず、自前の `classifier_demo/dgemma_server.py`(`python -m classifier_demo dgemma-server`、stdlib のみ)を実装。クライアント(`dgemma.py`)を新サーバー向けに更新(質問IDを読みやすい形に戻す、samples/seed/template/max_per_read/max_soft_tokens を送る、`errors` を軸の失敗として扱う)。純粋ロジックのテスト(偽 /tokenize・偽 vLLM 応答)を追加。
+- 判断: 目的は「画像1枚・全質問を1キャンバス・1回の読み出しで」(拡散LMの利点)。`max_per_read` は診断用のつまみで既定0(全質問1回)。テンプレートは `<qid>: <ラベル>` の行(keyed)を既定、`Q<n>: <ラベル>`(numbered)は形式と質問数の効果を切り分ける probe 用。容量超過は黙って分割せず 422。ラベルトークンは /tokenize で検証し、行連結と全文トークナイズの不一致はエラー。vLLM example のコードは参照していない(エンジン側のソースと仕様文書のみ)。
+- 未解決・次の一手: 実機で probe(ラベルの単一トークン性、空の思考ブロックの形、`logprobs.content` の位置対応、`max_tokens=キャンバス幅` の挙動、label_mass の分布、cached_tokens の可視性)。VRAM を使う前に作者を呼ぶ。
+
 ## 2026-10-01 — 公開
 
 - 公開方法は作者判断で「整理した履歴で新しいリポジトリとして公開」。開発リポジトリを `vlm-decision-classifier-dev` に改名し(非公開のまま、Actions 無効)、main だけを複製して git filter-repo で洗浄した: コミットメッセージのセッション URL の行を削除、作者・記録者を GitHub の noreply アドレスに統一、全履歴のファイル内容で個人パス・非公開の元プロジェクト名・非公開の作業用ページの URL を置き換え。監査(個人情報・秘密情報・大きなファイル・置き換え漏れ)は全履歴で0件、置き換え以外の差分なし、テスト 177 件通過を確認してから push。

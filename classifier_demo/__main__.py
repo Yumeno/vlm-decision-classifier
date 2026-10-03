@@ -10,7 +10,7 @@ import sys
 
 from PIL import Image
 
-from . import evaluate, pipeline, server, systemone
+from . import dgemma_server, evaluate, pipeline, server, systemone
 from .backend import ChatBackend
 from .decision import Choice, DecisionError, choose
 from .dgemma import DgemmaBackend
@@ -80,30 +80,39 @@ def cmd_probe(args: argparse.Namespace) -> int:
     return 0
 
 
-def _samples_type(value: str) -> str | int:
-    if value == "auto":
-        return value
-    try:
-        n = int(value)
-    except ValueError:
-        n = 0
-    if n < 1:
-        raise argparse.ArgumentTypeError("must be 'auto' or an integer >= 1")
-    return n
+def _int_min(minimum: int):
+    def parse(value: str) -> int:
+        try:
+            n = int(value)
+        except ValueError:
+            n = minimum - 1
+        if n < minimum:
+            raise argparse.ArgumentTypeError(f"must be an integer >= {minimum}")
+        return n
+
+    return parse
 
 
 def _add_dgemma_args(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "--dgemma-url",
         default=None,
-        help="DiffusionGemma(issue #4): vLLM の example structured server のURL(例 http://127.0.0.1:8011)。"
+        help="DiffusionGemma(issue #4): 自前の dgemma-server のURL(例 http://127.0.0.1:8012。/v1/systemone を使う)。"
         "dgemma_choice で必須。--base-url は vLLM 本体(例 http://127.0.0.1:8000/v1)",
     )
+    p.add_argument("--dgemma-samples", type=_int_min(1), default=1, help="dgemma_choice のノイズ draw の回数(整数、既定1)")
+    p.add_argument("--dgemma-seed", type=int, default=0, help="dgemma_choice のノイズの seed(既定0)")
     p.add_argument(
-        "--dgemma-samples",
-        type=_samples_type,
-        default="auto",
-        help="dgemma_choice の samples。auto=サーバー既定(標準)、整数=ノイズ draw の固定回数",
+        "--dgemma-template", choices=["keyed", "numbered"], default="keyed",
+        help="回答テンプレート。keyed=`<質問id>: <ラベル>`(既定)、numbered=`Q<n>: <ラベル>`",
+    )
+    p.add_argument(
+        "--dgemma-max-per-read", type=_int_min(0), default=0,
+        help="1回の読み出しに入れる質問数の上限(診断用。0=全質問を1回で)",
+    )
+    p.add_argument(
+        "--dgemma-max-soft-tokens", type=_int_min(1), default=None,
+        help="画像トークン予算(vLLM の mm_processor_kwargs.max_soft_tokens。例 70/140/280)。未指定なら送らない",
     )
 
 
@@ -115,7 +124,14 @@ def _make_backend(args: argparse.Namespace, modes: list[str]) -> ChatBackend | N
             print("--dgemma-url is required for dgemma_choice", file=sys.stderr)
             return None
         return DgemmaBackend(
-            base_url=args.base_url, model=args.model, structured_url=args.dgemma_url, samples=args.dgemma_samples
+            base_url=args.base_url,
+            model=args.model,
+            structured_url=args.dgemma_url,
+            samples=args.dgemma_samples,
+            seed=args.dgemma_seed,
+            template=args.dgemma_template,
+            max_per_read=args.dgemma_max_per_read,
+            max_soft_tokens=args.dgemma_max_soft_tokens,
         )
     return ChatBackend(base_url=args.base_url, model=args.model)
 
@@ -380,6 +396,12 @@ def build_parser() -> argparse.ArgumentParser:
     so_parser.add_argument("--image-format", choices=["jpeg", "png"], default="jpeg")
     so_parser.add_argument("--prime", action="store_true", help="send one prefix-only request first")
     so_parser.set_defaults(func=cmd_systemone)
+
+    ds_parser = sub.add_parser(
+        "dgemma-server", help="DiffusionGemma(vLLM)用の判定サーバー。POST /v1/systemone(issue #4)"
+    )
+    dgemma_server.add_arguments(ds_parser)
+    ds_parser.set_defaults(func=dgemma_server.serve)
 
     return parser
 

@@ -178,17 +178,26 @@ LLAMACPP_DIR=<llama.cpp の置き場所> LMSC_DIR=<lmstudio-community のモデ�
 
 ### DiffusionGemma（issue #4。vLLM、WSL 内で実行）
 
-`google/diffusiongemma-26B-A4B-it` の 4bit AWQ 版（`pixelkaiser/diffusiongemma-26B-A4B-it-AWQ-MLP-W4A16-G64-S32-L1024`）を、専用の WSL2 ディストロの vLLM で `dgemma` として serve（`:8000`）し、その前段に vLLM の example「structured server」（`examples/features/structured_diffusion/structured_server.py`、`:8011`）を置きます。どちらも WSL 内の `127.0.0.1` に bind し Windows から到達できないため、**評価は WSL 内で実行**します（リポジトリは `/mnt/c/...` で参照可）。条件は [`experiments/runtime/dgemma-vllm.json`](experiments/runtime/dgemma-vllm.json)。サーバーの起動は利用者が行います。
+`google/diffusiongemma-26B-A4B-it` の 4bit AWQ 版（`pixelkaiser/diffusiongemma-26B-A4B-it-AWQ-MLP-W4A16-G64-S32-L1024`）を、専用の WSL2 ディストロの vLLM で `dgemma` として serve（`:8000`）し、その前段に本リポジトリの `dgemma-server`（`:8012`）を置きます。どちらも WSL 内の `127.0.0.1` に bind し Windows から到達できないため、**評価は WSL 内で実行**します（リポジトリは `/mnt/c/...` で参照可）。条件は [`experiments/runtime/dgemma-vllm.json`](experiments/runtime/dgemma-vllm.json)。サーバーの起動は利用者が行います。
+
+起動の順序:
+
+1. **画像品質パッチ**: vLLM の画像トークンは因果で処理されるため、openjev の `vision_prefix_lm` パッチを、venv 内の vLLM に適用します（パッチ本体: https://github.com/razorback16/openjev/blob/dcd20947b5ddad5be4a8f5aed6aa6dd245653823/docker/patches/vision_prefix_lm.py 。本リポジトリには含めない。適用手順はそのファイルの説明に従う）。適用した事実は `dgemma-vllm.json` の `vision_prefix_lm patch` に記録します。
+2. **vLLM** を `dgemma` として `:8000` で起動（起動引数・GPU は実行者が `--note` / runtime-info に残す）。
+3. **dgemma-server** を `:8012` で起動（`python -m classifier_demo dgemma-server --vllm http://127.0.0.1:8000 --model dgemma --port 8012`。`--canvas` は vLLM の `canvas_length` に合わせる）。
+4. **evaluate** を実行（下記）。
 
 ```bash
 # WSL 内(Python 3.12)。リポジトリのルートで
 python3.12 -m venv ~/dgemma-venv && ~/dgemma-venv/bin/pip install -e .
+# dgemma-server(別ターミナル)
+~/dgemma-venv/bin/python -m classifier_demo dgemma-server --vllm http://127.0.0.1:8000 --model dgemma --host 127.0.0.1 --port 8012
 # 単一ケースの確認(probe 相当)
-~/dgemma-venv/bin/python -m classifier_demo classify dataset/images/M01.png --mode dgemma_choice --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8011
-# (a) 標準(samples=auto)。dgemma_choice と dgemma_json を対応比較
-~/dgemma-venv/bin/python -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8011 --modes dgemma_choice,dgemma_json --warmup 0 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/dgemma-vllm.json --runtime-label dgemma-standard --note "DiffusionGemma standard (samples=auto)" --output-dir results/dgemma_standard
-# (b) samples=1(dgemma_choice のみ)
-~/dgemma-venv/bin/python -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8011 --dgemma-samples 1 --modes dgemma_choice --warmup 0 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/dgemma-vllm.json --runtime-label dgemma-samples1 --note "DiffusionGemma samples=1" --output-dir results/dgemma_samples1
+~/dgemma-venv/bin/python -m classifier_demo classify dataset/images/M01.png --mode dgemma_choice --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8012
+# (a) 1キャンバス・samples=1。dgemma_choice と dgemma_json を対応比較
+~/dgemma-venv/bin/python -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8012 --modes dgemma_choice,dgemma_json --warmup 0 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/dgemma-vllm.json --runtime-label dgemma-standard --note "DiffusionGemma 1 canvas, samples=1" --output-dir results/dgemma_standard
+# (b) samples=4(dgemma_choice のみ)
+~/dgemma-venv/bin/python -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8012 --dgemma-samples 4 --modes dgemma_choice --warmup 0 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/dgemma-vllm.json --runtime-label dgemma-samples4 --note "DiffusionGemma samples=4" --output-dir results/dgemma_samples4
 ```
 
 方式の中身と記録は [`cli.md`](cli.md) の「DiffusionGemma のモード」。`--warmup 0` なので最初のケースはコールドスタートの時間を含みます（`cases.csv` で確認）。

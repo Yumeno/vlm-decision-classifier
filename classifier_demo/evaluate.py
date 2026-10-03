@@ -440,7 +440,7 @@ def run_evaluate(
             # prime は各モードの計測の直前に、そのモード自身の先頭(system文+画像)で送る
             # (キャッシュは先頭一致のため。選択式の準備ではJSONに効かない)。
             # classification_wall_ms には含めない(別記録)。
-            # dgemma_choice は example サーバーが読み出しを自前で行い、先頭だけを載せる手段が無いので準備しない。
+            # dgemma_choice は自前の dgemma-server が読み出しを自前で行い、先頭だけを載せる手段が無いので準備しない。
             prime_info = (
                 _run_prime(case, backend, max_edge, axis_concurrency if axis_concurrency >= 2 else 1, image_format, mode)
                 if prime and mode != "dgemma_choice"
@@ -475,6 +475,10 @@ def run_evaluate(
             {
                 "structured_url": backend.structured_url,
                 "samples": backend.samples,
+                "seed": backend.seed,
+                "template": backend.template,
+                "max_per_read": backend.max_per_read,
+                "max_soft_tokens": backend.max_soft_tokens,
                 "extra_body": backend.extra_body,
                 "dropped_params": backend.dropped_params,
                 "prime_skipped_modes": ["dgemma_choice"] if prime and "dgemma_choice" in modes else [],
