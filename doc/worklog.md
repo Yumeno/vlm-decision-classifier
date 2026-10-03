@@ -4,6 +4,8 @@
 
 ## ★ 現在地と引き継ぎ(2026-09-27 更新。compact 後はまずここを読む)
 
+**状態(2026-10-03 更新、issue #4)**: DiffusionGemma の全件評価と結論はブランチ `feat/dgemma-eval`(`doc/experiments/dgemma/`、PR は未作成)。詳細は下の「2026-10-03 — 全件評価と結論」。
+
 **状態(2026-10-01 更新、公開)**: 公開リポジトリ `Yumeno/vlm-decision-classifier` として公開した。以後の更新はこのリポジトリで PR を作って merge する(main は ruleset で PR 必須)。非公開の開発リポジトリ(`vlm-decision-classifier-dev`)の履歴は洗浄して移し、旧コミット ID との対応は `doc/commit-map.tsv`。ダッシュボードは GitHub Pages(Actions は普段停止、手順は `doc/maintenance.md`)。次: note 記事の公開(作者)、issue(DiffusionGemma を WSL2 の vLLM で試す)、項目数を増やしたときの速度(未測定)。
 
 **状態(2026-09-30 更新、E10)**: ブランチ `exp/e10` に E10(ノイズ100枚)・E10b(実データ31枚)の結果(`doc/experiments/e10/`)、`scripts/run_e10b.sh`、report §1.4・README §12/§13 の更新を積んだ(PR で merge 待ち)。通常JSONの形式不正は `json_schema` で実データ全モデル0になった。次は、この結果を反映した記事・図解の直し、issue #21 など。
@@ -30,6 +32,14 @@
 **運用ルール(CLAUDE.md / メモリにもある)**: Sonnet が実装し、Codex(gpt-6-luna)がレビュー(5ラウンドで収束しなければ作者を呼ぶ)。VRAM を使う前に作者を呼ぶ。区切りごとに worklog に書く。コンテキストが 75〜85% になったら待機する。
 
 **artifact**(非公開): 狙い一覧 (非公開の作業用ページ) 、正解付与シート (非公開の作業用ページ) (db の `labels` コレクション。最終版は `dataset/labels/labels_final.json` に固定済み)。
+
+## 2026-10-03 — 全件評価と結論(issue #4、ブランチ feat/dgemma-eval)
+
+- やったこと: 最終設定(keyed / `Y: yes`・`N: no` / default 指示 / 名寄せ / 16問1回読み / samples 1)で、元画像31件の全件評価を seed 0・1・2 で実行(seed0 は `dgemma_json` と画像ごと交互、vLLM 再起動直後。gpu-memory-utilization 0.80)。結論と全表は `doc/experiments/dgemma/README.md`、実行記録(`summary.md`・`run.json`、個人パス除去済み)は同フォルダの `seed0/` `seed1/` `seed2/` `standard/`。
+- 結果(各1回): 単一5軸 142 / 143 / 142(json 136)、キャラ完全一致 28 / 28 / 27(json 28)、服装 19 / 19 / 18(json 23)、時間 mean 466 / 500 / 481 ms(json 1186 ms)、json の形式不正 2/31。choice は outfit の yes バイアスによる誤検出(school_uniform・other)が残る。seed1・2 は outfit 軸の失敗が 6・5。
+- 未解決: seed1・2 でキャッシュ済みのはずの時間が下がらない原因、並列スループット(未測定)、example サーバーのエントロピー定義。画像のプレフィックスキャッシュは 0.80 だと KV 13,772 tokens(約10枚分)で追い出される可能性(0.94 では 29,730 tokens。評価後に変更、報告実行には未使用)。
+- 判断: taxonomy は意図して変えない(キャラ説明の短縮は将来の新版で別実験)。`doc/reproduce.md`・`doc/cli.md`・README・`runtime/dgemma-vllm.json` を実装に揃えた。
+- 次の一手: 作者の確認後、PR を出す。
 
 ## 2026-10-03 — dgemma-server の実機 probe とプロンプト書式の検討(ブランチ feat/dgemma-eval)
 

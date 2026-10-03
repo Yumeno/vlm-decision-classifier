@@ -59,6 +59,8 @@ python3 -m venv .venv
 | Qwen3.5 9B | `lmstudio-community/Qwen3.5-9B-GGUF` | `Qwen3.5-9B-Q4_K_M.gguf` | `mmproj-Qwen3.5-9B-BF16.gguf` |
 | Gemma 4 12B | `lmstudio-community/gemma-4-12B-it-GGUF` | `gemma-4-12B-it-Q4_K_M.gguf` | `mmproj-gemma-4-12B-it-BF16.gguf` |
 
+実験的に、拡散言語モデル DiffusionGemma(4bit AWQ)を WSL2 の vLLM で動かす方式(画像1枚・全質問を1回の読み出し、`dgemma_choice`)も試しています。GGUF ではなく別の手順で、結果と条件は [`doc/experiments/dgemma/README.md`](doc/experiments/dgemma/README.md)、手順は [`doc/reproduce.md`](doc/reproduce.md) にあります。
+
 小型モデルは `lmstudio-community` の `Qwen3.5-4B/2B/0.8B-GGUF`、`gemma-4-E4B/E2B-it-GGUF`(ファイル名は [`doc/experiments/runtime/small-S*.json`](doc/experiments/runtime/))。
 
 ダウンロードしたファイルは、[`doc/experiments/runtime/*.json`](doc/experiments/runtime/) に記録した SHA256 と照合してから使ってください(実験で使ったファイルと同じかの確認にもなります)。
