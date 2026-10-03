@@ -277,6 +277,7 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
             "adaptive_reads_used": adaptive.get("reads_used"),
             "adaptive_trigger_questions": adaptive.get("trigger_questions"),
             "adaptive_replaced": adaptive.get("replaced"),
+            "adaptive_unresolved": adaptive.get("unresolved"),
             "max_per_read": backend.max_per_read,
             "max_soft_tokens": backend.max_soft_tokens,
             "reads_n": len(reads),

@@ -656,8 +656,39 @@ def test_adaptive_failed_first_read_triggers_and_counts_reads_used():
     eng, fake = _seq_engine([first, second])
     out = eng.handle(_body(adaptive_threshold=1.0, adaptive_max=3))
     ad = out["diagnostics"]["adaptive"]
-    assert ad["triggered"] is True and ad["reads_used"] == 3 and len(fake.payloads) == 3
+    assert ad["triggered"] is True and ad["reads_used"] == 2 and len(fake.payloads) == 2  # 2回目で style がしきい値未満になり止まる
     assert ad["replaced"] == ["style"] and ad["trigger_questions"] == {"style": "failed"}
     assert out["answers"]["style"]["choice"] == "anime" and out["errors"] == {}
     assert out["answers"]["outfit_maid"]["noul"] == pytest.approx(0.9)  # 1回目のまま
-    assert out["diagnostics"]["reads"][0]["canvas_width"] % 32 == 0 and len(out["diagnostics"]["reads"][0]["ms_per_sample"]) == 3
+    assert out["diagnostics"]["reads"][0]["canvas_width"] % 32 == 0 and len(out["diagnostics"]["reads"][0]["ms_per_sample"]) == 2
+    assert ad["entropy_trace"]["style"][0] is None and ad["entropy_trace"]["style"][1] < 1.0 and ad["unresolved"] == []
+
+
+SURE_STYLE = {"A": 0.98, "B": 0.01, "C": 0.01}
+SURE_SWIM = {"yes": 0.01, "no": 0.99}
+
+
+def test_adaptive_stops_early_when_running_average_converges():
+    shaky = {"style": SURE_STYLE, "outfit_maid": {"yes": 0.8, "no": 0.2}, "outfit_swim": SURE_SWIM}
+    sure = {"style": SURE_STYLE, "outfit_maid": {"yes": 0.999, "no": 0.001}, "outfit_swim": SURE_SWIM}
+    eng, fake = _seq_engine([shaky, sure, sure, sure])
+    out = eng.handle(_body(adaptive_threshold=0.5, adaptive_max=4))
+    ad = out["diagnostics"]["adaptive"]
+    assert len(fake.payloads) == 2 and ad["reads_used"] == 2 and ad["unresolved"] == []  # 平均 0.9 のエントロピー(約0.47) < 0.5
+    assert set(ad["trigger_questions"]) == {"outfit_maid"} and ad["replaced"] == ["outfit_maid"]
+    t = ad["entropy_trace"]["outfit_maid"]
+    assert len(t) == 2 and t[0] > 0.5 > t[1]
+    assert out["answers"]["outfit_maid"]["noul"] == pytest.approx((0.8 + 0.999) / 2)
+    assert out["answers"]["outfit_swim"]["noul"] == pytest.approx(0.01)
+
+
+def test_adaptive_runs_to_max_when_samples_disagree_and_lists_unresolved():
+    up = {"style": SURE_STYLE, "outfit_maid": {"yes": 0.9, "no": 0.1}, "outfit_swim": SURE_SWIM}
+    down = {"style": SURE_STYLE, "outfit_maid": {"yes": 0.1, "no": 0.9}, "outfit_swim": SURE_SWIM}
+    eng, fake = _seq_engine([up, down])
+    out = eng.handle(_body(adaptive_threshold=0.4, adaptive_max=4))
+    ad = out["diagnostics"]["adaptive"]
+    assert len(fake.payloads) == 4 and ad["reads_used"] == 4
+    assert ad["unresolved"] == ["outfit_maid"] and len(ad["entropy_trace"]["outfit_maid"]) == 4
+    assert ad["entropy_trace"]["outfit_maid"][1] == pytest.approx(1.0)  # 0.9 と 0.1 の平均 0.5
+    assert out["answers"]["outfit_maid"]["noul"] == pytest.approx((0.9 + 0.1 + 0.1 + 0.1) / 4)

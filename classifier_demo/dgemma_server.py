@@ -605,40 +605,66 @@ class Engine:
         run_all([(r, k) for r in range(len(plans)) for k in range(req.samples)])
         adaptive_diag = None
         if req.adaptive_threshold is not None:
+            thr = req.adaptive_threshold
             first_entropy: dict = {}
             trigger: dict = {}
-            extra: list = []
             replaced: list = []
+            trace: dict = {}
+            unresolved: list = []
             for r, plan in enumerate(plans):
                 tuples, _ = evaluate(results[(r, 0)], plan)
-                failed = False
-                group_trigger = {}
+                targets = []
+                valid: dict[str, list] = {}  # 対象の質問 -> 有効サンプルの相対スコア
                 for q in plan.questions:
                     probs = tuples[q.qid][0]
                     if probs is None:
-                        failed = True
-                        group_trigger[q.qid] = "failed"  # 1回目に失敗(エントロピーは無い)
-                        replaced.append(q.qid)
+                        trigger[q.qid] = "failed"  # 1回目に失敗(エントロピーは無い)
+                        targets.append(q)
+                        valid[q.qid] = []
+                        trace[q.qid] = [None]
                         continue
                     h = normalized_entropy([probs[lab] for lab in q.labels])
                     first_entropy[q.qid] = h
-                    if h >= req.adaptive_threshold:
-                        group_trigger[q.qid] = h
-                trigger.update(group_trigger)
-                replaced.extend(q for q in group_trigger if group_trigger[q] != "failed")
-                if group_trigger or failed:
-                    n_samples[r] = req.adaptive_max
-                    extra.extend((r, k) for k in range(1, req.adaptive_max))
-            if extra:
-                run_all(extra)
+                    if h >= thr:
+                        trigger[q.qid] = h
+                        targets.append(q)
+                        valid[q.qid] = [probs]
+                        trace[q.qid] = [h]
+                if not targets:
+                    continue
+                replaced.extend(q.qid for q in targets)
+                still = set(q.qid for q in targets)
+                for k in range(1, req.adaptive_max):  # 1回ずつ読み、対象が全員しきい値未満になったら止める
+                    run((r, k))
+                    n_samples[r] = k + 1
+                    tuples, _ = evaluate(results[(r, k)], plan)
+                    still = set()
+                    for q in targets:
+                        if tuples[q.qid][0] is not None:
+                            valid[q.qid].append(tuples[q.qid][0])
+                        vs = valid[q.qid]
+                        if not vs:
+                            trace[q.qid].append(None)
+                            still.add(q.qid)
+                            continue
+                        avg = [sum(v[lab] for v in vs) / len(vs) for lab in q.labels]
+                        h = normalized_entropy(avg)
+                        trace[q.qid].append(h)
+                        if h >= thr:
+                            still.add(q.qid)
+                    if not still:
+                        break
+                unresolved.extend(q.qid for q in targets if q.qid in still)
             adaptive_diag = {
-                "threshold": req.adaptive_threshold,
+                "threshold": thr,
                 "max": req.adaptive_max,
-                "triggered": bool(extra),
+                "triggered": bool(trigger),
                 "trigger_questions": trigger,
                 "first_read_entropy": first_entropy,
                 "reads_used": sum(n_samples),
-                "replaced": replaced if extra else [],  # 再読み出しの平均で置き換えた質問(他は1回目の値のまま)
+                "replaced": replaced,  # 再読み出しの平均で置き換えた質問(他は1回目の値のまま)
+                "entropy_trace": trace,  # 対象の質問の、各読み出し後の累積平均の正規化エントロピー(None=有効サンプルなし)
+                "unresolved": unresolved,  # 上限まで読んでもしきい値以上(または失敗)のまま
             }
         if all(isinstance(v, Exception) for v in results.values()):
             raise UpstreamError(str(next(iter(results.values()))))
