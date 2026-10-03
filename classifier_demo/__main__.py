@@ -115,6 +115,10 @@ def _add_dgemma_args(p: argparse.ArgumentParser) -> None:
         help="複数選択の yes/no 質問の描き方。slash=`yes / no`(既定)、lines=`yes: present...`/`no: not present...`、letters=A/B、yn=`Y: yes`/`N: no`(質問文はそのまま)。slash 以外のときだけ送る",
     )
     p.add_argument(
+        "--dgemma-catchall-style", choices=["default", "list"], default="default",
+        help="「その他」系(catch_all)の選択肢の質問文。list=同じ軸の他の選択肢を挙げて「それらを除いて他にあるか」と聞く(クライアント側。taxonomy は変えない)",
+    )
+    p.add_argument(
         "--dgemma-steps", type=_int_min(1), default=1,
         help="デノイズのステップ数(既定1=1ステップ読み)。2以上ではスロット以外の位置を固定して複数ステップ回し、最終ステップの分布を読む。2以上のときだけ送る",
     )
@@ -160,6 +164,7 @@ def _make_backend(args: argparse.Namespace, modes: list[str]) -> ChatBackend | N
             adaptive_threshold=args.dgemma_adaptive_threshold,
             adaptive_max=args.dgemma_adaptive_max,
             steps=args.dgemma_steps,
+            catchall_style=args.dgemma_catchall_style,
             max_per_read=args.dgemma_max_per_read,
             max_soft_tokens=args.dgemma_max_soft_tokens,
         )

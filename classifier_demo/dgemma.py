@@ -54,6 +54,7 @@ class DgemmaBackend(ChatBackend):
         adaptive_threshold: float | None = None,
         adaptive_max: int = 3,
         steps: int = 1,
+        catchall_style: str = "default",
         timeout: float = 300.0,
     ) -> None:
         super().__init__(
@@ -72,6 +73,7 @@ class DgemmaBackend(ChatBackend):
         self.adaptive_threshold = adaptive_threshold
         self.adaptive_max = adaptive_max
         self.steps = steps
+        self.catchall_style = catchall_style
         self.max_per_read = max_per_read
         self.max_soft_tokens = max_soft_tokens
         # vLLM は拡散モデルへの temperature 等を拒否(400)するため送らない。run.json に記録する。
@@ -109,6 +111,11 @@ def _check_qid(qid: str) -> str:
     return qid
 
 
+def _join_names(names: list[str]) -> str:
+    """["A"] -> "A"、["A","B"] -> "A and B"、3つ以上は "A, B and C"。"""
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
 def build_request(
     taxonomy: Taxonomy,
     image_bytes: bytes,
@@ -125,6 +132,7 @@ def build_request(
     adaptive_threshold: float | None = None,
     adaptive_max: int = 3,
     steps: int = 1,
+    catchall_style: str = "default",
 ) -> tuple[dict, dict]:
     """(リクエスト本体, 返答を読むための対応表)を返す。対応表は軸id -> {"qid", "names"}(単一)か
     {"qids"}(複数)。"""
@@ -148,11 +156,16 @@ def build_request(
         if axis.multi:
             qids = {}
             for c in axis.choices:
-                subject = c.name if c.criteria.strip().lower() == c.name.strip().lower() else f"{c.name} ({c.criteria})"
-                qids[c.id] = add(
-                    f"{axis.id}_{c.id}",
-                    {"type": "noul", "instructions": f"Is {c.name} ({c.criteria}) present in the image?", "subject": subject},
-                )
+                same = c.criteria.strip().lower() == c.name.strip().lower()
+                subject = c.name if same else f"{c.name} ({c.criteria})"
+                instructions = f"Is {c.name} ({c.criteria}) present in the image?"
+                others = [o.name for o in axis.choices if o is not c and not o.catch_all]
+                if catchall_style == "list" and c.catch_all and others:
+                    # 「その他」系の選択肢だけ、同じ軸の他の選択肢を除くと明示する(taxonomy の中身は変えない)
+                    listed = _join_names(others)
+                    instructions = f"Apart from {listed}, is there at least one {subject} in the image?"
+                    subject = f"{subject}, apart from {listed}"
+                qids[c.id] = add(f"{axis.id}_{c.id}", {"type": "noul", "instructions": instructions, "subject": subject})
             plan[axis.id] = {"qids": qids}
         else:
             criteria: dict[str, str] = {}
@@ -271,6 +284,7 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
         taxonomy, image_bytes, mime, backend.model, backend.samples, backend.seed,
         backend.template, backend.max_per_read, backend.max_soft_tokens, backend.instruction,
         backend.yn_style, backend.order, backend.adaptive_threshold, backend.adaptive_max, backend.steps,
+        backend.catchall_style,
     )
     response, elapsed_ms = backend.systemone(body)
     results = parse_response(taxonomy, plan, response)
@@ -289,6 +303,7 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
             "yn_style": backend.yn_style,
             "order": backend.order,
             "steps": backend.steps,
+            "catchall_style": backend.catchall_style,
             "adaptive_threshold": backend.adaptive_threshold,
             "adaptive_max": backend.adaptive_max if backend.adaptive_threshold is not None else None,
             "adaptive_triggered": adaptive.get("triggered"),
