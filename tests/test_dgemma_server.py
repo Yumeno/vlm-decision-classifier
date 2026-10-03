@@ -703,3 +703,35 @@ def test_adaptive_question_failing_in_every_read_is_unresolved_error_and_not_rep
     assert ad["trigger_questions"] == {"style": "failed"} and ad["entropy_trace"]["style"] == [None, None, None]
     assert "style" not in out["answers"] and out["errors"]["style"]["type"] == "missing_label_logprob"
 
+
+
+def test_steps_payload_pins_everything_except_label_slots():
+    eng, fake = _engine(DIST)
+    eng.handle(_body())
+    eng.handle(_body(steps=4))
+    d, s = fake.payloads
+    assert d["vllm_xargs"] == {
+        "diffusion_seed_canvas": d["vllm_xargs"]["diffusion_seed_canvas"],
+        "diffusion_canvas_length": d["vllm_xargs"]["diffusion_canvas_length"],
+        "diffusion_max_steps": 1,
+        "diffusion_read_only": True,
+    }  # 既定は従来どおり(pinned なし)
+    x = s["vllm_xargs"]
+    width = x["diffusion_canvas_length"]
+    slots = {sl.pos for sl in eng.last_plans[0].template.slots}
+    assert x["diffusion_max_steps"] == 4 and x["diffusion_read_only"] is True
+    assert x["diffusion_pinned"] == [i for i in range(width) if i not in slots]
+    assert len(x["diffusion_pinned"]) == width - len(slots) and slots.isdisjoint(x["diffusion_pinned"])
+    assert len(x["diffusion_seed_canvas"]) == width
+
+
+def test_steps_validation_diagnostics_and_adaptive_compat():
+    for bad in (0, -1, 1.5, "2", True):
+        with pytest.raises(ds.RequestError) as e:
+            ds.parse_request(_body(steps=bad))
+        assert e.value.status == 400
+    assert ds.parse_request(_body()).steps == 1
+    eng, fake = _engine(DIST)
+    out = eng.handle(_body(steps=3, adaptive_threshold=0.95))
+    assert out["diagnostics"]["steps"] == 3 and out["diagnostics"]["adaptive"]["reads_used"] == 1
+    assert all(p["vllm_xargs"]["diffusion_max_steps"] == 3 for p in fake.payloads)

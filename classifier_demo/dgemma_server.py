@@ -127,6 +127,7 @@ class Request:
     yn_style: str = "slash"
     adaptive_threshold: float | None = None
     adaptive_max: int = 3
+    steps: int = 1
 
 
 @dataclass
@@ -231,6 +232,7 @@ def parse_request(body) -> Request:
     amax = _int_field(body, "adaptive_max", 3, 2) if thr is not None else 3  # 適応が無効なら無視
     if thr is not None and body.get("samples", 1) != 1:
         raise RequestError(400, "'adaptive_threshold' cannot be combined with samples > 1")
+    steps = _int_field(body, "steps", 1, 1)
     model = body.get("model")
     return Request(
         model=model if isinstance(model, str) else None,
@@ -246,6 +248,7 @@ def parse_request(body) -> Request:
         yn_style=yn_style,
         adaptive_threshold=float(thr) if thr is not None else None,
         adaptive_max=amax,
+        steps=steps,
     )
 
 
@@ -547,6 +550,11 @@ class Engine:
                 "diffusion_read_only": True,
             },
         }
+        if req.steps > 1:
+            # 複数ステップ: ラベルのスロット以外の全位置(足場・キー・改行・ターン終端・PAD)を固定し、スロットだけを動かす
+            payload["vllm_xargs"]["diffusion_max_steps"] = req.steps
+            slot_pos = {s.pos for s in plan.template.slots}
+            payload["vllm_xargs"]["diffusion_pinned"] = [i for i in range(plan.width) if i not in slot_pos]
         if req.mm_processor_kwargs is not None:
             payload["mm_processor_kwargs"] = req.mm_processor_kwargs
         start = time.perf_counter_ns()
@@ -739,6 +747,7 @@ class Engine:
                 "template": req.template,
                 "seed": req.seed,
                 "samples": req.samples,
+                "steps": req.steps,
                 "reads": reads_diag,
                 "alias_ids": aliases_diag,
                 "alias_conflicts": conflicts_diag,

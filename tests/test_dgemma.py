@@ -41,6 +41,7 @@ class FakeDgemmaBackend(FakeBackend):
     order = "taxonomy"
     adaptive_threshold = None
     adaptive_max = 3
+    steps = 1
     extra_body: dict = {}
 
     def systemone(self, body):
@@ -271,3 +272,10 @@ def test_build_request_adaptive_fields_only_when_threshold_given():
     assert body["adaptive_threshold"] == 0.6 and body["adaptive_max"] == 4 and body["samples"] == 1
     body2, _ = dgemma.build_request(_tax(), b"i", "image/jpeg", "m")
     assert "adaptive_threshold" not in body2 and "adaptive_max" not in body2
+
+
+def test_build_request_steps_only_when_gt_1():
+    body, _ = dgemma.build_request(_tax(), b"i", "image/jpeg", "m", steps=4)
+    assert body["steps"] == 4
+    assert "steps" not in dgemma.build_request(_tax(), b"i", "image/jpeg", "m")[0]
+    assert "steps" not in dgemma.build_request(_tax(), b"i", "image/jpeg", "m", steps=1)[0]

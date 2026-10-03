@@ -480,6 +480,7 @@ def run_evaluate(
                 "instruction": backend.instruction,
                 "yn_style": backend.yn_style,
                 "order": backend.order,
+                "steps": backend.steps,
                 "adaptive_threshold": backend.adaptive_threshold,
                 "adaptive_max": backend.adaptive_max if backend.adaptive_threshold is not None else None,
                 "max_per_read": backend.max_per_read,

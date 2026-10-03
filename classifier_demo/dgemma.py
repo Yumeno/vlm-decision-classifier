@@ -53,6 +53,7 @@ class DgemmaBackend(ChatBackend):
         order: str = "taxonomy",
         adaptive_threshold: float | None = None,
         adaptive_max: int = 3,
+        steps: int = 1,
         timeout: float = 300.0,
     ) -> None:
         super().__init__(
@@ -70,6 +71,7 @@ class DgemmaBackend(ChatBackend):
         self.order = order
         self.adaptive_threshold = adaptive_threshold
         self.adaptive_max = adaptive_max
+        self.steps = steps
         self.max_per_read = max_per_read
         self.max_soft_tokens = max_soft_tokens
         # vLLM は拡散モデルへの temperature 等を拒否(400)するため送らない。run.json に記録する。
@@ -122,6 +124,7 @@ def build_request(
     order: str = "taxonomy",
     adaptive_threshold: float | None = None,
     adaptive_max: int = 3,
+    steps: int = 1,
 ) -> tuple[dict, dict]:
     """(リクエスト本体, 返答を読むための対応表)を返す。対応表は軸id -> {"qid", "names"}(単一)か
     {"qids"}(複数)。"""
@@ -181,6 +184,8 @@ def build_request(
     if adaptive_threshold is not None:
         body["adaptive_threshold"] = adaptive_threshold
         body["adaptive_max"] = adaptive_max
+    if steps > 1:
+        body["steps"] = steps
     if max_soft_tokens is not None:
         body["mm_processor_kwargs"] = {"max_soft_tokens": max_soft_tokens}
     return body, plan
@@ -253,7 +258,7 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
     body, plan = build_request(
         taxonomy, image_bytes, mime, backend.model, backend.samples, backend.seed,
         backend.template, backend.max_per_read, backend.max_soft_tokens, backend.instruction,
-        backend.yn_style, backend.order, backend.adaptive_threshold, backend.adaptive_max,
+        backend.yn_style, backend.order, backend.adaptive_threshold, backend.adaptive_max, backend.steps,
     )
     response, elapsed_ms = backend.systemone(body)
     results = parse_response(taxonomy, plan, response)
@@ -271,6 +276,7 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
             "instruction": backend.instruction,
             "yn_style": backend.yn_style,
             "order": backend.order,
+            "steps": backend.steps,
             "adaptive_threshold": backend.adaptive_threshold,
             "adaptive_max": backend.adaptive_max if backend.adaptive_threshold is not None else None,
             "adaptive_triggered": adaptive.get("triggered"),
