@@ -127,6 +127,10 @@ cold の先頭読みの cached_tokens はすべて 64(system 文だけがキャ�
 - vLLM の起動スクリプトは `scripts/dgemma/`(報告した実行は gpu-memory-utilization 0.80。0.94 は #12 用)。
 - `standard/` は旧コードと example サーバーによる参考実行で、最終設定との比較には使わない。
 
+## 続き(#12)
+
+VRAM・並列・キャッシュ・画像トークン数・adaptive の追加検証は [`followup-12.md`](followup-12.md)。要点(各1回の測定、31枚): `--gpu-memory-utilization` は 0.94 でキャッシュなしの画像が約8倍遅く(平均 3,734 ms)、0.88 で約 500 ms。画像トークン 140 は 280 と精度がほぼ同じで約2割速い。並列はほぼ効かない。しきい値 0.87 の adaptive は、服装完全一致 19 → 22/31、失敗した軸 1 → 0、時間 +51 ms(キャラは 27 → 26/31)。しきい値は同じ画像を見て決めたので探索的。 複数ステップ(`--dgemma-steps`)は、服装が steps 2 で改善して横ばい、キャラはステップが増えるほど下がり、迷いが隠れた(followup-12.md §3.6、`steps/`)。推奨は steps 1 + adaptive(0.87、上限 3)で、上限まで読んでも迷った質問には `uncertain` の印が付く。
+
 ## 7. 再現手順
 
 [`../../reproduce.md`](../../reproduce.md) の「DiffusionGemma」。実行条件は [`../runtime/dgemma-vllm.json`](../runtime/dgemma-vllm.json)、CLI は [`../../cli.md`](../../cli.md)。

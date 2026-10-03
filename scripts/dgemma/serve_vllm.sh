@@ -5,9 +5,14 @@
 #   MODEL_DIR  pixelkaiser/diffusiongemma-26B-A4B-it-AWQ-MLP-W4A16-G64-S32-L1024(rev a9557bd)のローカルコピー
 #   GPU_UUID   RTX 3090 の UUID(nvidia-smi -L で出る GPU-xxxxxxxx-... )
 # 任意: LOG_DIR(既定 ~/dgemma-logs)
+#   GPU_MEM_UTIL  --gpu-memory-utilization(既定 0.80=PR #13 の報告実行の値。issue #12 の測定では 0.88 を推奨)
+#   MST           画像トークン予算。指定すると --mm-processor-kwargs '{"max_soft_tokens": MST}' を足す(例 140)
 set -u
 : "${VENV_VLLM:?VENV_VLLM を指定}" "${MODEL_DIR:?MODEL_DIR を指定}" "${GPU_UUID:?GPU_UUID を指定}"
 LOG_DIR=${LOG_DIR:-$HOME/dgemma-logs}; mkdir -p "$LOG_DIR"
+GPU_MEM_UTIL=${GPU_MEM_UTIL:-0.80}
+EXTRA_ARGS=()
+if [ -n "${MST:-}" ]; then EXTRA_ARGS+=(--mm-processor-kwargs "{\"max_soft_tokens\": $MST}"); fi
 source "$VENV_VLLM/bin/activate"
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_VISIBLE_DEVICES=$GPU_UUID
@@ -30,5 +35,6 @@ exec vllm serve "$MODEL_DIR" \
   --attention-backend TRITON_ATTN \
   --max-num-seqs 2 \
   --max-model-len 4096 \
-  --gpu-memory-utilization 0.80 \
+  --gpu-memory-utilization "$GPU_MEM_UTIL" \
+  ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} \
   > "$LOG_DIR/vllm-serve.log" 2>&1

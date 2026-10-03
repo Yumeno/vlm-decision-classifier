@@ -51,6 +51,9 @@ class DgemmaBackend(ChatBackend):
         instruction: str = "default",
         yn_style: str = "slash",
         order: str = "taxonomy",
+        adaptive_threshold: float | None = None,
+        adaptive_max: int = 3,
+        steps: int = 1,
         timeout: float = 300.0,
     ) -> None:
         super().__init__(
@@ -66,6 +69,9 @@ class DgemmaBackend(ChatBackend):
         self.instruction = instruction
         self.yn_style = yn_style
         self.order = order
+        self.adaptive_threshold = adaptive_threshold
+        self.adaptive_max = adaptive_max
+        self.steps = steps
         self.max_per_read = max_per_read
         self.max_soft_tokens = max_soft_tokens
         # vLLM は拡散モデルへの temperature 等を拒否(400)するため送らない。run.json に記録する。
@@ -116,6 +122,9 @@ def build_request(
     instruction: str = "default",
     yn_style: str = "slash",
     order: str = "taxonomy",
+    adaptive_threshold: float | None = None,
+    adaptive_max: int = 3,
+    steps: int = 1,
 ) -> tuple[dict, dict]:
     """(リクエスト本体, 返答を読むための対応表)を返す。対応表は軸id -> {"qid", "names"}(単一)か
     {"qids"}(複数)。"""
@@ -172,6 +181,11 @@ def build_request(
         body["instruction"] = instruction
     if yn_style != "slash":
         body["yn_style"] = yn_style
+    if adaptive_threshold is not None:
+        body["adaptive_threshold"] = adaptive_threshold
+        body["adaptive_max"] = adaptive_max
+    if steps > 1:
+        body["steps"] = steps
     if max_soft_tokens is not None:
         body["mm_processor_kwargs"] = {"max_soft_tokens": max_soft_tokens}
     return body, plan
@@ -195,23 +209,35 @@ def _read_single(axis: Axis, spec: dict, answers: dict, errors: dict) -> dict:
     chosen = ans.get("choice")
     if chosen not in spec["names"]:
         raise ValueError(f"unknown choice {chosen!r}")
-    return {"relative_scores": scores, "selected": spec["names"][chosen]}
+    out = {"relative_scores": scores, "selected": spec["names"][chosen]}
+    if "uncertain" in ans:  # 適応が有効なときだけサーバーが付ける。選択結果は変えない
+        out["uncertain"] = bool(ans["uncertain"])
+        out["entropy"] = ans.get("entropy")
+    return out
 
 
 def _read_multi(axis: Axis, spec: dict, answers: dict, errors: dict) -> dict:
     confirmations: dict[str, float] = {}
+    uncertain: list[str] = []
+    has_flag = False
     for cid, qid in spec["qids"].items():
         _server_error(errors, qid)  # 選択肢が1つでも失敗した複数選択軸は軸ごと失敗
         ans = answers.get(qid)
         if not isinstance(ans, dict) or ans.get("type") != "noul" or not isinstance(ans.get("noul"), (int, float)):
             raise ValueError(f"no noul answer for question {qid!r}")
         confirmations[cid] = float(ans["noul"])
+        if "uncertain" in ans:
+            has_flag = True
+            if ans["uncertain"]:
+                uncertain.append(cid)
     tags = sorted(
         (cid for cid, p in confirmations.items() if p >= YES_THRESHOLD),
         key=lambda cid: confirmations[cid],
         reverse=True,
     )
+    extra = {"uncertain_options": uncertain} if has_flag else {}
     return {
+        **extra,
         "relative_scores": {},
         "confirmations": confirmations,
         "confirmation_errors": {},
@@ -244,12 +270,13 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
     body, plan = build_request(
         taxonomy, image_bytes, mime, backend.model, backend.samples, backend.seed,
         backend.template, backend.max_per_read, backend.max_soft_tokens, backend.instruction,
-        backend.yn_style, backend.order,
+        backend.yn_style, backend.order, backend.adaptive_threshold, backend.adaptive_max, backend.steps,
     )
     response, elapsed_ms = backend.systemone(body)
     results = parse_response(taxonomy, plan, response)
     diag = response.get("diagnostics") or {}
     reads = diag.get("reads") or []
+    adaptive = diag.get("adaptive") or {}
     return {
         "axes": results,
         "elapsed_ms": elapsed_ms,
@@ -261,6 +288,14 @@ def decide_dgemma(backend: DgemmaBackend, image_bytes: bytes, mime: str, taxonom
             "instruction": backend.instruction,
             "yn_style": backend.yn_style,
             "order": backend.order,
+            "steps": backend.steps,
+            "adaptive_threshold": backend.adaptive_threshold,
+            "adaptive_max": backend.adaptive_max if backend.adaptive_threshold is not None else None,
+            "adaptive_triggered": adaptive.get("triggered"),
+            "adaptive_reads_used": adaptive.get("reads_used"),
+            "adaptive_trigger_questions": adaptive.get("trigger_questions"),
+            "adaptive_replaced": adaptive.get("replaced"),
+            "adaptive_unresolved": adaptive.get("unresolved"),
             "max_per_read": backend.max_per_read,
             "max_soft_tokens": backend.max_soft_tokens,
             "reads_n": len(reads),
