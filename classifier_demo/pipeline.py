@@ -171,6 +171,8 @@ def _classify_bundled(
             )
         else:
             axis_decisions[axis.id] = {"relative_scores": r["relative_scores"], "selected": r["selected"]}
+            if "uncertain" in r:  # dgemma の適応が有効なときだけ。選択結果は変えず記録に残す
+                axis_decisions[axis.id].update({"uncertain": r["uncertain"], "entropy": r["entropy"]})
             vision_tags[axis.id] = [] if r["selected"] == decision.NONE_ID else [r["selected"]]
             event.update({"relative_scores": r["relative_scores"], "selected": r["selected"]})
         events.append(event)
@@ -213,6 +215,8 @@ def _classify_dgemma(taxonomy: Taxonomy, backend, image_bytes: bytes, mime: str,
             event.update({**r, "confirm": True, "rank_threshold": decision.YES_THRESHOLD})
         else:
             axis_decisions[axis.id] = {"relative_scores": r["relative_scores"], "selected": r["selected"]}
+            if "uncertain" in r:  # dgemma の適応が有効なときだけ。選択結果は変えず記録に残す
+                axis_decisions[axis.id].update({"uncertain": r["uncertain"], "entropy": r["entropy"]})
             vision_tags[axis.id] = [] if r["selected"] == decision.NONE_ID else [r["selected"]]
             event.update({"relative_scores": r["relative_scores"], "selected": r["selected"]})
         if on_progress is not None:

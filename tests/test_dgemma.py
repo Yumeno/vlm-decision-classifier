@@ -279,3 +279,18 @@ def test_build_request_steps_only_when_gt_1():
     assert body["steps"] == 4
     assert "steps" not in dgemma.build_request(_tax(), b"i", "image/jpeg", "m")[0]
     assert "steps" not in dgemma.build_request(_tax(), b"i", "image/jpeg", "m", steps=1)[0]
+
+
+def test_parse_response_carries_uncertain_flags_without_changing_selection():
+    tax = _tax()
+    _, plan = dgemma.build_request(tax, b"i", "image/jpeg", "dgemma")
+    plain = dgemma.parse_response(tax, plan, _ok_response())
+    assert "uncertain" not in plain["style"] and "uncertain_options" not in plain["outfit"]
+    flagged = _ok_response()
+    flagged["answers"]["style"].update({"uncertain": True, "entropy": 0.9})
+    flagged["answers"]["outfit_maid"].update({"uncertain": False, "entropy": 0.1})
+    flagged["answers"]["outfit_swim"].update({"uncertain": True, "entropy": 0.99})
+    res = dgemma.parse_response(tax, plan, flagged)
+    assert res["style"]["uncertain"] is True and res["style"]["entropy"] == 0.9
+    assert res["style"]["selected"] == plain["style"]["selected"]
+    assert res["outfit"]["uncertain_options"] == ["swim"] and res["outfit"]["tags"] == plain["outfit"]["tags"]

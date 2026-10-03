@@ -712,6 +712,10 @@ class Engine:
                     use = use[:1]  # 適応: 置き換え対象でない質問は1回目の値
                 answer, error = aggregate_question(q, use)
                 if answer is not None:
+                    if adaptive_diag is not None:  # 適応が有効なときだけ、迷いの印と返した値の正規化エントロピーを足す
+                        dist = [answer["noul"], 1 - answer["noul"]] if q.kind == "noul" else list(answer["probabilities"].values())
+                        answer["uncertain"] = q.qid in adaptive_diag["unresolved"]
+                        answer["entropy"] = normalized_entropy(dist)
                     answers[q.qid] = answer
                 else:
                     errors[q.qid] = error

@@ -209,23 +209,35 @@ def _read_single(axis: Axis, spec: dict, answers: dict, errors: dict) -> dict:
     chosen = ans.get("choice")
     if chosen not in spec["names"]:
         raise ValueError(f"unknown choice {chosen!r}")
-    return {"relative_scores": scores, "selected": spec["names"][chosen]}
+    out = {"relative_scores": scores, "selected": spec["names"][chosen]}
+    if "uncertain" in ans:  # 適応が有効なときだけサーバーが付ける。選択結果は変えない
+        out["uncertain"] = bool(ans["uncertain"])
+        out["entropy"] = ans.get("entropy")
+    return out
 
 
 def _read_multi(axis: Axis, spec: dict, answers: dict, errors: dict) -> dict:
     confirmations: dict[str, float] = {}
+    uncertain: list[str] = []
+    has_flag = False
     for cid, qid in spec["qids"].items():
         _server_error(errors, qid)  # 選択肢が1つでも失敗した複数選択軸は軸ごと失敗
         ans = answers.get(qid)
         if not isinstance(ans, dict) or ans.get("type") != "noul" or not isinstance(ans.get("noul"), (int, float)):
             raise ValueError(f"no noul answer for question {qid!r}")
         confirmations[cid] = float(ans["noul"])
+        if "uncertain" in ans:
+            has_flag = True
+            if ans["uncertain"]:
+                uncertain.append(cid)
     tags = sorted(
         (cid for cid, p in confirmations.items() if p >= YES_THRESHOLD),
         key=lambda cid: confirmations[cid],
         reverse=True,
     )
+    extra = {"uncertain_options": uncertain} if has_flag else {}
     return {
+        **extra,
         "relative_scores": {},
         "confirmations": confirmations,
         "confirmation_errors": {},

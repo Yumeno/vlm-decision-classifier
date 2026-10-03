@@ -735,3 +735,16 @@ def test_steps_validation_diagnostics_and_adaptive_compat():
     out = eng.handle(_body(steps=3, adaptive_threshold=0.95))
     assert out["diagnostics"]["steps"] == 3 and out["diagnostics"]["adaptive"]["reads_used"] == 1
     assert all(p["vllm_xargs"]["diffusion_max_steps"] == 3 for p in fake.payloads)
+
+
+def test_uncertain_flag_and_entropy_only_when_adaptive_is_on():
+    off = _engine(DIST)[0].handle(_body())
+    assert all("uncertain" not in a and "entropy" not in a for a in off["answers"].values())
+    up = {"style": SURE_STYLE, "outfit_maid": {"yes": 0.9, "no": 0.1}, "outfit_swim": SURE_SWIM}
+    down = {"style": SURE_STYLE, "outfit_maid": {"yes": 0.1, "no": 0.9}, "outfit_swim": SURE_SWIM}
+    eng, _ = _seq_engine([up, down])
+    out = eng.handle(_body(adaptive_threshold=0.4, adaptive_max=2))
+    a = out["answers"]
+    assert a["outfit_maid"]["uncertain"] is True and a["outfit_maid"]["entropy"] == pytest.approx(1.0)  # 平均 0.5
+    assert a["outfit_swim"]["uncertain"] is False and a["style"]["uncertain"] is False
+    assert a["style"]["entropy"] < 0.2 and 0 <= a["outfit_swim"]["entropy"] < 0.2

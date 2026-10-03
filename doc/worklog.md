@@ -2,6 +2,13 @@
 
 新しい順。compact 後の文脈復元用。詳細は各 PR と `doc/` を参照。
 
+## 2026-10-03 — #12: steps の測定と、迷いの印(uncertain)
+
+- やったこと: 複数ステップ読み出し(`--dgemma-steps`)を実装し、steps 1/2/4/8 を測った(記録は `doc/experiments/dgemma/steps/`、まとめは `followup-12.md` §3.6)。adaptive が有効なとき、答えに `uncertain`・`entropy` を付ける(単一選択軸は `uncertain`、複数選択軸は `uncertain_options`)。
+- 結果の要点(各1回): 服装は steps 2 で改善して横ばい、キャラはステップが増えるほど下がる(FN 3 → 6)、迷いが隠れる(sharpening)。
+- 判断: 推奨は steps 1 + adaptive(0.87、上限 3)+ uncertain の印。steps は選択肢として残し、既定は 1。
+- 関連: PR #14。
+
 ## 2026-10-03 — #12 の追加検証と adaptive
 
 - やったこと: `--gpu-memory-utilization`(0.80/0.94/0.88)、並列(1/2/4)、キャッシュの持ち、画像トークン(280/140/70 × seed 0/1)、adaptive A〜E を測った。記録は `doc/experiments/dgemma/followup-12.md`、実行記録は `doc/experiments/dgemma/adaptive/` と `mst/`。
