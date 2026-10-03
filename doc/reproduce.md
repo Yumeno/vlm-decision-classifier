@@ -184,23 +184,25 @@ LLAMACPP_DIR=<llama.cpp の置き場所> LMSC_DIR=<lmstudio-community のモデ�
 
 1. **WSL2 ディストロ**: 専用のディストロ（Ubuntu 24.04 相当）に GPU 対応の PyTorch 環境と、vLLM（commit `ab5266769e702434a0968d47319d0731d8ccac35`）を venv で用意します（RTX 3090 単独、24GB）。vLLM のインストール手順は上流に従います。
 2. **画像品質パッチ**: vLLM の画像トークンは因果で処理されるため、openjev の `vision_prefix_lm` パッチを、venv 内の vLLM に適用します（パッチ本体: https://github.com/razorback16/openjev/blob/dcd20947b5ddad5be4a8f5aed6aa6dd245653823/docker/patches/vision_prefix_lm.py 。本リポジトリには含めない。適用手順はそのファイルの説明に従う）。適用した事実は `dgemma-vllm.json` の `vision_prefix_lm patch` に記録します。
-3. **vLLM** を `dgemma` として `:8000` で起動。報告した実行の主な設定は、出力キャンバス 256（`canvas_length`）、`--max-num-seqs 2`、`--enable-prefix-caching`、`--enable-prompt-tokens-details`、`--gpu-memory-utilization 0.80`、served model name `dgemma`。それ以外の引数は記録していません（`dgemma-vllm.json` の `server.launch_flags_recorded`）。KV キャッシュは 0.80 で 2.9 GiB / 13,772 tokens（vLLM のログ）で、画像プロンプト（約1,300 tokens）約10枚分です。
-4. **dgemma-server** を `:8012` で起動（`--canvas` は vLLM の `canvas_length` に合わせる）。
+3. **vLLM** を `scripts/dgemma/serve_vllm.sh` で起動（環境変数 `VENV_VLLM`=パッチ適用済み venv、`MODEL_DIR`=モデルのローカルコピー、`GPU_UUID`=3090 の UUID（`nvidia-smi -L`））。全フラグ: `--served-model-name dgemma --host 127.0.0.1 --port 8000 --diffusion-config '{"canvas_length": 256}' --max-logprobs 32 --limit-mm-per-prompt '{"image": 4, "video": 0}' --reasoning-parser gemma4 --override-generation-config '{"max_new_tokens": null}' --enable-prefix-caching --enable-prompt-tokens-details --async-scheduling --attention-backend TRITON_ATTN --max-num-seqs 2 --max-model-len 4096 --gpu-memory-utilization 0.80`（環境変数は `CUDA_DEVICE_ORDER=PCI_BUS_ID`、`CUDA_VISIBLE_DEVICES=$GPU_UUID`、`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:False`、`HF_HUB_OFFLINE=1`、`VLLM_NO_USAGE_STATS=1`）。報告した実行は 0.80（KV 2.9 GiB / 13,772 tokens。画像プロンプト約10枚分）。0.94（KV 6.26 GiB / 29,730 tokens）には後から上げた（追加検証 [issue #12](https://github.com/Yumeno/vlm-decision-classifier/issues/12) 用）ので、報告した実行には使っていません。`scripts/dgemma/wait_vllm.sh` で起動完了を待てます。
+4. **dgemma-server** を `scripts/dgemma/serve_dgemma.sh` で起動（`VENV_EVAL`=本リポジトリを入れた venv、`REPO_DIR`=リポジトリのルート。`--vllm http://127.0.0.1:8000 --model dgemma --port 8012`、canvas は既定の 256）。
 5. **evaluate** を実行（下記）。
 
 ```bash
-# WSL 内(Python 3.12)。リポジトリのルートで
-python3.12 -m venv ~/dgemma-venv && ~/dgemma-venv/bin/pip install -e .
-# dgemma-server(別ターミナル)
-~/dgemma-venv/bin/python -m classifier_demo dgemma-server --vllm http://127.0.0.1:8000 --model dgemma --host 127.0.0.1 --port 8012 --canvas 256
+# WSL 内(Python 3.12)。評価用 venv を作る
+python3.12 -m venv ~/dgemma-eval-venv && ~/dgemma-eval-venv/bin/pip install -e .
+export VENV_EVAL=~/dgemma-eval-venv REPO_DIR=$(pwd)
+export VENV_VLLM=<vLLM の venv> MODEL_DIR=<モデルのディレクトリ> GPU_UUID=<3090 の UUID>
+# 別ターミナルで vLLM、dgemma-server の順に起動
+bash scripts/dgemma/serve_vllm.sh
+bash scripts/dgemma/wait_vllm.sh && bash scripts/dgemma/serve_dgemma.sh
 # 単一ケースの確認(probe 相当)
-~/dgemma-venv/bin/python -m classifier_demo classify dataset/images/M01.png --mode dgemma_choice --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8012 --dgemma-yn-style yn
-# 全件評価(最終設定)。dgemma_choice と dgemma_json を対応比較。seed は 0, 1, 2 で測定(1・2 は --modes dgemma_choice のみ)
-SEED=0
-~/dgemma-venv/bin/python -m classifier_demo evaluate --manifest dataset/manifest.jsonl --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8012 --dgemma-samples 1 --dgemma-seed $SEED --dgemma-yn-style yn --modes dgemma_choice,dgemma_json --warmup 0 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 --runtime-info doc/experiments/runtime/dgemma-vllm.json --runtime-label dgemma_own_seed$SEED --note "DiffusionGemma own server, seed $SEED" --output-dir results/dgemma_own_seed$SEED
+~/dgemma-eval-venv/bin/python -m classifier_demo classify dataset/images/M01.png --mode dgemma_choice --model dgemma --base-url http://127.0.0.1:8000/v1 --dgemma-url http://127.0.0.1:8012 --dgemma-yn-style yn
+# 全件評価(vLLM 再起動直後に seed 0(choice と json)、続けて seed 1・2(choice のみ))
+bash scripts/dgemma/run_all.sh
 ```
 
-`--prime` は付けません（`dgemma_choice` には準備を送らない）。`--warmup 0` なので最初のケースはコールドスタートの時間（画像処理込み）を含みます。seed0 は vLLM の再起動直後（画像のプレフィックスキャッシュが空）で測りました。記録した実行は `doc/experiments/dgemma/`（`seed0` `seed1` `seed2`）です。
+`run_eval.sh <label> <seed> <modes> <note>` が1回分の evaluate で、中身は `--dgemma-url http://127.0.0.1:8012 --dgemma-samples 1 --dgemma-seed N --dgemma-yn-style yn --modes dgemma_choice[,dgemma_json] --warmup 0 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0`（`--prime` なし）です。ログは `LOG_DIR`（既定 `~/dgemma-logs`）、出力は `results/<label>/`。`--warmup 0` なので最初のケースはコールドスタートの時間（画像処理込み）を含みます。seed0 は vLLM の再起動直後（画像のプレフィックスキャッシュが空）で測りました。記録した実行は `doc/experiments/dgemma/`（`seed0` `seed1` `seed2`）です。
 
 方式の中身と記録は [`cli.md`](cli.md) の「DiffusionGemma のモード」。`--warmup 0` なので最初のケースはコールドスタートの時間を含みます（`cases.csv` で確認）。
 

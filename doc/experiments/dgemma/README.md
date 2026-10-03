@@ -123,6 +123,8 @@ cold の先頭読みの cached_tokens はすべて 64(system 文だけがキャ�
 - 並列実行時のスループットは未測定(`--max-num-seqs 2` で動かした逐次のみ)。
 - example サーバーのエントロピーの定義は未確認。auto で読み増しになる画像の数は本表から直接は言えない。
 - `taxonomy/default.yaml` は意図して変えていない。キャラの説明文を特徴の列挙に縮める案は**将来やる可能性があり**、やるなら分類体系の新しい版(例 v0.5.0)の別実験にして旧結果を残す。
+- 追跡する issue: [#11](https://github.com/Yumeno/vlm-decision-classifier/issues/11)(llama-server 側の名寄せ・Y/N 書式)、[#12](https://github.com/Yumeno/vlm-decision-classifier/issues/12)(DiffusionGemma の追加検証: 並列、キャッシュ、outfit の yes バイアス、seed による失敗、エントロピーの再確認)。
+- vLLM の起動スクリプトは `scripts/dgemma/`(報告した実行は gpu-memory-utilization 0.80。0.94 は #12 用)。
 - `standard/` は旧コードと example サーバーによる参考実行で、最終設定との比較には使わない。
 
 ## 7. 再現手順
