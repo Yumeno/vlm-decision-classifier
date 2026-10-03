@@ -13,5 +13,7 @@ LABEL=$1; SEED=$2; MODES=$3; NOTE=$4
   --modes "$MODES" --warmup 0 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 \
   --runtime-info doc/experiments/runtime/dgemma-vllm.json --runtime-label "$LABEL" \
   --note "$NOTE" --output-dir "results/$LABEL" > "$LOG_DIR/$LABEL.log" 2>&1
-echo "rc=$?"
+rc=$?
+echo "rc=$rc"
 tail -5 "$LOG_DIR/$LABEL.log"
+exit $rc
