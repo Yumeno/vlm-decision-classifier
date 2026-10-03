@@ -617,6 +617,7 @@ def test_adaptive_validation():
         ds.parse_request(_body(adaptive_threshold=0.5, samples=2))
     with pytest.raises(ds.RequestError):
         ds.parse_request(_body(adaptive_threshold=0.5, adaptive_max=1))
+    assert ds.parse_request(_body(adaptive_max=1)).adaptive_threshold is None  # 適応が無効なら adaptive_max は無視
     r = ds.parse_request(_body(adaptive_threshold=1))
     assert r.adaptive_threshold == 1.0 and r.adaptive_max == 3
     assert ds.parse_request(_body()).adaptive_threshold is None
@@ -656,7 +657,7 @@ def test_adaptive_failed_first_read_triggers_and_counts_reads_used():
     out = eng.handle(_body(adaptive_threshold=1.0, adaptive_max=3))
     ad = out["diagnostics"]["adaptive"]
     assert ad["triggered"] is True and ad["reads_used"] == 3 and len(fake.payloads) == 3
-    assert ad["replaced"] == ["style"] and ad["trigger_questions"] == {}
+    assert ad["replaced"] == ["style"] and ad["trigger_questions"] == {"style": "failed"}
     assert out["answers"]["style"]["choice"] == "anime" and out["errors"] == {}
     assert out["answers"]["outfit_maid"]["noul"] == pytest.approx(0.9)  # 1回目のまま
     assert out["diagnostics"]["reads"][0]["canvas_width"] % 32 == 0 and len(out["diagnostics"]["reads"][0]["ms_per_sample"]) == 3

@@ -228,7 +228,7 @@ def parse_request(body) -> Request:
     thr = body.get("adaptive_threshold")
     if thr is not None and (isinstance(thr, bool) or not isinstance(thr, (int, float)) or not 0 < thr <= 1):
         raise RequestError(400, "'adaptive_threshold' must be a number in (0, 1]")
-    amax = _int_field(body, "adaptive_max", 3, 2)
+    amax = _int_field(body, "adaptive_max", 3, 2) if thr is not None else 3  # 適応が無効なら無視
     if thr is not None and body.get("samples", 1) != 1:
         raise RequestError(400, "'adaptive_threshold' cannot be combined with samples > 1")
     model = body.get("model")
@@ -617,6 +617,7 @@ class Engine:
                     probs = tuples[q.qid][0]
                     if probs is None:
                         failed = True
+                        group_trigger[q.qid] = "failed"  # 1回目に失敗(エントロピーは無い)
                         replaced.append(q.qid)
                         continue
                     h = normalized_entropy([probs[lab] for lab in q.labels])
@@ -624,7 +625,7 @@ class Engine:
                     if h >= req.adaptive_threshold:
                         group_trigger[q.qid] = h
                 trigger.update(group_trigger)
-                replaced.extend(group_trigger)
+                replaced.extend(q for q in group_trigger if group_trigger[q] != "failed")
                 if group_trigger or failed:
                     n_samples[r] = req.adaptive_max
                     extra.extend((r, k) for k in range(1, req.adaptive_max))
