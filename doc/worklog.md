@@ -2,6 +2,12 @@
 
 新しい順。compact 後の文脈復元用。詳細は各 PR と `doc/` を参照。
 
+## 2026-10-07 — llama.cpp b11447 の更新確認と OpenJev の比較
+
+- llama.cpp: 上流 b11447(`da263e7`、現行 `f95b0d9` から347コミット後)をビルドし、パッチは hunk のずれ(+270行)だけで適用できた。パッチが無効にする行と issue #26994 は上流にまだ残るので、パッチは引き続き必要。退行確認(Qwen3.5 9B Q4_K_M、5枚×choice/bundled×2回): 回答ラベル 20/20 一致、相対スコア差の最大 0、時間は同程度(choice 1回目 1969 → 1947 ms など)。**ドキュメントの既定の llama.cpp 版はまだ変えていない**(次の一手)。
+- OpenJev: 上流 PR #29818 の `/v1/systemone` を vanilla b11447 で動かし、既存の `dgemma_choice` クライアントで全件評価した(`-np 16`、RTX 3090、VRAM 約22.2GB)。単一5軸 144/155、キャラ 20〜23/31、服装 17〜21/31、失敗0件、約3.4秒(DiffusionGemma の約7.5倍)。`criteria` の質問文は OpenJev でも効いた。外れはキャラの other_original が中心。画像トークン設定は揃っていない・各1回なので強い結論は避けた。重みは CC BY-NC 4.0 で、リポジトリには含めない。
+- 記録: `doc/experiments/openjev/`。手順は `doc/reproduce.md`、README の「モデルの選び方」に行を追加。
+
 ## 2026-10-03 — #12・#11 を閉じる、README に DiffusionGemma を追記
 
 - #12 を閉じた。同じ入力(seed もキャンバスも同じ)でも読むたびにラベル質量が揺れる現象(例: S04 の outfit_other で 0.571 / 0.536 / 0.734 / 0.364)は、「現象と推測される仕組み(浮動小数点の加算順、キャッシュや同時処理によるカーネル・まとめ方の違い、MoE のエキスパート振り分けでの増幅)は未検証」として issue #12 のコメントに記録して打ち切った(作者判断)。実用上は、迷ったときだけ読み増す仕組みと `criteria` の書き方で吸収できている。
@@ -30,7 +36,9 @@
 
 ## ★ 現在地と引き継ぎ(2026-09-27 更新。compact 後はまずここを読む)
 
-**状態(2026-10-03 夜、最新)**: DiffusionGemma の作業は PR #13・#14・#15 で merge 済み。issue #4・#12・#11 は閉じた。推奨設定は README「モデルの選び方」の注意点と `doc/reproduce.md` の推奨設定(#12)。残りの open issue は #5(項目数を増やしたときの速度)、#6(HF Space)、#8(較正)、#9(batch コマンド、アイデアのみ)。WSL の `vdc-dgemma` は残してある(起動スクリプトは `scripts/dgemma/`)。
+**状態(2026-10-07、最新)**: ブランチ `exp/openjev-llamacpp-b11447` で llama.cpp b11447 の更新確認と OpenJev の比較を記録した(`doc/experiments/openjev/`、PR は未作成)。既定の llama.cpp 版はまだ変えていない。
+
+**状態(2026-10-03 夜)**: DiffusionGemma の作業は PR #13・#14・#15 で merge 済み。issue #4・#12・#11 は閉じた。推奨設定は README「モデルの選び方」の注意点と `doc/reproduce.md` の推奨設定(#12)。残りの open issue は #5(項目数を増やしたときの速度)、#6(HF Space)、#8(較正)、#9(batch コマンド、アイデアのみ)。WSL の `vdc-dgemma` は残してある(起動スクリプトは `scripts/dgemma/`)。
 
 **状態(2026-10-03 更新、issue #12)**: ブランチ `feat/dgemma-adaptive` に適応的再読み出しの実装と #12 の追加検証の記録(`doc/experiments/dgemma/followup-12.md`)を積んだ。#12 用の PR は未作成(作成待ち)、#11 は open のまま。(→ PR #14 で merge 済み)
 

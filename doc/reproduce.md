@@ -208,6 +208,24 @@ bash scripts/dgemma/run_all.sh
 
 方式の中身と記録は [`cli.md`](cli.md) の「DiffusionGemma のモード」。`--warmup 0` なので最初のケースはコールドスタートの時間を含みます（`cases.csv` で確認）。
 
+### OpenJev(llama-server の `/v1/systemone`。追加実験)
+
+上流 llama.cpp の PR #29818 で入った `/v1/systemone` を、OpenJev の GGUF で使います。**重みは CC BY-NC 4.0(非商用)で、本リポジトリには含めません**。結果は [`experiments/openjev/README.md`](experiments/openjev/README.md)。
+
+1. llama.cpp を b11447(commit `da263e7275dfbaeefcd61504eaa4fd5247540e11`)でビルドする。設定は [`experiments/phase4-runbook.md`](experiments/phase4-runbook.md) と同じ(CUDA 12.8、`CMAKE_CUDA_ARCHITECTURES` 86;89)。この実験は未改造(パッチなし)で動かした。
+2. `ggml-org/OpenJev-GGUF` の rev `10840f375658dea7afc5ff4711127bca8218b560` から `OpenJev-Q4_K_M.gguf` と `mmproj-OpenJev-Q8_0.gguf` を `<モデルのディレクトリ>` にダウンロードする(sha256 は `experiments/openjev/README.md`)。
+3. 起動(RTX 3090 のみ):
+
+```
+<llama-server> -m <モデルのディレクトリ>/OpenJev-Q4_K_M.gguf --mmproj <モデルのディレクトリ>/mmproj-OpenJev-Q8_0.gguf --host 127.0.0.1 --port <port> -ngl 99 -c 16384 -np 16 --kv-unified -sm none -mg 0
+```
+
+4. 評価(既存の `dgemma_choice` モードがそのまま使える):
+
+```
+.venv\Scripts\python.exe -m classifier_demo evaluate --modes dgemma_choice --dgemma-url http://127.0.0.1:<port> --model openjev --warmup 0 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 [--dgemma-catchall-style criteria] --output-dir results/openjev_<label>
+```
+
 ## 実験の比較条件
 
 | 主比較 | 条件 | 測定値 |
