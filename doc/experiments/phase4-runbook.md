@@ -10,13 +10,16 @@
 
 ## 1. ビルド(未改造版・改造版で同じ手順)
 
+- **新規セットアップの推奨は b11447(commit `da263e7275dfbaeefcd61504eaa4fd5247540e11`)**。このrunbookの結果(E3/E4/E5 ほか、これまでに報告した全結果)は **f95b0d95394d5e311ba8228689972843178c5e28** で測ったもので、書き換えていない。2026-10-07 の確認: パッチは hunk が +270 行ずれるだけでそのまま適用でき、パッチが無効にする行(`do_checkpoint = do_checkpoint && !has_mtmd;`)と上流 issue ggml-org/llama.cpp#26994 は残っている(パッチは引き続き必要)。Qwen3.5 9B のパッチ版で、5枚 × choice/bundled の回答は 20/20 一致、相対スコアの差は 0、時間は約 1〜4% 短い(記録: [`openjev/README.md`](openjev/README.md) §7)。`llama-server --version` は `0.6.0-dev (build 1, commit da263e7)`。再現(過去の結果の再測定)には f95b0d9 を使う。
+
 置き場所はリポジトリの外(ビルドツリーが大きいため)。以下は `~/Desktop/llamacpp-vdc/` に置いた例。
 
 ```bash
 # 同じコミットを2か所に取得する
 git init vanilla
 git -C vanilla remote add origin https://github.com/ggml-org/llama.cpp.git
-git -C vanilla fetch --depth 1 origin f95b0d95394d5e311ba8228689972843178c5e28
+# 新規セットアップは da263e7275dfbaeefcd61504eaa4fd5247540e11(b11447)、過去結果の再現は f95b0d95394d5e311ba8228689972843178c5e28
+git -C vanilla fetch --depth 1 origin da263e7275dfbaeefcd61504eaa4fd5247540e11
 git -C vanilla checkout FETCH_HEAD
 # patched も同様に取得してから、パッチを当てる
 git -C patched apply <このリポジトリ>/doc/patches/llamacpp-mtmd-checkpoint.patch

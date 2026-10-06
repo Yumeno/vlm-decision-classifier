@@ -4,7 +4,7 @@
 
 ## 1. 目的
 
-上流 llama.cpp の PR ggml-org/llama.cpp#29818(2026-10-02 merge)で、llama-server に判定モデル向けの `/v1/systemone` が入った(対象: laya、julia-1、lev、openjev、kev)。画像つきで使えるのは OpenJev。本リポジトリの `dgemma_choice` モードのクライアントがそのまま使えるかを確かめ、同じ31枚・同じ taxonomy で DiffusionGemma と比べる。あわせて、llama.cpp を新しい版に上げても既存の結果が変わらないかを確認する(§6)。
+上流 llama.cpp の PR ggml-org/llama.cpp#29818(2026-10-02 merge)で、llama-server に判定モデル向けの `/v1/systemone` が入った(対象: laya、julia-1、lev、openjev、kev)。画像つきで使えるのは OpenJev。本リポジトリの `dgemma_choice` モードのクライアントがそのまま使えるかを確かめ、同じ31枚・同じ taxonomy で DiffusionGemma と比べる。あわせて、llama.cpp を新しい版に上げても既存の結果が変わらないかを確認する(§7)。
 
 ## 2. 条件
 
@@ -38,18 +38,34 @@ OpenJev の外れ(元画像):
 - 単一選択5軸の合計は、OpenJev が 144/155 で、この比較では最も高かった(DiffusionGemma は 143)。差は1で、揺れの範囲。
 - キャラの外れは「他のオリジナル」の取りこぼしが中心(FN 10 → 7)。FP は両条件とも1件。DiffusionGemma(キャラ 27〜29/31)には届いていない。
 - 質問文を `criteria` にすると、OpenJev でもキャラ(20 → 23/31)・服装(17 → 21/31)が改善した。DiffusionGemma で見えた傾向と同じ向き(各1回なので、効果の大きさは言えない)。
-- 時間は OpenJev が約3.3〜3.5秒、DiffusionGemma が約0.45秒で、約7.5倍遅い。調査メモによると OpenJev は質問ごとに1回ずつ forward pass を行う実装(今回は16問)。
+- 時間は OpenJev が約3.3〜3.5秒、DiffusionGemma が約0.45秒で、約7.5倍遅い。画像トークンを 280 や 140 に揃えても約2.6秒(約5.8倍)で、精度もほぼ変わらない(§5)。調査メモによると OpenJev は質問ごとに1回ずつ forward pass を行う実装(今回は16問)。
 - 失敗0件。同じ入力を繰り返したときの値も同じだった(1枚の probe)。
 - OpenJev のモデルカードによると、主にスクリーンショットで訓練された判定モデルで、アニメイラストは主な訓練分布の外にある。キャラや服装の外れをこの点に結びつけるのは推測で、検証していない。
 
-## 5. 限界
+## 5. 画像トークン数(`--image-max-tokens`)
+
+上の比較で画像トークンの設定が揃っていなかったので、llama-server の `--image-max-tokens` を変えて `criteria` の質問文で測り直した(b11447 vanilla、`-np 16 -c 16384 --kv-unified`、RTX 3090、各1回、`criteria_img280/`・`criteria_img140/` に記録)。
+
+| 画像トークンの上限 | 1問あたりのプロンプト(llama-server ログの n_tokens) | 単一5軸(/155) | キャラ完全一致 | 服装完全一致 | キャラ TP/FP/FN | 服装 TP/FP/FN | 時間 mean / p50 ms |
+|---|---|---|---|---|---|---|---|
+| 既定(llama.cpp の Qwen-VL 既定、約1,000) | 約1,130(1,130〜1,139) | 144 | 23/31 | 21/31 | 20/1/7 | 23/9/3 | 3454 / 3550 |
+| 280 | 362 | 142 | 22/31 | 21/31 | 19/1/8 | 23/9/3 | 2606 / 2594 |
+| 140 | 227 | 143 | 22/31 | 22/31 | 19/1/8 | 24/9/2 | 2610 / 2597 |
+
+- 画像 A01(16問)の `usage.input_tokens` は、既定 18,105、280 で 5,817、140 で 3,657。
+- llama-server は「Qwen-VL models require at minimum 1024 image tokens to function correctly on grounding tasks」という警告をログに出す(上限を下げた条件)。
+- 精度はほぼ変わらない(単一5軸 142〜144、キャラ 22〜23/31)。時間は既定より約25%短いが、280 と 140 で同じ。入力トークンが約1/3になっても変わらないので、1問ごとの forward pass(27B の密なモデル)が時間の大半を占めると推測している(未検証)。
+- 画像トークンを揃えても、時間は DiffusionGemma の 453 ms の約5.8倍、キャラは 22 対 29/31。
+
+## 6. 限界
 
 - 各条件1回、31枚。数件の差は揺れの範囲かもしれない。
-- **画像トークンの設定を揃えていない**: DiffusionGemma は max_soft_tokens 140(vLLM)、OpenJev は llama.cpp の mmproj 既定。モデル同士の優劣ではなく、設定込みの比較。
+- §3 の表は画像トークンの設定が違う(DiffusionGemma は max_soft_tokens 140、OpenJev は llama.cpp の既定)。揃えた条件は §5 の「画像トークン数」で測った(各1回)。
+- 画像トークンを揃えた測定(§5)も各1回。上限を下げると Qwen-VL の推奨(1,024 以上)を下回る。
 - 時間は実装(llama-server `-np 16` と vLLM)が違い、画像キャッシュの状態や並列設定も同一ではない。
 - 質問ごとの forward pass は調査メモの記述で、実装までは精査していない。
 
-## 6. llama.cpp b11447 への更新確認
+## 7. llama.cpp b11447 への更新確認
 
 2026-10-07 に実施。
 
@@ -67,4 +83,4 @@ OpenJev の外れ(元画像):
 | bundled 1回目 | 714 | 704 |
 | bundled 2回目 | 468 | 450 |
 
-- 5枚×2回の小さな確認。ドキュメントの既定の llama.cpp 版は、この記録の時点ではまだ変えていない。
+- 5枚×2回の小さな確認。これを受けて、新規セットアップの推奨版を b11447 に切り替えた([`../phase4-runbook.md`](../phase4-runbook.md)、[`../../reproduce.md`](../../reproduce.md))。過去の結果はすべて f95b0d9 で測ったもので、書き換えていない。

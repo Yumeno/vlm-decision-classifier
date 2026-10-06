@@ -87,10 +87,10 @@ llama-server -m Qwen3.5-9B-Q4_K_M.gguf --mmproj mmproj-Qwen3.5-9B-BF16.gguf --al
 
 ### 4. (任意)llama.cpp の画像キャッシュ改造パッチ
 
-Qwen3.5 では、llama.cpp が連続する質問で同じ画像を再エンコードしてしまう問題があります([上流 issue #26994](https://github.com/ggml-org/llama.cpp/issues/26994))。[`doc/patches/llamacpp-mtmd-checkpoint.patch`](doc/patches/llamacpp-mtmd-checkpoint.patch)(上流 `f95b0d9` の `tools/server/server-context.cpp` の1行を無効にするだけ)を当てて `llama-server` をビルドすると、同じ画像への2回目以降のリクエストが速くなります。**判定結果は変わりません。**
+Qwen3.5 では、llama.cpp が連続する質問で同じ画像を再エンコードしてしまう問題があります([上流 issue #26994](https://github.com/ggml-org/llama.cpp/issues/26994))。[`doc/patches/llamacpp-mtmd-checkpoint.patch`](doc/patches/llamacpp-mtmd-checkpoint.patch)(上流の `tools/server/server-context.cpp` の1行を無効にするだけ。新規セットアップ向けは b11447、過去の結果は f95b0d9 で測定)を当てて `llama-server` をビルドすると、同じ画像への2回目以降のリクエストが速くなります。**判定結果は変わりません。**
 
 - 効くのは、リクエストを何回も送る使い方(1項目ずつの選択式、確認つき)です。Qwen3.5 9B での1項目ずつ(確認オフ)は、未改造版5.16秒 → 改造版1.89秒(初めて見る画像)、5.12秒 → 1.29秒(画像読み込み済み)。束ね質問や通常JSON(リクエスト1回)への効果は小さめです。
-- 適用とビルドは、上流の `f95b0d9` を取得して `git apply doc/patches/llamacpp-mtmd-checkpoint.patch` し、CUDA でビルドします。手順とコマンドは [`doc/experiments/phase4-runbook.md`](doc/experiments/phase4-runbook.md) §1 にあります。
+- 適用とビルドは、上流の b11447(commit `da263e7275dfbaeefcd61504eaa4fd5247540e11`)を取得して `git apply doc/patches/llamacpp-mtmd-checkpoint.patch` し、CUDA でビルドします。手順とコマンドは [`doc/experiments/phase4-runbook.md`](doc/experiments/phase4-runbook.md) §1 にあります。
 - 改造なしでも動きます。使う必要はありません。
 
 ### 5. 疎通確認
@@ -268,7 +268,7 @@ foreach ($j in Get-ChildItem results\batch\*.json) {
 | 9B / 12B で複数回答可の項目(服装・キャラ)も拾う | 束ね質問 + **Y/N 欄**(`--bundled-multi yn`) | キャラは全条件で31/31、服装 83.9〜93.5%。時間は JSON と同程度か遅い(1.00〜1.33倍)。順位付けは候補どうしで取り合うので、複数写る画像を取りこぼす |
 | 小型モデルで安定して | **1項目ずつ**(`--mode choice`) | Qwen3.5 4B/2B/0.8B、Gemma 4 E4B/E2B の全モデルで形式不正0件。単一選択5項目の平均は 85.8〜91.0%(0.8B でも 86.5〜87.1%)。ただし0.8Bは服装・キャラの完全一致が低い(0.8B Q4: 服装48.4%・キャラ58.1%) |
 | 画像1枚の全質問を1回で読む(実験的、DiffusionGemma) | **`dgemma_choice`**(WSL2 の vLLM + 自前の判定サーバー。推奨設定は下の注意点) | 同じモデルの通常JSON(`dgemma_json`)と同じ31枚で比べて、単一5項目 142〜143/155(JSON 136)、平均 約0.47秒(JSON 1.19秒)。キャラ 29〜30/31(「その他」の書き方 `criteria` のとき)。服装は通常JSONより低め(20〜22/31) |
-| 判定専用モデル(実験的、OpenJev。llama-server の `/v1/systemone`、重みは CC BY-NC 4.0) | **`dgemma_choice`** のクライアントを llama-server に向ける | 同じ31枚で、単一5項目 144/155、キャラ 20〜23/31(`criteria` で改善)、服装 17〜21/31、失敗0件。ただし約3.4秒で DiffusionGemma の約7.5倍遅い。画像トークン設定は揃えていない(各1回)。詳細は [`doc/experiments/openjev/README.md`](doc/experiments/openjev/README.md) |
+| 判定専用モデル(実験的、OpenJev。llama-server の `/v1/systemone`、重みは CC BY-NC 4.0) | **`dgemma_choice`** のクライアントを llama-server に向ける | 同じ31枚で、単一5項目 144/155、キャラ 20〜23/31(`criteria` で改善)、服装 17〜21/31、失敗0件。ただし約3.4秒で DiffusionGemma の約7.5倍遅い(画像トークンを 280/140 に揃えても約2.6秒、精度はほぼ同じ。各1回)。詳細は [`doc/experiments/openjev/README.md`](doc/experiments/openjev/README.md) |
 | 小型モデルで JSON を使いたい | **`json_schema`**(制約付きデコード、llama-server) | 通常JSONは小型ほど形式不正が増える(S1〜S9で31枚中2〜10件)。`json_schema` は E10b で測った5モデル(2B Q4、0.8B Q4、E4B、E2B Q4、9B)すべてで0件になり、単一5項目の平均は 83.9〜91.0%。時間は通常JSONと同程度。**構文だけでなく値の集合も縛るので、精度の改善には両方の効果が含まれる** |
 
 注意点:

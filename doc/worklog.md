@@ -4,8 +4,10 @@
 
 ## 2026-10-07 — llama.cpp b11447 の更新確認と OpenJev の比較
 
-- llama.cpp: 上流 b11447(`da263e7`、現行 `f95b0d9` から347コミット後)をビルドし、パッチは hunk のずれ(+270行)だけで適用できた。パッチが無効にする行と issue #26994 は上流にまだ残るので、パッチは引き続き必要。退行確認(Qwen3.5 9B Q4_K_M、5枚×choice/bundled×2回): 回答ラベル 20/20 一致、相対スコア差の最大 0、時間は同程度(choice 1回目 1969 → 1947 ms など)。**ドキュメントの既定の llama.cpp 版はまだ変えていない**(次の一手)。
+- llama.cpp: 上流 b11447(`da263e7`、現行 `f95b0d9` から347コミット後)をビルドし、パッチは hunk のずれ(+270行)だけで適用できた。パッチが無効にする行と issue #26994 は上流にまだ残るので、パッチは引き続き必要。退行確認(Qwen3.5 9B Q4_K_M、5枚×choice/bundled×2回): 回答ラベル 20/20 一致、相対スコア差の最大 0、時間は同程度(choice 1回目 1969 → 1947 ms など)。ドキュメントの推奨版は同日 b11447 に切り替えた(下記)。
 - OpenJev: 上流 PR #29818 の `/v1/systemone` を vanilla b11447 で動かし、既存の `dgemma_choice` クライアントで全件評価した(`-np 16`、RTX 3090、VRAM 約22.2GB)。単一5軸 144/155、キャラ 20〜23/31、服装 17〜21/31、失敗0件、約3.4秒(DiffusionGemma の約7.5倍)。`criteria` の質問文は OpenJev でも効いた。外れはキャラの other_original が中心。画像トークン設定は揃っていない・各1回なので強い結論は避けた。重みは CC BY-NC 4.0 で、リポジトリには含めない。
+- 画像トークン数(`--image-max-tokens` 280/140、criteria、各1回): 精度はほぼ同じ(単一5軸 142〜143、キャラ 22/31)、時間は約2.6秒(既定の約25%減、280 と 140 は同じ)。揃えても DiffusionGemma(453 ms)の約5.8倍、キャラ 22 対 29。1問ごとの forward pass が支配的と推測(未検証)。前の「画像トークン未整合」の注意は解消。
+- **推奨の llama.cpp を b11447 に切り替えた**(phase4-runbook・reproduce・README)。過去の結果は f95b0d9 で測ったまま書き換えない。`experiments/runtime/*.json` も変更なし。
 - 記録: `doc/experiments/openjev/`。手順は `doc/reproduce.md`、README の「モデルの選び方」に行を追加。
 
 ## 2026-10-03 — #12・#11 を閉じる、README に DiffusionGemma を追記
@@ -36,7 +38,7 @@
 
 ## ★ 現在地と引き継ぎ(2026-09-27 更新。compact 後はまずここを読む)
 
-**状態(2026-10-07、最新)**: ブランチ `exp/openjev-llamacpp-b11447` で llama.cpp b11447 の更新確認と OpenJev の比較を記録した(`doc/experiments/openjev/`、PR は未作成)。既定の llama.cpp 版はまだ変えていない。
+**状態(2026-10-07、最新)**: ブランチ `exp/openjev-llamacpp-b11447` で llama.cpp b11447 の更新確認と OpenJev の比較を記録した(`doc/experiments/openjev/`、PR は未作成)。推奨の llama.cpp 版は b11447 に切り替え済み(過去結果は f95b0d9 のまま)。画像トークン数の測定も追加。
 
 **状態(2026-10-03 夜)**: DiffusionGemma の作業は PR #13・#14・#15 で merge 済み。issue #4・#12・#11 は閉じた。推奨設定は README「モデルの選び方」の注意点と `doc/reproduce.md` の推奨設定(#12)。残りの open issue は #5(項目数を増やしたときの速度)、#6(HF Space)、#8(較正)、#9(batch コマンド、アイデアのみ)。WSL の `vdc-dgemma` は残してある(起動スクリプトは `scripts/dgemma/`)。
 

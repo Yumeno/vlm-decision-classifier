@@ -313,7 +313,7 @@ E1b/E2b・E3/E4の処理時間（Qwen、選択式1画像あたり。E4以外はP
 
 モデル重み、視覚プロジェクタ、LoRA重みはこのリポジトリに同梱しません。使用したGGUFの配布元・リビジョン・量子化・SHA256、対応するmmproj、LM Studio/llama-serverの版、GPUオフロード、画像縮小設定は [`doc/experiments/report.md`](experiments/report.md) §2に固定して記録しています。自家製アプリの製作中に無検閲派生モデルで測った値は、このデモの結果として扱いません。
 
-Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードする問題があります（上流 [issue #26994](https://github.com/ggml-org/llama.cpp/issues/26994)）。そのキャッシュ挙動を変える改造（`doc/patches/llamacpp-mtmd-checkpoint.patch`）は**速度比較用の任意条件**で、判定結果は変わりません（report §4.5）。初回の分類実行には不要で、未改造環境に戻すには、パッチを当てずに同じコミットからビルドした `llama-server` を使います。
+Qwen3.5の連続質問では、llama.cppが同じ画像を再エンコードする問題があります（上流 [issue #26994](https://github.com/ggml-org/llama.cpp/issues/26994)）。そのキャッシュ挙動を変える改造（`doc/patches/llamacpp-mtmd-checkpoint.patch`）は**速度比較用の任意条件**で、判定結果は変わりません（report §4.5）。初回の分類実行には不要で、未改造環境に戻すには、パッチを当てずに同じコミットからビルドした `llama-server` を使います。新規セットアップの llama.cpp は b11447(commit `da263e7275dfbaeefcd61504eaa4fd5247540e11`)を推奨します(パッチはそのまま当たり、引き続き必要。5枚の確認で回答は同一、時間は約1〜4%短い。[`experiments/openjev/README.md`](experiments/openjev/README.md) §7)。これまでの報告結果はすべて `f95b0d95394d5e311ba8228689972843178c5e28` で測ったものです。
 
 ## 開発の経緯
 
