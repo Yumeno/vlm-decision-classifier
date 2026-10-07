@@ -226,6 +226,19 @@ bash scripts/dgemma/run_all.sh
 .venv\Scripts\python.exe -m classifier_demo evaluate --modes dgemma_choice --dgemma-url http://127.0.0.1:<port> --model openjev --warmup 0 --image-format jpeg --max-edge 1024 --dataset-version v1.0.0 [--dgemma-catchall-style criteria] --output-dir results/openjev_<label>
 ```
 
+### EmbeddingGemma 2(コサイン類似度だけの試し。追加実験)
+
+画像と選択肢の文を埋め込み、生成せずに判定する試し。結果は [`experiments/embeddinggemma2/README.md`](experiments/embeddinggemma2/README.md)。**重みは本リポジトリに含めない**。
+
+1. llama.cpp を **b11461(commit `4d756bc`)以降**でビルドする(EmbeddingGemma 2 対応を含む。推奨版 b11447 には未対応)。設定は [`experiments/phase4-runbook.md`](experiments/phase4-runbook.md) と同じ。未改造(パッチなし)。
+2. `ggml-org/embeddinggemma-2-GGUF` の rev `bfcd298` から `embeddinggemma-2-BF16.gguf` と `mmproj-embeddinggemma-2-BF16.gguf` を `<モデルのディレクトリ>` にダウンロードする。
+3. 起動(RTX 3090 のみ)し、スクリプトを流す:
+
+```
+<llama-server> -m <モデルのディレクトリ>/embeddinggemma-2-BF16.gguf --mmproj <モデルのディレクトリ>/mmproj-embeddinggemma-2-BF16.gguf --embeddings -ngl 99 --host 127.0.0.1 --port <port>
+.venv\Scripts\python.exe scripts\embeddinggemma_probe.py --url http://127.0.0.1:<port>/v1/embeddings
+```
+
 ## 実験の比較条件
 
 | 主比較 | 条件 | 測定値 |

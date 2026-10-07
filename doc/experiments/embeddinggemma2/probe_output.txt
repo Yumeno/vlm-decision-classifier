@@ -1,0 +1,20 @@
+選択肢の文の埋め込み: 36 本、合計 770 ms
+単一選択の正答: {'image_type': '23/31', 'art_style': '27/31', 'color': '7/31', 'subject': '11/31', 'situation': '24/31'} 合計 92 /155
+画像1枚の埋め込み: 平均 113 ms(最初の1枚 434 ms)
+複数選択の類似度の上位3(参考、採点しない):
+   ('A01', 'outfit', ['office_wear'], [(0.681, 'office_wear'), (0.633, 'school_uniform'), (0.628, 'miko')])
+   ('A01', 'character', ['alisa'], [(0.777, 'alisa'), (0.743, 'second_original'), (0.58, 'other_original')])
+   ('A02', 'outfit', ['office_wear'], [(0.673, 'office_wear'), (0.631, 'school_uniform'), (0.621, 'miko')])
+   ('A02', 'character', ['alisa'], [(0.767, 'alisa'), (0.721, 'second_original'), (0.595, 'other_original')])
+   ('A03', 'outfit', ['office_wear'], [(0.629, 'office_wear'), (0.617, 'school_uniform'), (0.613, 'miko')])
+   ('A03', 'character', ['alisa'], [(0.763, 'alisa'), (0.725, 'second_original'), (0.601, 'other_original')])
+   ('A04', 'outfit', ['office_wear'], [(0.654, 'office_wear'), (0.64, 'school_uniform'), (0.638, 'miko')])
+   ('A04', 'character', ['alisa'], [(0.786, 'alisa'), (0.761, 'second_original'), (0.592, 'other_original')])
+   ('C01', 'outfit', ['school_uniform'], [(0.681, 'school_uniform'), (0.656, 'sailor_uniform'), (0.632, 'office_wear')])
+   ('C01', 'character', ['second_original'], [(0.774, 'second_original'), (0.711, 'alisa'), (0.577, 'other_original')])
+   ('C02', 'outfit', [], [(0.548, 'swimsuit'), (0.54, 'nun'), (0.533, 'miko')])
+   ('C02', 'character', [], [(0.584, 'second_original'), (0.574, 'alisa'), (0.517, 'other_original')])
+   ('G01', 'outfit', [], [(0.605, 'maid'), (0.582, 'miko'), (0.578, 'sailor_uniform')])
+   ('G01', 'character', [], [(0.635, 'second_original'), (0.609, 'alisa'), (0.552, 'other_original')])
+   ('G02', 'outfit', [], [(0.595, 'maid'), (0.579, 'office_wear'), (0.576, 'miko')])
+   ('G02', 'character', [], [(0.628, 'second_original'), (0.583, 'alisa'), (0.571, 'other_original')])
