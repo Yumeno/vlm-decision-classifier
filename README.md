@@ -269,6 +269,7 @@ foreach ($j in Get-ChildItem results\batch\*.json) {
 | 小型モデルで安定して | **1項目ずつ**(`--mode choice`) | Qwen3.5 4B/2B/0.8B、Gemma 4 E4B/E2B の全モデルで形式不正0件。単一選択5項目の平均は 85.8〜91.0%(0.8B でも 86.5〜87.1%)。ただし0.8Bは服装・キャラの完全一致が低い(0.8B Q4: 服装48.4%・キャラ58.1%) |
 | 画像1枚の全質問を1回で読む(実験的、DiffusionGemma) | **`dgemma_choice`**(WSL2 の vLLM + 自前の判定サーバー。推奨設定は下の注意点) | 同じモデルの通常JSON(`dgemma_json`)と同じ31枚で比べて、単一5項目 142〜143/155(JSON 136)、平均 約0.47秒(JSON 1.19秒)。キャラ 29〜30/31(「その他」の書き方 `criteria` のとき)。服装は通常JSONより低め(20〜22/31) |
 | 判定専用モデル(実験的、OpenJev。llama-server の `/v1/systemone`、重みは CC BY-NC 4.0) | **`dgemma_choice`** のクライアントを llama-server に向ける | 同じ31枚(画像トークンは llama.cpp の既定、約1,000)で、単一5項目 144/155、キャラ 20〜23/31(`criteria` で改善)、服装 17〜21/31、失敗0件。ただし約3.4秒で DiffusionGemma の約7.5倍遅い(画像トークンを 280/140 に揃えても約2.6秒、精度はほぼ同じ。各1回)。詳細は [`doc/experiments/openjev/README.md`](doc/experiments/openjev/README.md) |
+| 埋め込みモデルのコサイン類似度だけで選ぶ(実験的、EmbeddingGemma 2。生成なし、重みは Apache-2.0) | `scripts/embeddinggemma_probe.py`(llama-server `--embeddings`、b11461 以降が必要) | 同じ31枚で、単一5項目 92/155(色 7/31、被写体 11/31)。分類体系の説明文をそのまま使ったこの条件では、判定には不向き。画像1枚の埋め込みは平均 113 ms で速い(各1回)。詳細は [`doc/experiments/embeddinggemma2/README.md`](doc/experiments/embeddinggemma2/README.md) |
 | 小型モデルで JSON を使いたい | **`json_schema`**(制約付きデコード、llama-server) | 通常JSONは小型ほど形式不正が増える(S1〜S9で31枚中2〜10件)。`json_schema` は E10b で測った5モデル(2B Q4、0.8B Q4、E4B、E2B Q4、9B)すべてで0件になり、単一5項目の平均は 83.9〜91.0%。時間は通常JSONと同程度。**構文だけでなく値の集合も縛るので、精度の改善には両方の効果が含まれる** |
 
 注意点:

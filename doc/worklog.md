@@ -2,6 +2,14 @@
 
 新しい順。compact 後の文脈復元用。詳細は各 PR と `doc/` を参照。
 
+## 2026-10-07 — EmbeddingGemma 2 のゼロショット分類の試し
+
+- やったこと: `google/embeddinggemma-2`(画像とテキストを同じ768次元に埋め込む740M)を、llama.cpp vanilla b11461(`4d756bc`。対応を含む。推奨版 b11447 には未対応)の `--embeddings` で動かし、生成なしのコサイン類似度だけで選択式分類を試した(`scripts/embeddinggemma_probe.py`、記録は `doc/experiments/embeddinggemma2/`)。RTX 3090 のみ、元画像31枚、各1回。設計(選択肢の文・画像・argmax・複数選択は採点せず)は流す前に固定した。
+- 結果: 単一5項目 92/155(画像の種類 23、画風 27、色 7、被写体 11、状況 24 /31)。DiffusionGemma(143)・OpenJev(144〜)に大きく届かない。画像1枚 平均 113 ms。複数選択は出力した先頭8枚では正解が1位に来ていたが、alisa と second_original の差が小さく、正解なしの画像でも全候補が 0.5〜0.6 程度で「なし」の閾値を決めにくい。
+- 判断: この条件(説明文そのまま・argmax)では判定の主役には向かない。前段のふるい分けや類似検索に使える可能性は未検証(推測)。選択肢の文の書き換えは未試行で、分類体系の説明文は評価後に変えていない。README「モデルの選び方」に行を追加、`doc/reproduce.md` に節を追加。
+- 次の一手: note 記事の増補の材料にする。残る open issue は #5(項目数を増やしたときの速度)、#6(HF Space)、#8(較正)、#9(batch コマンド、アイデアのみ)。
+- 関連: ブランチ `exp/embeddinggemma2`(PR は未作成)。
+
 ## 2026-10-07 — llama.cpp b11447 の更新確認と OpenJev の比較
 
 - llama.cpp: 上流 b11447(`da263e7`、現行 `f95b0d9` から347コミット後)をビルドし、パッチは hunk のずれ(+270行)だけで適用できた。パッチが無効にする行と issue #26994 は上流にまだ残るので、パッチは引き続き必要。退行確認(Qwen3.5 9B Q4_K_M、5枚×choice/bundled×2回): 回答ラベル 20/20 一致、相対スコア差の最大 0、時間は同程度(choice 1回目 1969 → 1947 ms など)。ドキュメントの推奨版は同日 b11447 に切り替えた(下記)。
@@ -38,7 +46,7 @@
 
 ## ★ 現在地と引き継ぎ(2026-09-27 更新。compact 後はまずここを読む)
 
-**状態(2026-10-07、最新)**: ブランチ `exp/openjev-llamacpp-b11447` で llama.cpp b11447 の更新確認と OpenJev の比較を記録した(`doc/experiments/openjev/`、PR は未作成)。推奨の llama.cpp 版は b11447 に切り替え済み(過去結果は f95b0d9 のまま)。画像トークン数の測定も追加。
+**状態(2026-10-07、最新)**: ブランチ `exp/openjev-llamacpp-b11447` で llama.cpp b11447 の更新確認と OpenJev の比較を記録した(`doc/experiments/openjev/`、PR #18 で merge 済み)。推奨の llama.cpp 版は b11447 に切り替え済み(過去結果は f95b0d9 のまま)。画像トークン数の測定も追加。その後、EmbeddingGemma 2 の試しをブランチ `exp/embeddinggemma2` に記録した(`doc/experiments/embeddinggemma2/`、PR は未作成)。
 
 **状態(2026-10-03 夜)**: DiffusionGemma の作業は PR #13・#14・#15 で merge 済み。issue #4・#12・#11 は閉じた。推奨設定は README「モデルの選び方」の注意点と `doc/reproduce.md` の推奨設定(#12)。残りの open issue は #5(項目数を増やしたときの速度)、#6(HF Space)、#8(較正)、#9(batch コマンド、アイデアのみ)。WSL の `vdc-dgemma` は残してある(起動スクリプトは `scripts/dgemma/`)。
 
