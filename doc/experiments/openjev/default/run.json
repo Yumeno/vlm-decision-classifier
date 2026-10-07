@@ -1,0 +1,95 @@
+{
+  "started": "2026-10-06T21:21:52.887163+00:00",
+  "finished": "2026-10-06T21:23:50.688389+00:00",
+  "tool_commit": {
+    "commit": "3041ffb45adae270e5621062517a65285213374f",
+    "dirty": false
+  },
+  "manifest": {
+    "path": "dataset\\manifest.jsonl",
+    "sha256": "941faf84f0c1e3f027748766b6ce2ec4181cc8749b0c1ad70ec8113b528baab0"
+  },
+  "taxonomy": {
+    "version": "0.4.1",
+    "sha256": "6f7038cbd525af1552af1c95158090ebc38a1cd1303191af8cff8c7fdfb7564f"
+  },
+  "dataset_version": "v1.0.0",
+  "model": "openjev",
+  "base_url": "http://127.0.0.1:1235/v1",
+  "dgemma": {
+    "structured_url": "http://127.0.0.1:1235",
+    "samples": 1,
+    "seed": 0,
+    "template": "keyed",
+    "instruction": "default",
+    "yn_style": "slash",
+    "order": "taxonomy",
+    "steps": 1,
+    "catchall_style": "default",
+    "adaptive_threshold": null,
+    "adaptive_max": null,
+    "max_per_read": 0,
+    "max_soft_tokens": null,
+    "extra_body": {
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      }
+    },
+    "dropped_params": [
+      "temperature"
+    ],
+    "prime_skipped_modes": []
+  },
+  "modes": [
+    "dgemma_choice"
+  ],
+  "max_edge": 1024,
+  "image_format": "jpeg",
+  "jpeg_quality": 90,
+  "warmup": {
+    "count": 0,
+    "case_id": null,
+    "axis_id": null,
+    "elapsed_ms": [],
+    "errors": 0
+  },
+  "prime": false,
+  "prime_scope": null,
+  "prime_parallel": null,
+  "axis_concurrency": 1,
+  "confirm": false,
+  "rank_threshold": 0.5,
+  "bundled_multi": "rank",
+  "runtime_label": "openjev-llamacpp-b11447",
+  "runtime_info": null,
+  "runtime_info_file": null,
+  "note": "OpenJev Q4_K_M + mmproj Q8_0 (ggml-org/OpenJev-GGUF rev 10840f3) on llama-server b11447 vanilla (da263e7) /v1/systemone, -np 16 -c 16384 --kv-unified, RTX 3090; catchall_style=default; dgemma-only fields (samples/seed/template) are ignored by llama-server",
+  "platform": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]"
+  },
+  "case_counts": {
+    "total": 35,
+    "evaluated": 35,
+    "excluded": 0,
+    "manifest_by_scenario": {
+      "alisa_lora": 8,
+      "conflict": 2,
+      "general": 8,
+      "multi": 3,
+      "alisa_no_lora": 3,
+      "outfit_scene": 7,
+      "similar": 4
+    },
+    "evaluated_by_scenario": {
+      "alisa_lora": 8,
+      "conflict": 2,
+      "general": 8,
+      "multi": 3,
+      "alisa_no_lora": 3,
+      "outfit_scene": 7,
+      "similar": 4
+    }
+  },
+  "excluded_cases": []
+}
